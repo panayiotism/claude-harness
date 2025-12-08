@@ -1,0 +1,27 @@
+Create a checkpoint of the current session:
+
+1. Update `claude-progress.json` with:
+   - Summary of what was accomplished this session
+   - Any blockers encountered
+   - Recommended next steps
+   - Update lastUpdated timestamp
+
+2. Run build/test commands appropriate for the project
+
+3. If tests pass and on a feature branch:
+   - Stage and commit changes with descriptive message
+   - Push to remote
+   - If GitHub MCP is available:
+     - Check if PR exists for this branch
+     - If no PR: Create PR with:
+       - Title: Feature name from feature-list.json
+       - Body: Progress summary + verification checklist
+       - Link to related issue (closes #XX)
+     - If PR exists: Update PR description with latest progress
+     - Update feature-list.json with prNumber
+
+4. Report final status:
+   - Build/test results
+   - Commit hash
+   - PR URL (if created/updated)
+   - Remaining work

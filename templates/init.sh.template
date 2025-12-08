@@ -1,0 +1,43 @@
+#!/bin/bash
+# Development Environment Initializer
+
+echo "=== Dev Environment Setup ==="
+echo "Working directory: $(pwd)"
+
+# Check we are in the right place
+if [ ! -f "CLAUDE.md" ]; then
+    echo "ERROR: Not in project root directory"
+    exit 1
+fi
+
+# Show recent git history
+echo ""
+echo "=== Recent Git History ==="
+git log --oneline -5 2>/dev/null || echo "Not a git repo yet"
+
+# Show current progress
+echo ""
+echo "=== Current Progress ==="
+if [ -f "claude-progress.json" ]; then
+    cat claude-progress.json | head -30
+else
+    echo "No progress file found"
+fi
+
+# Check feature status
+echo ""
+echo "=== Pending Features ==="
+if [ -f "feature-list.json" ]; then
+    grep -A 3 '"passes": false' feature-list.json 2>/dev/null || echo "No pending features"
+else
+    echo "No feature list found"
+fi
+
+echo ""
+echo "=== GitHub Integration ==="
+echo "Run /gh-status for GitHub issues, PRs, and CI status"
+
+echo ""
+echo "=== Environment Ready ==="
+echo "Next: Review claude-progress.json and pick a feature to work on"
+echo "Commands: /feature, /checkpoint, /pr, /sync-issues, /gh-status"

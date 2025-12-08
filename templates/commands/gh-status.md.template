@@ -1,0 +1,31 @@
+Show GitHub integration status for current project:
+
+Requires GitHub MCP to be configured.
+
+1. Check GitHub MCP connection status
+
+2. Fetch and display:
+
+   ## Open Issues
+   - List issues with "feature" label
+   - Show which are linked to feature-list.json entries
+   - Highlight unlinked issues (run /sync-issues to import)
+
+   ## Open Pull Requests
+   - List PRs from feature branches
+   - Show review status for each
+   - Show CI/CD status for each
+
+   ## CI/CD Status
+   - Recent workflow runs
+   - Any failed checks
+
+3. Cross-reference with feature-list.json:
+   - Features with issues but no branch started
+   - Features with branches but no PR
+   - Features with PRs awaiting review
+   - Features with failed CI
+
+4. Recommendations:
+   - Suggest next actions based on status
+   - Flag any stale PRs or issues

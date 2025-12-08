@@ -1,0 +1,6 @@
+Run the initialization script and prepare for a new coding session:
+
+1. Execute `./init.sh` to see environment status
+2. Read `claude-progress.json` for session context
+3. Read `feature-list.json` to identify next priority
+4. Report: current state, blockers, recommended next action

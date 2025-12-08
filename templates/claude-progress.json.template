@@ -1,0 +1,17 @@
+{
+  "lastUpdated": "{{TIMESTAMP}}",
+  "currentProject": "{{PROJECT_NAME}}",
+  "lastSession": {
+    "summary": "Initial harness setup",
+    "completedTasks": [],
+    "blockers": [],
+    "nextSteps": ["Review CLAUDE.md and customize", "Add features to feature-list.json"]
+  },
+  "recentChanges": [],
+  "knownIssues": [],
+  "environmentState": {
+    "devServerRunning": false,
+    "lastSuccessfulBuild": null,
+    "lastTypeCheck": null
+  }
+}
