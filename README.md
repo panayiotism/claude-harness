@@ -45,6 +45,7 @@ cp /path/to/claude-harness/setup.sh ~/your-project/
 | `/pr <action>` | Manage PRs (create/update/status/merge) |
 | `/sync-issues` | Sync feature-list.json with GitHub Issues |
 | `/gh-status` | Show GitHub integration dashboard |
+| `/merge-all` | Merge all PRs, close issues, delete branches (dependency order) |
 
 ## Frontend Design Skill (Optional)
 

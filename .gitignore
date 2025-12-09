@@ -1,0 +1,4 @@
+.claude/settings.local.json
+claude-progress.json
+*.log
+.DS_Store
