@@ -16,6 +16,14 @@ cp /path/to/claude-harness/setup.sh ~/your-project/
 ./setup.sh
 ```
 
+## Update Options
+
+```bash
+./setup.sh                  # Skip existing files (safe default)
+./setup.sh --force-commands # Update commands only, preserve CLAUDE.md and data files
+./setup.sh --force          # Overwrite ALL files (use with caution)
+```
+
 ## What It Creates
 
 | File | Purpose |
@@ -38,7 +46,23 @@ cp /path/to/claude-harness/setup.sh ~/your-project/
 | `/sync-issues` | Sync feature-list.json with GitHub Issues |
 | `/gh-status` | Show GitHub integration dashboard |
 
-## GitHub MCP Integration
+## Frontend Design Skill (Optional)
+
+For high-quality UI/frontend work, install the frontend-design skill:
+
+```bash
+claude skill add @anthropics/claude-code/frontend-design
+```
+
+This skill helps Claude generate distinctive, production-grade interfaces:
+- **Bold typography** - Avoids generic fonts (Inter, Roboto, Arial)
+- **Cohesive color themes** - No more purple gradients on white
+- **Polished animations** - Staggered reveals, scroll effects
+- **Distinctive layouts** - Asymmetrical, layered compositions
+
+[Learn more](https://github.com/anthropics/claude-code/tree/main/plugins/frontend-design)
+
+## GitHub MCP Integration (Optional)
 
 ### Setup
 

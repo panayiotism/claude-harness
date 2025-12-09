@@ -249,18 +249,20 @@ create_file ".claude/commands/checkpoint.md" 'Create a checkpoint of the current
 
 2. Run build/test commands appropriate for the project
 
-3. If tests pass and on a feature branch:
-   - Stage and commit changes with descriptive message
+3. ALWAYS commit changes:
+   - Stage all modified files (except secrets/env files)
+   - Write descriptive commit message summarizing the work
    - Push to remote
-   - If GitHub MCP is available:
-     - Check if PR exists for this branch
-     - If no PR: Create PR with title, body linking to issue
-     - If PR exists: Update PR description with latest progress
-     - Update feature-list.json with prNumber
 
-4. Report final status:
+4. If on a feature branch and GitHub MCP is available:
+   - Check if PR exists for this branch
+   - If no PR: Create PR with title, body linking to issue
+   - If PR exists: Update PR description with latest progress
+   - Update feature-list.json with prNumber
+
+5. Report final status:
    - Build/test results
-   - Commit hash
+   - Commit hash and push status
    - PR URL (if created/updated)
    - Remaining work
 ' "command"
@@ -290,7 +292,7 @@ Arguments: $ARGUMENTS
    - GitHub issue URL (if created)
    - Branch name (if created)
    - Next steps
-'
+' "command"
 
 # 10. /sync-issues command
 create_file ".claude/commands/sync-issues.md" 'Synchronize feature-list.json with GitHub Issues:
@@ -306,7 +308,7 @@ Requires GitHub MCP to be configured.
    - If linked GitHub issue is still open, close it
 
 4. Report sync results
-'
+' "command"
 
 # 11. /pr command
 create_file ".claude/commands/pr.md" 'Manage the current feature pull request:
@@ -319,7 +321,7 @@ Requires GitHub MCP to be configured.
 - update: Update PR description with latest progress
 - status: Check PR status, reviews, CI
 - merge: Merge PR if approved and CI passes, mark feature complete
-'
+' "command"
 
 # 12. /gh-status command
 create_file ".claude/commands/gh-status.md" 'Show GitHub integration status for current project:
@@ -336,7 +338,47 @@ Requires GitHub MCP to be configured.
 3. Cross-reference with feature-list.json
 
 4. Recommendations for next actions
-'
+' "command"
+
+# 13. /merge-all command
+create_file ".claude/commands/merge-all.md" 'Merge all open PRs, close related issues, and delete branches in dependency order:
+
+Requires GitHub MCP to be configured.
+
+1. Gather state:
+   - List all open PRs for this repository
+   - List all open issues with "feature" label
+   - Read feature-list.json for linked issue/PR numbers
+
+2. Build dependency graph:
+   - For each PR, check if its base branch is another feature branch (not main/master)
+   - Order PRs so that dependent PRs are merged after their base PRs
+   - If PR A base is PR B head branch, merge B first
+
+3. Pre-merge validation for each PR:
+   - CI status passes
+   - No merge conflicts
+   - Has required approvals (if any)
+   - Report any PRs that cannot be merged and why
+
+4. Execute merges in dependency order:
+   - Merge the PR (squash merge preferred)
+   - Wait for merge to complete
+   - Find and close any linked issues (from PR body or feature-list.json)
+   - Delete the source branch
+   - Update feature-list.json: set passes=true for related feature
+
+5. Cleanup:
+   - Prune local branches: `git fetch --prune`
+   - Delete local feature branches that were merged
+   - Switch to main/master branch
+
+6. Report summary:
+   - PRs merged (with commit hashes)
+   - Issues closed
+   - Branches deleted
+   - Any failures or skipped items
+' "command"
 
 echo ""
 echo "=== Setup Complete ==="
@@ -353,6 +395,7 @@ echo "  - .claude/commands/feature.md"
 echo "  - .claude/commands/sync-issues.md"
 echo "  - .claude/commands/pr.md"
 echo "  - .claude/commands/gh-status.md"
+echo "  - .claude/commands/merge-all.md"
 echo ""
 echo "=== GitHub MCP Setup (Optional) ==="
 echo ""
@@ -364,6 +407,15 @@ echo "  export GITHUB_TOKEN=ghp_xxxx"
 echo '  claude mcp add-json github '"'"'{"command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_PERSONAL_ACCESS_TOKEN":"'"'"'"$GITHUB_TOKEN"'"'"'"}}'"'"''
 echo ""
 echo "Verify with: claude mcp list"
+echo ""
+echo "=== Frontend Design Skill (Optional) ==="
+echo ""
+echo "For high-quality UI/frontend work, install the frontend-design skill:"
+echo "  claude skill add @anthropics/claude-code/frontend-design"
+echo ""
+echo "This skill helps Claude generate distinctive, production-grade interfaces"
+echo "with bold typography, cohesive colors, and polished animations."
+echo "Avoids generic 'AI aesthetics' (Inter font, purple gradients, etc.)"
 echo ""
 echo "=== Next Steps ==="
 echo ""
@@ -380,6 +432,7 @@ echo "  /checkpoint  - Save progress (creates PR if MCP configured)"
 echo "  /pr          - Manage pull requests"
 echo "  /sync-issues - Sync with GitHub issues"
 echo "  /gh-status   - Show GitHub integration status"
+echo "  /merge-all   - Merge all PRs, close issues, delete branches"
 echo ""
 echo "Tip: Add these to .gitignore if you don't want to commit them:"
 echo "  claude-progress.json"

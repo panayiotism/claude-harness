@@ -31,3 +31,12 @@ On every session start:
 
 ## Progress Tracking
 See: `claude-progress.json` and `feature-list.json`
+
+## Available Commands
+- `/start` - Start a session
+- `/feature` - Add a feature (creates GitHub issue if MCP configured)
+- `/checkpoint` - Save progress (creates PR if MCP configured)
+- `/pr` - Manage pull requests
+- `/sync-issues` - Sync with GitHub issues
+- `/gh-status` - Show GitHub integration status
+- `/merge-all` - Merge all open PRs, close issues, delete branches (in dependency order)
