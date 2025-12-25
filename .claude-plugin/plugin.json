@@ -1,0 +1,8 @@
+{
+  "name": "claude-harness",
+  "description": "Long-running agent harness with feature tracking, GitHub integration, and session continuity",
+  "version": "1.0.0",
+  "author": {
+    "name": "panayiotis"
+  }
+}

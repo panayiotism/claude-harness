@@ -1,0 +1,13 @@
+{
+  "name": "claude-harness",
+  "owner": {
+    "name": "panayiotis"
+  },
+  "plugins": [
+    {
+      "name": "claude-harness",
+      "source": "./",
+      "description": "Long-running agent harness with feature tracking, GitHub integration, and session continuity"
+    }
+  ]
+}

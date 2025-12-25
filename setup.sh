@@ -123,6 +123,8 @@ On every session start:
 2. Read \`claude-progress.json\` for context
 3. Run \`git log --oneline -5\` to see recent changes
 4. Check \`feature-list.json\` for current priorities
+   - If file is too large, use: \`grep -A 5 '\"passes\": false' feature-list.json\`
+   - Completed features are auto-archived to \`feature-archive.json\` on /checkpoint
 
 ## Development Rules
 - Work on ONE feature at a time
@@ -166,6 +168,12 @@ create_file "feature-list.json" '{
   "features": []
 }'
 
+# 3b. feature-archive.json (for archiving completed features)
+create_file "feature-archive.json" '{
+  "version": 1,
+  "archived": []
+}'
+
 # 4. init.sh
 create_file "init.sh" '#!/bin/bash
 # Development Environment Initializer
@@ -202,6 +210,16 @@ else
     echo "No feature list found"
 fi
 
+# Check archived features
+echo ""
+echo "=== Archived Features ==="
+if [ -f "feature-archive.json" ]; then
+    count=$(grep -c "\"id\":" feature-archive.json 2>/dev/null || echo "0")
+    echo "$count completed features archived"
+else
+    echo "No archive yet"
+fi
+
 echo ""
 echo "=== GitHub Integration ==="
 echo "Run /gh-status for GitHub issues, PRs, and CI status"
@@ -235,6 +253,8 @@ create_file ".claude/commands/start.md" 'Run the initialization script and prepa
 1. Execute `./init.sh` to see environment status
 2. Read `claude-progress.json` for session context
 3. Read `feature-list.json` to identify next priority
+   - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" feature-list.json` to see pending features
+   - Run `/checkpoint` to auto-archive completed features and reduce file size
 4. Report: current state, blockers, recommended next action
 ' "command"
 
@@ -265,6 +285,17 @@ create_file ".claude/commands/checkpoint.md" 'Create a checkpoint of the current
    - Commit hash and push status
    - PR URL (if created/updated)
    - Remaining work
+
+6. Archive completed features (to prevent feature-list.json from growing too large):
+   - Read feature-list.json
+   - Find all features with passes=true
+   - If any completed features exist:
+     - Read feature-archive.json (create if it does not exist with {"version":1,"archived":[]})
+     - Add archivedAt timestamp to each completed feature
+     - Append completed features to the archived[] array
+     - Write updated feature-archive.json
+     - Remove completed features from feature-list.json and save
+   - Report: "Archived X completed features"
 ' "command"
 
 # 9. /feature command for adding features
@@ -387,6 +418,7 @@ echo "Files created:"
 echo "  - CLAUDE.md             (main context file)"
 echo "  - claude-progress.json  (session continuity)"
 echo "  - feature-list.json     (feature tracking)"
+echo "  - feature-archive.json  (completed feature archive)"
 echo "  - init.sh               (startup script)"
 echo "  - .claude/settings.local.json"
 echo "  - .claude/commands/start.md"
