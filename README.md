@@ -82,25 +82,20 @@ cd ~/your-project
 
 ### Updating
 
-To get the latest version:
-
 ```bash
-# Update marketplace and reinstall
-claude plugin marketplace update
-claude plugin uninstall claude-harness@claude-harness
-claude plugin install claude-harness@claude-harness
+# Update plugin to latest version
+claude plugin update claude-harness@claude-harness
 
-# Re-run setup in your project to get new files
+# Re-run setup in your project to get new files (if needed)
 /harness-setup
 ```
 
-Or with setup script:
-```bash
-# Update commands only (keeps CLAUDE.md, progress files, etc.)
-/path/to/claude-harness/setup.sh --force-commands
+Note: Restart Claude Code after updating for changes to take effect.
 
-# Overwrite all files (use with caution)
-/path/to/claude-harness/setup.sh --force
+### Uninstalling
+
+```bash
+claude plugin uninstall claude-harness@claude-harness
 ```
 
 ## Quick Start
