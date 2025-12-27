@@ -7,12 +7,12 @@ Based on [Anthropic's engineering article](https://www.anthropic.com/engineering
 ## TL;DR - How It Works
 
 ```
-/harness-feature "Add user dashboard with analytics"
+/claude-harness:harness-feature "Add user dashboard with analytics"
 ```
 Creates feature + GitHub issue + branch
 
 ```
-/harness-orchestrate feature-001
+/claude-harness:harness-orchestrate feature-001
 ```
 Spawns specialized agents as a coordinated team:
 
@@ -42,7 +42,7 @@ Spawns specialized agents as a coordinated team:
 **Persistent Memory:** `agent-memory.json` - learnings across sessions
 
 ```
-/harness-checkpoint
+/claude-harness:harness-checkpoint
 ```
 Commits, pushes, creates PR, persists agent learnings to memory
 
@@ -87,7 +87,7 @@ cd ~/your-project
 claude plugin update claude-harness@claude-harness
 
 # Re-run setup in your project to get new files (if needed)
-/harness-setup
+/claude-harness:harness-setup
 ```
 
 Note: Restart Claude Code after updating for changes to take effect.
@@ -107,35 +107,35 @@ After installing the plugin:
 claude
 
 # Initialize harness files
-/harness-setup
+/claude-harness:harness-setup
 
 # Add a feature to work on
-/harness-feature Add user authentication
+/claude-harness:harness-feature Add user authentication
 
 # For complex features, spawn a multi-agent team
-/harness-orchestrate feature-001
+/claude-harness:harness-orchestrate feature-001
 
 # Save progress (commits, pushes, creates PR, persists agent memory)
-/harness-checkpoint
+/claude-harness:harness-checkpoint
 ```
 
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
-| `/harness-setup` | Initialize harness in current project |
-| `/harness-start` | Start a session - shows status, progress, pending features |
-| `/harness-feature <desc>` | Add feature - creates GitHub issue + branch (if MCP configured) |
-| `/harness-orchestrate <id>` | Spawn multi-agent team for complex features |
-| `/harness-checkpoint` | Save progress - commits, pushes, creates/updates PR, persists agent memory |
-| `/harness-pr <action>` | Manage PRs (create/update/status/merge) |
-| `/harness-sync-issues` | Sync feature-list.json with GitHub Issues |
-| `/harness-gh-status` | Show GitHub integration dashboard |
-| `/harness-merge-all` | Merge all PRs, close issues, delete branches (dependency order) |
+| `/claude-harness:harness-setup` | Initialize harness in current project |
+| `/claude-harness:harness-start` | Start a session - shows status, progress, pending features |
+| `/claude-harness:harness-feature <desc>` | Add feature - creates GitHub issue + branch (if MCP configured) |
+| `/claude-harness:harness-orchestrate <id>` | Spawn multi-agent team for complex features |
+| `/claude-harness:harness-checkpoint` | Save progress - commits, pushes, creates/updates PR, persists agent memory |
+| `/claude-harness:harness-pr <action>` | Manage PRs (create/update/status/merge) |
+| `/claude-harness:harness-sync-issues` | Sync feature-list.json with GitHub Issues |
+| `/claude-harness:harness-gh-status` | Show GitHub integration dashboard |
+| `/claude-harness:harness-merge-all` | Merge all PRs, close issues, delete branches (dependency order) |
 
 ## What It Creates
 
-When you run `/harness-setup`, the following files are created in your project:
+When you run `/claude-harness:harness-setup`, the following files are created in your project:
 
 | File | Purpose |
 |------|---------|
@@ -166,7 +166,7 @@ claude mcp list
 ### Workflow with GitHub
 
 ```
-/harness-feature Add dark mode support
+/claude-harness:harness-feature Add dark mode support
 ```
 Creates:
 - GitHub Issue #42 with description
@@ -174,7 +174,7 @@ Creates:
 - Entry in feature-list.json with links
 
 ```
-/harness-checkpoint
+/claude-harness:harness-checkpoint
 ```
 - Commits and pushes to feature branch
 - Creates/updates PR linked to issue
@@ -182,7 +182,7 @@ Creates:
 - Archives any completed features
 
 ```
-/harness-pr merge
+/claude-harness:harness-pr merge
 ```
 - Merges PR if CI passes
 - Closes linked issue
@@ -193,7 +193,7 @@ Creates:
 For complex features, spawn a team of specialized agents that work together:
 
 ```
-/harness-orchestrate feature-001
+/claude-harness:harness-orchestrate feature-001
 ```
 
 ### How It Works
@@ -274,7 +274,7 @@ For complex features, spawn a team of specialized agents that work together:
 
 ## Customization
 
-After running `/harness-setup`, edit:
+After running `/claude-harness:harness-setup`, edit:
 - `CLAUDE.md` - Add project-specific context
 - `feature-list.json` - Add your features
 
@@ -307,18 +307,19 @@ init.sh
 
 2. Follow semantic versioning:
    - **MAJOR (X)**: Breaking changes
-   - **MINOR (Y)**: New features (e.g., adding `/orchestrate`)
+   - **MINOR (Y)**: New features (e.g., adding `/claude-harness:harness-orchestrate`)
    - **PATCH (Z)**: Bug fixes, documentation updates
 
 3. Update the description if adding major features
 
-**Current version: 1.1.1**
+**Current version: 1.1.2**
 
 ### Changelog
 
 | Version | Changes |
 |---------|---------|
-| 1.1.1 | Fixed `/harness-setup` to create orchestration files |
+| 1.1.2 | Updated docs with full plugin-qualified command names, GitHub install instructions |
+| 1.1.1 | Fixed `/claude-harness:harness-setup` to create orchestration files |
 | 1.1.0 | Added multi-agent orchestration (`/orchestrate`, `agent-context.json`, `agent-memory.json`) |
 | 1.0.0 | Initial release with feature tracking and GitHub integration |
 
