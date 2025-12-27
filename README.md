@@ -51,8 +51,8 @@ Commits, pushes, creates PR, persists agent learnings to memory
 ### As a Plugin (Recommended)
 
 ```bash
-# Add this repo as a marketplace
-claude plugin marketplace add /path/to/claude-harness
+# Add the marketplace
+claude plugin marketplace add panayiotism/claude-harness
 
 # Install the plugin
 claude plugin install claude-harness@claude-harness
@@ -60,33 +60,46 @@ claude plugin install claude-harness@claude-harness
 
 Or in Claude Code:
 ```
-/plugin marketplace add /path/to/claude-harness
+/plugin marketplace add panayiotism/claude-harness
 /plugin install claude-harness@claude-harness
 ```
 
-### Alternative: Setup Script
+### Alternative: Direct Install
 
 ```bash
+claude plugin install claude-harness github:panayiotism/claude-harness
+```
+
+### Alternative: Local Setup Script
+
+Clone the repo and run setup directly:
+
+```bash
+git clone https://github.com/panayiotism/claude-harness.git
 cd ~/your-project
 /path/to/claude-harness/setup.sh
 ```
 
 ### Updating
 
-To update commands while preserving your project files:
+To get the latest version:
 
+```bash
+# Update marketplace and reinstall
+claude plugin marketplace update
+claude plugin uninstall claude-harness@claude-harness
+claude plugin install claude-harness@claude-harness
+
+# Re-run setup in your project to get new files
+/harness-setup
+```
+
+Or with setup script:
 ```bash
 # Update commands only (keeps CLAUDE.md, progress files, etc.)
 /path/to/claude-harness/setup.sh --force-commands
 
-# Or reinstall plugin to get latest version
-claude plugin uninstall claude-harness@claude-harness
-claude plugin install claude-harness@claude-harness
-/harness-setup  # Re-run setup in your project
-```
-
-Use `--force` to overwrite all files (use with caution):
-```bash
+# Overwrite all files (use with caution)
 /path/to/claude-harness/setup.sh --force
 ```
 
