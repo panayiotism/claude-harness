@@ -174,6 +174,51 @@ create_file "feature-archive.json" '{
   "archived": []
 }'
 
+# 3c. agent-context.json (multi-agent orchestration shared context)
+create_file "agent-context.json" '{
+  "version": 1,
+  "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+  "currentSession": null,
+  "projectContext": {
+    "name": "'$PROJECT_NAME'",
+    "techStack": ["'$TECH_STACK'"],
+    "testingFramework": null,
+    "buildCommand": null,
+    "testCommand": null
+  },
+  "architecturalDecisions": [],
+  "activeConstraints": [],
+  "sharedState": {
+    "discoveredPatterns": {},
+    "fileIndex": {
+      "components": [],
+      "apiRoutes": [],
+      "tests": [],
+      "configs": []
+    }
+  },
+  "agentResults": [],
+  "pendingHandoffs": []
+}'
+
+# 3d. agent-memory.json (multi-agent orchestration persistent memory)
+create_file "agent-memory.json" '{
+  "version": 1,
+  "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+  "learnedPatterns": {
+    "codePatterns": [],
+    "namingConventions": {},
+    "projectSpecificRules": []
+  },
+  "successfulApproaches": [],
+  "failedApproaches": [],
+  "agentPerformance": {},
+  "codebaseInsights": {
+    "hotspots": [],
+    "technicalDebt": []
+  }
+}'
+
 # 4. init.sh
 create_file "init.sh" '#!/bin/bash
 # Development Environment Initializer
@@ -225,9 +270,27 @@ echo "=== GitHub Integration ==="
 echo "Run /gh-status for GitHub issues, PRs, and CI status"
 
 echo ""
+echo "=== Orchestration State ==="
+if [ -f "agent-context.json" ]; then
+    session=$(grep -o "\"activeFeature\":[^,}]*" agent-context.json 2>/dev/null | head -1)
+    if [ -n "$session" ] && [ "$session" != "\"activeFeature\": null" ]; then
+        echo "Active orchestration: $session"
+        echo "Run /orchestrate to resume"
+    else
+        echo "No active orchestration"
+    fi
+    handoffs=$(grep -c "\"from\":" agent-context.json 2>/dev/null || echo "0")
+    if [ "$handoffs" != "0" ]; then
+        echo "Pending handoffs: $handoffs"
+    fi
+else
+    echo "No orchestration context yet"
+fi
+
+echo ""
 echo "=== Environment Ready ==="
 echo "Next: Review claude-progress.json and pick a feature to work on"
-echo "Commands: /start, /feature, /checkpoint, /pr, /sync-issues, /gh-status"
+echo "Commands: /start, /feature, /orchestrate, /checkpoint, /pr, /sync-issues, /gh-status"
 '
 chmod +x init.sh 2>/dev/null || true
 
@@ -411,6 +474,101 @@ Requires GitHub MCP to be configured.
    - Any failures or skipped items
 ' "command"
 
+# 14. /orchestrate command (multi-agent orchestration)
+create_file ".claude/commands/orchestrate.md" '---
+description: Orchestrate multi-agent teams for complex features
+argumentsPrompt: Feature ID or description to orchestrate
+---
+
+Orchestrate specialized agents to implement a feature or task:
+
+Arguments: $ARGUMENTS
+
+## Phase 1: Task Analysis
+
+1. Identify the target:
+   - If $ARGUMENTS matches a feature ID (e.g., "feature-001"), read from feature-list.json
+   - Otherwise, treat $ARGUMENTS as a task description
+
+2. Read orchestration context:
+   - Read `agent-context.json` for current state (create if missing)
+   - Read `agent-memory.json` for learned patterns (create if missing)
+   - Read `feature-list.json` if working on a tracked feature
+
+3. Analyze the task:
+   - Identify file types that will be modified
+   - Detect domains involved (frontend, backend, database, testing)
+   - Check for security-sensitive operations
+   - Estimate complexity and required agents
+
+## Phase 2: Agent Selection
+
+4. Map task requirements to specialized agents:
+
+   **Implementation Agents:**
+   | Domain | Agent (subagent_type) | Triggers |
+   |--------|----------------------|----------|
+   | React/Frontend | react-specialist | .tsx, .jsx, component |
+   | Backend/API | backend-developer | route.ts, api/, endpoint |
+   | Next.js | nextjs-developer | app/, pages/ |
+   | Database | database-administrator | prisma, schema, SQL |
+   | Python | python-pro | .py files |
+   | TypeScript | typescript-pro | complex types |
+
+   **Quality Agents (mandatory for code):**
+   | Type | Agent | When |
+   |------|-------|------|
+   | Review | code-reviewer | Always for code changes |
+   | Security | security-auditor | Auth, tokens, encryption |
+   | Testing | qa-expert | New features, bug fixes |
+
+5. Build execution plan:
+   - Group 1: Analysis agents (research if needed)
+   - Group 2: Implementation agents (parallel if independent)
+   - Group 3: Quality agents (code-reviewer, security-auditor)
+   - Group 4: Documentation agents
+
+## Phase 3: Agent Spawning
+
+6. Update `agent-context.json` with session info
+
+7. For each agent, use Task tool with:
+   - Shared context from agent-context.json
+   - Learned patterns from agent-memory.json
+   - Specific task assignment
+   - Files to work on
+
+8. Execute in dependency order:
+   - Parallel execution for independent tasks
+   - Sequential for dependent tasks
+
+## Phase 4: Coordination
+
+9. After each agent:
+   - Update agent-context.json with results
+   - Record patterns discovered
+   - Handle failures (retry or fallback)
+
+10. Manage handoffs between agents
+
+## Phase 5: Aggregation
+
+11. Aggregate all results
+12. Update agent-memory.json with learnings
+13. Update feature-list.json if applicable
+
+## Phase 6: Report
+
+14. Report summary:
+    - Agents invoked and status
+    - Files created/modified
+    - Decisions made
+    - Issues found
+    - Next steps
+
+Run `/checkpoint` after to commit changes.
+' "command"
+
 echo ""
 echo "=== Setup Complete ==="
 echo ""
@@ -419,6 +577,8 @@ echo "  - CLAUDE.md             (main context file)"
 echo "  - claude-progress.json  (session continuity)"
 echo "  - feature-list.json     (feature tracking)"
 echo "  - feature-archive.json  (completed feature archive)"
+echo "  - agent-context.json    (multi-agent shared context)"
+echo "  - agent-memory.json     (multi-agent persistent memory)"
 echo "  - init.sh               (startup script)"
 echo "  - .claude/settings.local.json"
 echo "  - .claude/commands/start.md"
@@ -428,6 +588,7 @@ echo "  - .claude/commands/sync-issues.md"
 echo "  - .claude/commands/pr.md"
 echo "  - .claude/commands/gh-status.md"
 echo "  - .claude/commands/merge-all.md"
+echo "  - .claude/commands/orchestrate.md"
 echo ""
 echo "=== GitHub MCP Setup (Optional) ==="
 echo ""
@@ -455,11 +616,13 @@ echo "  1. Edit CLAUDE.md to describe your project"
 echo "  2. (Optional) Setup GitHub MCP for issue/PR integration"
 echo "  3. Use /start to start a session"
 echo "  4. Use /feature to add features to work on"
-echo "  5. Use /checkpoint to save progress"
+echo "  5. Use /orchestrate to spawn multi-agent teams for complex features"
+echo "  6. Use /checkpoint to save progress and persist agent memory"
 echo ""
 echo "Available commands:"
 echo "  /start       - Start a session"
 echo "  /feature     - Add a feature (creates GitHub issue if MCP configured)"
+echo "  /orchestrate - Spawn multi-agent team for complex features"
 echo "  /checkpoint  - Save progress (creates PR if MCP configured)"
 echo "  /pr          - Manage pull requests"
 echo "  /sync-issues - Sync with GitHub issues"

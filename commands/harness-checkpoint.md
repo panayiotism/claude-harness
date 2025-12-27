@@ -39,3 +39,37 @@ Create a checkpoint of the current session:
      - Write updated feature-archive.json
      - Remove completed features from feature-list.json and save
    - Report: "Archived X completed features"
+
+7. Persist orchestration memory (if agent-context.json exists):
+   - Read `agent-context.json`
+   - Read `agent-memory.json` (create if missing)
+
+   - For each entry in `agentResults`:
+     - If status is "completed":
+       - Add to `agent-memory.json.successfulApproaches` with:
+         - task: the task description
+         - approach: summary of what the agent did
+         - agents: [agent name]
+         - successRate: 1.0
+       - Update `agent-memory.json.agentPerformance[agent]`:
+         - Increment tasksCompleted
+         - Update successRate
+     - If status is "failed":
+       - Add to `agent-memory.json.failedApproaches` with:
+         - task: the task description
+         - reason: failure reason
+         - recordedAt: timestamp
+
+   - If `sharedState.discoveredPatterns` has new entries:
+     - Merge into `agent-memory.json.learnedPatterns`
+
+   - If `architecturalDecisions` has entries:
+     - Keep in agent-context.json (these persist across sessions)
+
+   - Clear `agentResults` array (already persisted to memory)
+   - Clear `pendingHandoffs` if all work is complete
+   - Set `currentSession` to null
+   - Update `lastUpdated` timestamp
+
+   - Write updated `agent-context.json` and `agent-memory.json`
+   - Report: "Persisted X agent results to memory"
