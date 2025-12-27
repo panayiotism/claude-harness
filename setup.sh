@@ -290,7 +290,7 @@ fi
 echo ""
 echo "=== Environment Ready ==="
 echo "Next: Review claude-progress.json and pick a feature to work on"
-echo "Commands: /start, /feature, /orchestrate, /checkpoint, /pr, /sync-issues, /gh-status"
+echo "Commands: /start, /feature, /orchestrate, /checkpoint, /merge-all"
 '
 chmod +x init.sh 2>/dev/null || true
 
@@ -313,12 +313,21 @@ create_file ".claude/settings.local.json" '{
 # 7. /start command
 create_file ".claude/commands/start.md" 'Run the initialization script and prepare for a new coding session:
 
+## Phase 1: Local Status
 1. Execute `./init.sh` to see environment status
 2. Read `claude-progress.json` for session context
 3. Read `feature-list.json` to identify next priority
-   - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" feature-list.json` to see pending features
-   - Run `/checkpoint` to auto-archive completed features and reduce file size
-4. Report: current state, blockers, recommended next action
+
+## Phase 2: Orchestration State
+4. Read `agent-context.json` if exists - check for pending handoffs
+5. Read `agent-memory.json` if exists - check for codebase insights
+
+## Phase 3: GitHub Integration (if MCP configured)
+6. Fetch GitHub dashboard: open issues, PRs, CI status
+7. Sync GitHub Issues with feature-list.json (import new, close completed)
+
+## Phase 4: Recommendations
+8. Report: current state, blockers, GitHub sync results, recommended next action
 ' "command"
 
 # 8. /checkpoint command
@@ -388,53 +397,7 @@ Arguments: $ARGUMENTS
    - Next steps
 ' "command"
 
-# 10. /sync-issues command
-create_file ".claude/commands/sync-issues.md" 'Synchronize feature-list.json with GitHub Issues:
-
-Requires GitHub MCP to be configured.
-
-1. Use GitHub MCP to list open issues with label "feature"
-
-2. For each GitHub issue NOT in feature-list.json:
-   - Add new entry with issueNumber linked
-
-3. For each feature in feature-list.json with passes=true:
-   - If linked GitHub issue is still open, close it
-
-4. Report sync results
-' "command"
-
-# 11. /pr command
-create_file ".claude/commands/pr.md" 'Manage the current feature pull request:
-
-Arguments: $ARGUMENTS (create|update|status|merge)
-
-Requires GitHub MCP to be configured.
-
-- create: Create PR from current branch to main
-- update: Update PR description with latest progress
-- status: Check PR status, reviews, CI
-- merge: Merge PR if approved and CI passes, mark feature complete
-' "command"
-
-# 12. /gh-status command
-create_file ".claude/commands/gh-status.md" 'Show GitHub integration status for current project:
-
-Requires GitHub MCP to be configured.
-
-1. Check GitHub MCP connection status
-
-2. Fetch and display:
-   - Open issues with "feature" label
-   - Open PRs from feature branches
-   - CI/CD status
-
-3. Cross-reference with feature-list.json
-
-4. Recommendations for next actions
-' "command"
-
-# 13. /merge-all command
+# 10. /merge-all command
 create_file ".claude/commands/merge-all.md" 'Merge all open PRs, close related issues, and delete branches in dependency order:
 
 Requires GitHub MCP to be configured.
@@ -474,7 +437,7 @@ Requires GitHub MCP to be configured.
    - Any failures or skipped items
 ' "command"
 
-# 14. /orchestrate command (multi-agent orchestration)
+# 11. /orchestrate command (multi-agent orchestration)
 create_file ".claude/commands/orchestrate.md" '---
 description: Orchestrate multi-agent teams for complex features
 argumentsPrompt: Feature ID or description to orchestrate
@@ -584,9 +547,6 @@ echo "  - .claude/settings.local.json"
 echo "  - .claude/commands/start.md"
 echo "  - .claude/commands/checkpoint.md"
 echo "  - .claude/commands/feature.md"
-echo "  - .claude/commands/sync-issues.md"
-echo "  - .claude/commands/pr.md"
-echo "  - .claude/commands/gh-status.md"
 echo "  - .claude/commands/merge-all.md"
 echo "  - .claude/commands/orchestrate.md"
 echo ""
@@ -620,13 +580,10 @@ echo "  5. Use /orchestrate to spawn multi-agent teams for complex features"
 echo "  6. Use /checkpoint to save progress and persist agent memory"
 echo ""
 echo "Available commands:"
-echo "  /start       - Start a session"
+echo "  /start       - Start session (shows status, GitHub dashboard, syncs issues)"
 echo "  /feature     - Add a feature (creates GitHub issue if MCP configured)"
 echo "  /orchestrate - Spawn multi-agent team for complex features"
-echo "  /checkpoint  - Save progress (creates PR if MCP configured)"
-echo "  /pr          - Manage pull requests"
-echo "  /sync-issues - Sync with GitHub issues"
-echo "  /gh-status   - Show GitHub integration status"
+echo "  /checkpoint  - Save progress (commits, creates/updates PR)"
 echo "  /merge-all   - Merge all PRs, close issues, delete branches"
 echo ""
 echo "Tip: Add these to .gitignore if you don't want to commit them:"

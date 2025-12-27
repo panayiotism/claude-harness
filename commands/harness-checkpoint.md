@@ -4,30 +4,54 @@ description: Save session progress - commits, pushes, creates/updates PR, archiv
 
 Create a checkpoint of the current session:
 
+## Phase 1: Update Progress
+
 1. Update `claude-progress.json` with:
    - Summary of what was accomplished this session
    - Any blockers encountered
    - Recommended next steps
    - Update lastUpdated timestamp
 
+## Phase 2: Build & Test
+
 2. Run build/test commands appropriate for the project
+   - Check for errors and fix if possible
+   - Report any failures
+
+## Phase 3: Commit & Push
 
 3. ALWAYS commit changes:
    - Stage all modified files (except secrets/env files)
    - Write descriptive commit message summarizing the work
    - Push to remote
 
+## Phase 4: PR Management (if GitHub MCP available)
+
 4. If on a feature branch and GitHub MCP is available:
    - Check if PR exists for this branch
-   - If no PR: Create PR with title, body linking to issue
-   - If PR exists: Update PR description with latest progress
+   - If no PR exists:
+     - Create PR with descriptive title
+     - Body should link to issue (if exists): "Closes #XX"
+     - Include summary of changes
+   - If PR exists:
+     - Update PR description with latest progress
+     - Add comment summarizing checkpoint changes
+   - Check PR status:
+     - CI/CD status
+     - Review status
+     - Merge conflicts
    - Update feature-list.json with prNumber
+   - Report PR URL and status
+
+## Phase 5: Report Status
 
 5. Report final status:
    - Build/test results
    - Commit hash and push status
-   - PR URL (if created/updated)
+   - PR URL, CI status, review status
    - Remaining work
+
+## Phase 6: Archive Completed Features
 
 6. Archive completed features (to prevent feature-list.json from growing too large):
    - Read feature-list.json
@@ -39,6 +63,8 @@ Create a checkpoint of the current session:
      - Write updated feature-archive.json
      - Remove completed features from feature-list.json and save
    - Report: "Archived X completed features"
+
+## Phase 7: Persist Orchestration Memory
 
 7. Persist orchestration memory (if agent-context.json exists):
    - Read `agent-context.json`

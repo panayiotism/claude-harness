@@ -124,13 +124,10 @@ claude
 | Command | Purpose |
 |---------|---------|
 | `/claude-harness:harness-setup` | Initialize harness in current project |
-| `/claude-harness:harness-start` | Start a session - shows status, progress, pending features |
+| `/claude-harness:harness-start` | Start session - shows status, GitHub dashboard, syncs issues |
 | `/claude-harness:harness-feature <desc>` | Add feature - creates GitHub issue + branch (if MCP configured) |
 | `/claude-harness:harness-orchestrate <id>` | Spawn multi-agent team for complex features |
 | `/claude-harness:harness-checkpoint` | Save progress - commits, pushes, creates/updates PR, persists agent memory |
-| `/claude-harness:harness-pr <action>` | Manage PRs (create/update/status/merge) |
-| `/claude-harness:harness-sync-issues` | Sync feature-list.json with GitHub Issues |
-| `/claude-harness:harness-gh-status` | Show GitHub integration dashboard |
 | `/claude-harness:harness-merge-all` | Merge all PRs, close issues, delete branches (dependency order) |
 
 ## What It Creates
@@ -178,15 +175,17 @@ Creates:
 ```
 - Commits and pushes to feature branch
 - Creates/updates PR linked to issue
+- Shows PR status (CI, reviews, conflicts)
 - Updates progress tracking
 - Archives any completed features
 
 ```
-/claude-harness:harness-pr merge
+/claude-harness:harness-merge-all
 ```
-- Merges PR if CI passes
-- Closes linked issue
-- Marks feature as `passes: true`
+- Merges all PRs if CI passes (in dependency order)
+- Closes linked issues
+- Marks features as `passes: true`
+- Cleans up merged branches
 
 ## Multi-Agent Orchestration
 
@@ -312,12 +311,13 @@ init.sh
 
 3. Update the description if adding major features
 
-**Current version: 1.1.2**
+**Current version: 1.2.0**
 
 ### Changelog
 
 | Version | Changes |
 |---------|---------|
+| 1.2.0 | Consolidated commands: removed `pr`, `gh-status`, `sync-issues` (absorbed into `start` and `checkpoint`) |
 | 1.1.2 | Updated docs with full plugin-qualified command names, GitHub install instructions |
 | 1.1.1 | Fixed `/claude-harness:harness-setup` to create orchestration files |
 | 1.1.0 | Added multi-agent orchestration (`/orchestrate`, `agent-context.json`, `agent-memory.json`) |
