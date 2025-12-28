@@ -13,9 +13,15 @@ Arguments: $ARGUMENTS
    - Create GitHub issue with:
      - Title: Feature name
      - Body: Description + verification steps checklist
-     - Labels: ["feature", "claude-harness"]
+     - Labels: ["feature", "claude-harness", priority label]
+     - Milestone: Current or next version milestone (if exists)
    - Create feature branch: `feature/feature-XXX`
    - Checkout the feature branch
+
+   **Labeling Standards:**
+   - Priority: `priority:high`, `priority:medium`, `priority:low`
+   - Type: `feature`, `enhancement`, `bugfix`, `refactor`, `docs`
+   - Status: `status:in-progress`, `status:blocked`, `status:ready-for-review`
 4. Add to feature-list.json with:
    - id, name, description, priority (default 1)
    - passes: false

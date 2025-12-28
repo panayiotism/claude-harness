@@ -30,18 +30,35 @@ Create a checkpoint of the current session:
 4. If on a feature branch and GitHub MCP is available:
    - Check if PR exists for this branch
    - If no PR exists:
-     - Create PR with descriptive title
-     - Body should link to issue (if exists): "Closes #XX"
-     - Include summary of changes
+     - Create PR with descriptive title following conventional commits:
+       - `feat: <description>` for features
+       - `fix: <description>` for bug fixes
+       - `refactor: <description>` for refactoring
+       - `docs: <description>` for documentation
+     - Body should include:
+       - Link to issue: "Closes #XX" or "Fixes #XX"
+       - Summary of changes (bullet points)
+       - Testing instructions
+       - Breaking changes (if any)
+     - Labels: Copy from linked issue + add `status:ready-for-review`
    - If PR exists:
      - Update PR description with latest progress
      - Add comment summarizing checkpoint changes
+     - Update labels based on current status
    - Check PR status:
      - CI/CD status
      - Review status
      - Merge conflicts
    - Update feature-list.json with prNumber
    - Report PR URL and status
+
+   **PR Title Convention (Conventional Commits):**
+   - `feat:` New feature
+   - `fix:` Bug fix
+   - `refactor:` Code refactoring
+   - `docs:` Documentation
+   - `test:` Tests
+   - `chore:` Maintenance
 
 ## Phase 5: Report Status
 
