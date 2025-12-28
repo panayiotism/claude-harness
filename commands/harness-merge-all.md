@@ -1,11 +1,11 @@
 ---
 description: Merge all PRs, close issues, delete branches (dependency order)
-argumentsPrompt: Optional: version tag (e.g., v1.2.0) or 'auto' for automatic versioning
+argumentsPrompt: Optional: specific version tag (e.g., v1.2.0). Defaults to auto-versioning.
 ---
 
 Merge all open PRs, close related issues, and delete branches in dependency order:
 
-Arguments: $ARGUMENTS (optional version tag like v1.2.0, or 'auto')
+Arguments: $ARGUMENTS (optional - specific version like v1.2.0, defaults to auto-versioning)
 
 Requires GitHub MCP to be configured.
 
@@ -43,8 +43,8 @@ Requires GitHub MCP to be configured.
 
 ## Phase 5: Version Tagging
 
-5. Create version tag (if $ARGUMENTS provided or 'auto'):
-   - If 'auto': Calculate next version based on PR types:
+5. Create version tag (auto-versioning is the default):
+   - If no arguments or 'auto': Calculate next version based on PR types:
      - Any PR with `feat:` or `feature` label → bump MINOR
      - Only `fix:` PRs → bump PATCH
      - Any PR with `BREAKING CHANGE` → bump MAJOR
