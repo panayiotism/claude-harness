@@ -38,6 +38,6 @@ Arguments: $ARGUMENTS
    - Read `agent-context.json`
    - Add the new feature to `sharedState.fileIndex` if relatedFiles are known
    - If the feature is complex (multi-domain, multiple files):
-     - Recommend: "Run `/harness-orchestrate {feature-id}` to spawn specialized agents"
+     - Recommend: "Run `/claude-harness:harness-orchestrate {feature-id}` to spawn specialized agents"
    - Update `lastUpdated` timestamp
    - Write updated `agent-context.json`

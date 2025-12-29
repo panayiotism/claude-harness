@@ -1,4 +1,31 @@
 {
   "version": 1,
-  "features": []
+  "features": [
+    {
+      "id": "feature-001",
+      "name": "Fix command suggestions to use full plugin prefix",
+      "description": "Update all command suggestions in harness output to use the correct /claude-harness: prefix instead of shorthand /harness-",
+      "priority": 1,
+      "passes": true,
+      "verification": [
+        "All command suggestions in commands/*.md use /claude-harness: prefix",
+        "harness-start output shows correct command format",
+        "harness-feature output shows correct command format",
+        "harness-checkpoint output shows correct command format",
+        "harness-orchestrate output shows correct command format"
+      ],
+      "relatedFiles": [
+        "commands/harness-start.md",
+        "commands/harness-feature.md",
+        "commands/harness-checkpoint.md",
+        "commands/harness-orchestrate.md",
+        "commands/harness-merge-all.md"
+      ],
+      "github": {
+        "issueNumber": 1,
+        "prNumber": null,
+        "branch": "feature/feature-001"
+      }
+    }
+  ]
 }
