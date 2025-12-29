@@ -92,12 +92,26 @@ Create the following files if they don't exist:
 }
 ```
 
-6. **CLAUDE.md** - Project context (only if it doesn't exist)
+6. **working-context.json** - Active working state for session continuity
+```json
+{
+  "version": 1,
+  "lastUpdated": null,
+  "activeFeature": null,
+  "summary": null,
+  "workingFiles": {},
+  "decisions": [],
+  "codebaseUnderstanding": {},
+  "nextSteps": []
+}
+```
+
+7. **CLAUDE.md** - Project context (only if it doesn't exist)
    - Detect tech stack from package.json, requirements.txt, Cargo.toml, go.mod, etc.
    - Include session startup protocol referencing harness commands
    - Include common commands for the detected stack
 
-7. **init.sh** - Environment startup script
+8. **init.sh** - Environment startup script
 ```bash
 #!/bin/bash
 echo "=== Dev Environment Setup ==="

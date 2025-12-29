@@ -1,4 +1,31 @@
 {
   "version": 1,
-  "features": []
+  "features": [
+    {
+      "id": "feature-003",
+      "name": "Add working-context.json for session continuity",
+      "description": "Add working-context.json to capture active working state during /checkpoint, enabling seamless session resumption after context compaction or new sessions",
+      "priority": 1,
+      "passes": false,
+      "verification": [
+        "/setup creates empty working-context.json",
+        "/checkpoint captures current working state with files, decisions, understanding",
+        "/start displays working context prominently at session start",
+        "CLAUDE.md instructs reading working-context.json",
+        "Session resumption feels like continuation, not cold start"
+      ],
+      "relatedFiles": [
+        "commands/setup.md",
+        "commands/checkpoint.md",
+        "commands/start.md",
+        "CLAUDE.md",
+        "working-context.json"
+      ],
+      "github": {
+        "issueNumber": 5,
+        "prNumber": 6,
+        "branch": "feature/feature-003"
+      }
+    }
+  ]
 }

@@ -11,9 +11,10 @@ Claude Code plugin for automated, context-preserving coding sessions with featur
 ## Session Startup Protocol
 On every session start:
 1. Run `pwd` to confirm working directory
-2. Read `claude-progress.json` for context
-3. Run `git log --oneline -5` to see recent changes
-4. Check `feature-list.json` for current priorities
+2. Read `working-context.json` for active working state (if exists)
+3. Read `claude-progress.json` for context
+4. Run `git log --oneline -5` to see recent changes
+5. Check `feature-list.json` for current priorities
 
 ## Project Structure
 - `commands/` - Harness command definitions (markdown)
