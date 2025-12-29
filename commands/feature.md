@@ -3,7 +3,7 @@ description: Add a new feature - creates GitHub issue + branch (if MCP configure
 argumentsPrompt: Feature description
 ---
 
-Add a new feature to feature-list.json and create GitHub Issue:
+Add a new feature to .claude-harness/feature-list.json and create GitHub Issue:
 
 Arguments: $ARGUMENTS
 
@@ -22,7 +22,7 @@ Arguments: $ARGUMENTS
    - Priority: `priority:high`, `priority:medium`, `priority:low`
    - Type: `feature`, `enhancement`, `bugfix`, `refactor`, `docs`
    - Status: `status:in-progress`, `status:blocked`, `status:ready-for-review`
-4. Add to feature-list.json with:
+4. Add to .claude-harness/feature-list.json with:
    - id, name, description, priority (default 1)
    - passes: false
    - verification: Generate reasonable verification steps
@@ -34,10 +34,10 @@ Arguments: $ARGUMENTS
    - Branch name (if created)
    - Next steps
 
-6. Initialize orchestration context (if agent-context.json exists):
-   - Read `agent-context.json`
+6. Initialize orchestration context (if .claude-harness/agent-context.json exists):
+   - Read `.claude-harness/agent-context.json`
    - Add the new feature to `sharedState.fileIndex` if relatedFiles are known
    - If the feature is complex (multi-domain, multiple files):
      - Recommend: "Run `/claude-harness:orchestrate {feature-id}` to spawn specialized agents"
    - Update `lastUpdated` timestamp
-   - Write updated `agent-context.json`
+   - Write updated `.claude-harness/agent-context.json`

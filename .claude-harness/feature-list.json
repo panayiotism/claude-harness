@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "features": [
+    {
+      "id": "feature-004",
+      "name": "Move harness files to dedicated .claude-harness/ directory",
+      "description": "Refactor setup command to create harness state files in a dedicated .claude-harness/ directory instead of repo root. Includes auto-migration for existing installations.",
+      "priority": 1,
+      "passes": false,
+      "verification": [
+        "/setup creates .claude-harness/ directory",
+        "All state files created inside .claude-harness/",
+        "/start reads from new location",
+        "/feature reads/writes to new location",
+        "/checkpoint reads/writes to new location",
+        "/orchestrate reads/writes to new location",
+        "Auto-migration detects root files and moves them",
+        ".gitignore template updated for new structure",
+        "README.md updated with new file locations",
+        "CLAUDE.md updated to reference new paths"
+      ],
+      "relatedFiles": [
+        "commands/setup.md",
+        "commands/start.md",
+        "commands/feature.md",
+        "commands/checkpoint.md",
+        "commands/orchestrate.md",
+        "commands/merge-all.md",
+        "setup.sh",
+        "README.md",
+        "CLAUDE.md"
+      ],
+      "github": {
+        "issueNumber": 7,
+        "prNumber": 8,
+        "branch": "feature/feature-004"
+      }
+    }
+  ]
+}

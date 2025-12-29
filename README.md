@@ -31,8 +31,8 @@ flowchart TB
     C[["✅ code-reviewer<br/>(mandatory review)"]]
 ```
 
-**Shared Context:** `agent-context.json` - decisions, patterns, handoffs
-**Persistent Memory:** `agent-memory.json` - learnings across sessions
+**Shared Context:** `.claude-harness/agent-context.json` - decisions, patterns, handoffs
+**Persistent Memory:** `.claude-harness/agent-memory.json` - learnings across sessions
 
 ```
 /claude-harness:checkpoint
@@ -130,11 +130,12 @@ When you run `/claude-harness:setup`, the following files are created in your pr
 | File | Purpose |
 |------|---------|
 | `CLAUDE.md` | Main context file (auto-read by Claude Code) |
-| `claude-progress.json` | Session continuity tracking |
-| `feature-list.json` | Feature tracking with pass/fail status |
-| `feature-archive.json` | Archive for completed features (auto-populated) |
-| `agent-context.json` | Multi-agent shared context (decisions, handoffs) |
-| `agent-memory.json` | Persistent agent memory (patterns, performance) |
+| `.claude-harness/claude-progress.json` | Session continuity tracking |
+| `.claude-harness/feature-list.json` | Feature tracking with pass/fail status |
+| `.claude-harness/feature-archive.json` | Archive for completed features (auto-populated) |
+| `.claude-harness/working-context.json` | Active working state for session continuity |
+| `.claude-harness/agent-context.json` | Multi-agent shared context (decisions, handoffs) |
+| `.claude-harness/agent-memory.json` | Persistent agent memory (patterns, performance) |
 | `init.sh` | Environment startup script |
 
 ## GitHub MCP Integration (Optional)
@@ -213,7 +214,7 @@ For complex features, spawn a team of specialized agents that work together:
 
 ### Shared Context Schema
 
-`agent-context.json`:
+`.claude-harness/agent-context.json`:
 ```json
 {
   "currentSession": { "activeFeature": "feature-001", "activeAgents": [...] },
@@ -224,7 +225,7 @@ For complex features, spawn a team of specialized agents that work together:
 }
 ```
 
-`agent-memory.json`:
+`.claude-harness/agent-memory.json`:
 ```json
 {
   "learnedPatterns": { "codePatterns": [...], "namingConventions": {...} },
@@ -270,20 +271,30 @@ For complex features, spawn a team of specialized agents that work together:
 
 After running `/claude-harness:setup`, edit:
 - `CLAUDE.md` - Add project-specific context
-- `feature-list.json` - Add your features
+- `.claude-harness/feature-list.json` - Add your features
 
 ## .gitignore Suggestions
 
 Add if you don't want to commit session state:
 ```
-claude-progress.json
+.claude-harness/
 ```
 
 Keep committed for team sharing:
 ```
 CLAUDE.md
-feature-list.json
 init.sh
+```
+
+Alternatively, commit specific harness files and ignore others:
+```
+# Ignore session-specific files
+.claude-harness/claude-progress.json
+.claude-harness/working-context.json
+
+# Keep feature tracking (for team visibility)
+!.claude-harness/feature-list.json
+!.claude-harness/feature-archive.json
 ```
 
 ## Contributing / Development

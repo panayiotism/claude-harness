@@ -10,13 +10,13 @@ Arguments: $ARGUMENTS
 ## Phase 1: Task Analysis
 
 1. Identify the target:
-   - If $ARGUMENTS matches a feature ID (e.g., "feature-001"), read from feature-list.json
+   - If $ARGUMENTS matches a feature ID (e.g., "feature-001"), read from .claude-harness/feature-list.json
    - Otherwise, treat $ARGUMENTS as a task description
 
 2. Read orchestration context:
-   - Read `agent-context.json` for current state (create if missing with initial structure)
-   - Read `agent-memory.json` for learned patterns (create if missing)
-   - Read `feature-list.json` if working on a tracked feature
+   - Read `.claude-harness/agent-context.json` for current state (create if missing with initial structure)
+   - Read `.claude-harness/agent-memory.json` for learned patterns (create if missing)
+   - Read `.claude-harness/feature-list.json` if working on a tracked feature
 
 3. Analyze the task:
    - Identify file types that will be modified (.tsx, .ts, .py, etc.)
@@ -63,7 +63,7 @@ Arguments: $ARGUMENTS
 
 ## Phase 3: Agent Spawning
 
-6. Update `agent-context.json` before spawning:
+6. Update `.claude-harness/agent-context.json` before spawning:
    ```json
    {
      "currentSession": {
@@ -125,7 +125,7 @@ Arguments: $ARGUMENTS
 
 9. After each agent completes:
    - Parse the agent's result
-   - Update `agent-context.json`:
+   - Update `.claude-harness/agent-context.json`:
      ```json
      {
        "agentResults": [{
@@ -174,18 +174,18 @@ Arguments: $ARGUMENTS
     - Identify any remaining issues
 
 13. Update shared memory files:
-    - `agent-context.json`:
+    - `.claude-harness/agent-context.json`:
       - Set orchestrationPhase to "completed"
       - Clear activeAgents
       - Keep agentResults for reference
-    - `agent-memory.json`:
+    - `.claude-harness/agent-memory.json`:
       - Add successful approaches to successfulApproaches
       - Record any failed approaches to failedApproaches
       - Update agentPerformance metrics
       - Add discovered patterns to learnedPatterns
 
 14. Update feature tracking:
-    - If working on a tracked feature, update feature-list.json:
+    - If working on a tracked feature, update .claude-harness/feature-list.json:
       - Add new files to relatedFiles
       - Update verification status if applicable
 
@@ -229,6 +229,6 @@ Arguments: $ARGUMENTS
 ## Error Recovery
 
 If orchestration is interrupted:
-- `agent-context.json` preserves state
+- `.claude-harness/agent-context.json` preserves state
 - Run `/claude-harness:orchestrate` again to resume from pendingHandoffs
 - Use `/claude-harness:start` to see orchestration state and recommendations

@@ -6,7 +6,7 @@ Create a checkpoint of the current session:
 
 ## Phase 1: Update Progress
 
-1. Update `claude-progress.json` with:
+1. Update `.claude-harness/claude-progress.json` with:
    - Summary of what was accomplished this session
    - Any blockers encountered
    - Recommended next steps
@@ -14,8 +14,8 @@ Create a checkpoint of the current session:
 
 ## Phase 1.5: Capture Working Context
 
-1.5. Update `working-context.json` with current working state:
-   - Read `feature-list.json` to identify active feature (first with passes=false)
+1.5. Update `.claude-harness/working-context.json` with current working state:
+   - Read `.claude-harness/feature-list.json` to identify active feature (first with passes=false)
    - Set `activeFeature` to the feature ID and `summary` to feature name
    - Populate `workingFiles` from:
      - Feature's `relatedFiles` array
@@ -91,7 +91,7 @@ Create a checkpoint of the current session:
      - CI/CD status
      - Review status
      - Merge conflicts
-   - Update feature-list.json with prNumber
+   - Update .claude-harness/feature-list.json with prNumber
    - Report PR URL and status
 
    **PR Title Convention (Conventional Commits):**
@@ -112,49 +112,49 @@ Create a checkpoint of the current session:
 
 ## Phase 6: Archive Completed Features
 
-6. Archive completed features (to prevent feature-list.json from growing too large):
-   - Read feature-list.json
+6. Archive completed features (to prevent .claude-harness/feature-list.json from growing too large):
+   - Read .claude-harness/feature-list.json
    - Find all features with passes=true
    - If any completed features exist:
-     - Read feature-archive.json (create if it does not exist with {"version":1,"archived":[]})
+     - Read .claude-harness/feature-archive.json (create if it does not exist with {"version":1,"archived":[]})
      - Add archivedAt timestamp to each completed feature
      - Append completed features to the archived[] array
-     - Write updated feature-archive.json
-     - Remove completed features from feature-list.json and save
+     - Write updated .claude-harness/feature-archive.json
+     - Remove completed features from .claude-harness/feature-list.json and save
    - Report: "Archived X completed features"
 
 ## Phase 7: Persist Orchestration Memory
 
-7. Persist orchestration memory (if agent-context.json exists):
-   - Read `agent-context.json`
-   - Read `agent-memory.json` (create if missing)
+7. Persist orchestration memory (if .claude-harness/agent-context.json exists):
+   - Read `.claude-harness/agent-context.json`
+   - Read `.claude-harness/agent-memory.json` (create if missing)
 
    - For each entry in `agentResults`:
      - If status is "completed":
-       - Add to `agent-memory.json.successfulApproaches` with:
+       - Add to `.claude-harness/agent-memory.json.successfulApproaches` with:
          - task: the task description
          - approach: summary of what the agent did
          - agents: [agent name]
          - successRate: 1.0
-       - Update `agent-memory.json.agentPerformance[agent]`:
+       - Update `.claude-harness/agent-memory.json.agentPerformance[agent]`:
          - Increment tasksCompleted
          - Update successRate
      - If status is "failed":
-       - Add to `agent-memory.json.failedApproaches` with:
+       - Add to `.claude-harness/agent-memory.json.failedApproaches` with:
          - task: the task description
          - reason: failure reason
          - recordedAt: timestamp
 
    - If `sharedState.discoveredPatterns` has new entries:
-     - Merge into `agent-memory.json.learnedPatterns`
+     - Merge into `.claude-harness/agent-memory.json.learnedPatterns`
 
    - If `architecturalDecisions` has entries:
-     - Keep in agent-context.json (these persist across sessions)
+     - Keep in .claude-harness/agent-context.json (these persist across sessions)
 
    - Clear `agentResults` array (already persisted to memory)
    - Clear `pendingHandoffs` if all work is complete
    - Set `currentSession` to null
    - Update `lastUpdated` timestamp
 
-   - Write updated `agent-context.json` and `agent-memory.json`
+   - Write updated `.claude-harness/agent-context.json` and `.claude-harness/agent-memory.json`
    - Report: "Persisted X agent results to memory"

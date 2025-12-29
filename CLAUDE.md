@@ -5,26 +5,25 @@ Claude Code plugin for automated, context-preserving coding sessions with featur
 
 ## Tech Stack
 - Shell/Bash (setup.sh, init.sh)
-- Markdown (commands, templates)
+- Markdown (commands)
 - JSON (configuration, state files)
 
 ## Session Startup Protocol
 On every session start:
 1. Run `pwd` to confirm working directory
-2. Read `working-context.json` for active working state (if exists)
-3. Read `claude-progress.json` for context
+2. Read `.claude-harness/working-context.json` for active working state (if exists)
+3. Read `.claude-harness/claude-progress.json` for context
 4. Run `git log --oneline -5` to see recent changes
-5. Check `feature-list.json` for current priorities
+5. Check `.claude-harness/feature-list.json` for current priorities
 
 ## Project Structure
 - `commands/` - Harness command definitions (markdown)
-- `templates/` - Template files for harness setup
 - `.claude-plugin/` - Plugin configuration
 - `setup.sh` - Installation script
 
 ## Development Rules
 - Work on ONE feature at a time
-- Always update `claude-progress.json` after completing work
+- Always update `.claude-harness/claude-progress.json` after completing work
 - Update version in `.claude-plugin/plugin.json` for every change
 - Update changelog in `README.md`
 - Commit with descriptive messages
@@ -39,4 +38,4 @@ On every session start:
 - `/claude-harness:merge-all` - Merge all PRs with auto-versioning
 
 ## Progress Tracking
-See: `claude-progress.json` and `feature-list.json`
+See: `.claude-harness/claude-progress.json` and `.claude-harness/feature-list.json`
