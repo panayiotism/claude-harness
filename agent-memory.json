@@ -1,9 +1,11 @@
 {
   "version": 1,
-  "lastUpdated": "2025-12-28T08:00:00.000Z",
+  "lastUpdated": "2025-12-29T14:37:00.000Z",
   "learnedPatterns": {
     "codePatterns": [],
-    "namingConventions": {},
+    "namingConventions": {
+      "commandFiles": "commands/{name}.md (no harness- prefix)"
+    },
     "projectSpecificRules": []
   },
   "successfulApproaches": [],

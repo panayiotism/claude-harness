@@ -2,29 +2,31 @@
   "version": 1,
   "features": [
     {
-      "id": "feature-001",
-      "name": "Fix command suggestions to use full plugin prefix",
-      "description": "Update all command suggestions in harness output to use the correct /claude-harness: prefix instead of shorthand /harness-",
+      "id": "feature-002",
+      "name": "Shorten plugin command names by removing redundant 'harness-' prefix",
+      "description": "Rename commands to eliminate redundancy: /claude-harness:harness-* becomes /claude-harness:* (e.g., harness-orchestrate → orchestrate)",
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "verification": [
-        "All command suggestions in commands/*.md use /claude-harness: prefix",
-        "harness-start output shows correct command format",
-        "harness-feature output shows correct command format",
-        "harness-checkpoint output shows correct command format",
-        "harness-orchestrate output shows correct command format"
+        "All command files in commands/ are renamed (remove harness- prefix)",
+        "All internal command references are updated to new naming scheme",
+        "Plugin registers commands with shorter names",
+        "Commands work correctly after rename",
+        "README.md updated with new command names"
       ],
       "relatedFiles": [
-        "commands/harness-start.md",
-        "commands/harness-feature.md",
-        "commands/harness-checkpoint.md",
-        "commands/harness-orchestrate.md",
-        "commands/harness-merge-all.md"
+        "commands/start.md",
+        "commands/feature.md",
+        "commands/checkpoint.md",
+        "commands/orchestrate.md",
+        "commands/merge-all.md",
+        "commands/setup.md",
+        "README.md"
       ],
       "github": {
-        "issueNumber": 1,
-        "prNumber": null,
-        "branch": "feature/feature-001"
+        "issueNumber": 3,
+        "prNumber": 4,
+        "branch": "feature/feature-002"
       }
     }
   ]

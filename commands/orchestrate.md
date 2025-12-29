@@ -222,13 +222,13 @@ Arguments: $ARGUMENTS
     - {recommended actions}
 
     ### Commands to Continue
-    - Run `/claude-harness:harness-checkpoint` to commit and create PR
-    - Run `/claude-harness:harness-orchestrate {next-feature}` for next task
+    - Run `/claude-harness:checkpoint` to commit and create PR
+    - Run `/claude-harness:orchestrate {next-feature}` for next task
     ```
 
 ## Error Recovery
 
 If orchestration is interrupted:
 - `agent-context.json` preserves state
-- Run `/claude-harness:harness-orchestrate` again to resume from pendingHandoffs
-- Use `/claude-harness:harness-start` to see orchestration state and recommendations
+- Run `/claude-harness:orchestrate` again to resume from pendingHandoffs
+- Use `/claude-harness:start` to see orchestration state and recommendations
