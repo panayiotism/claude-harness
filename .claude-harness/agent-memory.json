@@ -1,18 +1,46 @@
 {
   "version": 1,
-  "lastUpdated": "2025-12-29T14:37:00.000Z",
+  "lastUpdated": "2025-12-29T17:30:00.000Z",
   "learnedPatterns": {
-    "codePatterns": [],
+    "codePatterns": [
+      "Phase 0 migration pattern: check for legacy files before creating new ones"
+    ],
     "namingConventions": {
-      "commandFiles": "commands/{name}.md (no harness- prefix)"
+      "commandFiles": "commands/{name}.md (no harness- prefix)",
+      "stateFiles": ".claude-harness/{name}.json"
     },
-    "projectSpecificRules": []
+    "projectSpecificRules": [
+      "setup.sh uses inline content, not template files",
+      "Migration must be in both /setup and /start for robustness"
+    ]
   },
-  "successfulApproaches": [],
+  "successfulApproaches": [
+    {
+      "feature": "feature-004",
+      "approach": "Directory restructure with auto-migration",
+      "agents": ["documentation-engineer", "code-reviewer"],
+      "lessons": [
+        "Test setup.sh in the harness repo itself to catch inception issues",
+        "Consider upgrade path when making breaking changes",
+        "Delete unused code (templates) rather than trying to sync it"
+      ]
+    }
+  ],
   "failedApproaches": [],
-  "agentPerformance": {},
+  "agentPerformance": {
+    "documentation-engineer": {
+      "tasksCompleted": 1,
+      "reliability": "high"
+    },
+    "code-reviewer": {
+      "tasksCompleted": 1,
+      "reliability": "high"
+    }
+  },
   "codebaseInsights": {
-    "hotspots": [],
+    "hotspots": [
+      "setup.sh - contains all embedded file content"
+    ],
     "technicalDebt": []
   }
 }
