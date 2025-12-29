@@ -12,6 +12,48 @@ Create a checkpoint of the current session:
    - Recommended next steps
    - Update lastUpdated timestamp
 
+## Phase 1.5: Capture Working Context
+
+1.5. Update `working-context.json` with current working state:
+   - Read `feature-list.json` to identify active feature (first with passes=false)
+   - Set `activeFeature` to the feature ID and `summary` to feature name
+   - Populate `workingFiles` from:
+     - Feature's `relatedFiles` array
+     - Files shown in `git status` (modified/new)
+     - For each file, add brief role description (one line)
+   - Populate `decisions` with key architectural/implementation decisions made
+   - Populate `codebaseUnderstanding` with insights about relevant code areas
+   - Set `nextSteps` to immediate actionable items
+   - Update `lastUpdated` timestamp
+
+   **Keep concise**: ~25-40 lines total. This will be loaded on session resume.
+
+   Example output:
+   ```json
+   {
+     "version": 1,
+     "lastUpdated": "2025-12-29T16:00:00.000Z",
+     "activeFeature": "feature-003",
+     "summary": "Add Google OAuth login",
+     "workingFiles": {
+       "src/auth/google.ts": "new - OAuth provider implementation",
+       "src/auth/index.ts": "modified - added Google to provider registry",
+       "prisma/schema.prisma": "modified - added Account model"
+     },
+     "decisions": [
+       "Store tokens in DB, not cookies",
+       "Separate Account model linked to User"
+     ],
+     "codebaseUnderstanding": {
+       "authSystem": "Uses provider registry pattern, withAuth() middleware"
+     },
+     "nextSteps": [
+       "Add error handling for token revocation",
+       "Test OAuth callback flow"
+     ]
+   }
+   ```
+
 ## Phase 2: Build & Test
 
 2. Run build/test commands appropriate for the project
