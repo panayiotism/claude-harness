@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2025-12-28T08:00:00.000Z",
+  "lastUpdated": "2025-12-29T14:30:00.000Z",
   "currentSession": null,
   "projectContext": {
     "name": "claude-harness",
@@ -17,7 +17,15 @@
       "components": [],
       "apiRoutes": [],
       "tests": [],
-      "configs": []
+      "configs": [],
+      "commands": [
+        "commands/start.md",
+        "commands/feature.md",
+        "commands/checkpoint.md",
+        "commands/orchestrate.md",
+        "commands/merge-all.md",
+        "commands/setup.md"
+      ]
     }
   },
   "agentResults": [],

@@ -30,12 +30,12 @@ On every session start:
 - Leave codebase in clean, working state
 
 ## Available Commands
-- `/claude-harness:harness-setup` - Initialize harness in project
-- `/claude-harness:harness-start` - Start session with GitHub dashboard
-- `/claude-harness:harness-feature` - Add new feature
-- `/claude-harness:harness-orchestrate` - Spawn multi-agent team
-- `/claude-harness:harness-checkpoint` - Save progress, create PR
-- `/claude-harness:harness-merge-all` - Merge all PRs with auto-versioning
+- `/claude-harness:setup` - Initialize harness in project
+- `/claude-harness:start` - Start session with GitHub dashboard
+- `/claude-harness:feature` - Add new feature
+- `/claude-harness:orchestrate` - Spawn multi-agent team
+- `/claude-harness:checkpoint` - Save progress, create PR
+- `/claude-harness:merge-all` - Merge all PRs with auto-versioning
 
 ## Progress Tracking
 See: `claude-progress.json` and `feature-list.json`

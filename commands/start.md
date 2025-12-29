@@ -12,7 +12,7 @@ Run the initialization script and prepare for a new coding session:
 
 3. Read `feature-list.json` to identify next priority
    - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" feature-list.json` to see pending features
-   - Run `/claude-harness:harness-checkpoint` to auto-archive completed features and reduce file size
+   - Run `/claude-harness:checkpoint` to auto-archive completed features and reduce file size
 
 4. Optionally check `feature-archive.json` to see completed feature count/history
 
@@ -23,7 +23,7 @@ Run the initialization script and prepare for a new coding session:
    - Check for `currentSession.activeFeature` - indicates incomplete orchestration
    - Check `pendingHandoffs` array for work waiting to be continued
    - Check `agentResults` for recently completed agent work
-   - If active orchestration exists, recommend: "Run `/claude-harness:harness-orchestrate {feature-id}` to resume"
+   - If active orchestration exists, recommend: "Run `/claude-harness:orchestrate {feature-id}` to resume"
 
 6. Check agent memory:
    - Read `agent-memory.json` if it exists
