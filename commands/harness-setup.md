@@ -14,7 +14,7 @@ Create the following files if they don't exist:
 }
 ```
 
-2. **feature-archive.json** - Completed feature archive (auto-populated by /harness-checkpoint when features have passes=true)
+2. **feature-archive.json** - Completed feature archive (auto-populated by /claude-harness:harness-checkpoint when features have passes=true)
 ```json
 {
   "version": 1,
@@ -31,7 +31,7 @@ Create the following files if they don't exist:
     "summary": "Initial harness setup",
     "completedTasks": [],
     "blockers": [],
-    "nextSteps": ["Add features with /harness-feature", "Use /harness-orchestrate for complex features", "Use /harness-checkpoint to save progress"]
+    "nextSteps": ["Add features with /claude-harness:harness-feature", "Use /claude-harness:harness-orchestrate for complex features", "Use /claude-harness:harness-checkpoint to save progress"]
   },
   "recentChanges": [],
   "knownIssues": [],
@@ -109,8 +109,8 @@ After creating files, report:
 - Files created vs skipped (already exist)
 - Detected tech stack
 - Next steps:
-  1. Use /harness-feature to add features to track
-  2. Use /harness-orchestrate to spawn multi-agent teams for complex features
-  3. Use /harness-checkpoint to save progress and persist agent memory
+  1. Use /claude-harness:harness-feature to add features to track
+  2. Use /claude-harness:harness-orchestrate to spawn multi-agent teams for complex features
+  3. Use /claude-harness:harness-checkpoint to save progress and persist agent memory
 
 Note: This command will NOT overwrite existing files. To update commands, reinstall the plugin.
