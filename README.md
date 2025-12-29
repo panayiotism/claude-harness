@@ -306,13 +306,13 @@ init.sh
 
 3. Update the description if adding major features
 
-**Current version: 1.3.0**
+**Current version: 2.0.0**
 
 ### Changelog
 
 | Version | Changes |
 |---------|---------|
-| 1.3.0 | Shortened command names: removed redundant `harness-` prefix (e.g., `/claude-harness:harness-start` → `/claude-harness:start`) |
+| 2.0.0 | **BREAKING**: Shortened command names - removed redundant `harness-` prefix (e.g., `/claude-harness:harness-start` → `/claude-harness:start`) |
 | 1.2.2 | Made auto-versioning the default for `harness-merge-all` (no need to specify 'auto') |
 | 1.2.1 | Added industry-standard versioning: conventional commits for PRs, labeling standards, auto version tagging, release notes |
 | 1.2.0 | Consolidated commands: removed `pr`, `gh-status`, `sync-issues` (absorbed into `start` and `checkpoint`) |
