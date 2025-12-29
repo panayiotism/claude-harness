@@ -4,10 +4,35 @@ description: Start a harness session - shows status, GitHub integration, and syn
 
 Run the initialization script and prepare for a new coding session:
 
+## Phase 0: Auto-Migration (Legacy Files)
+
+Before anything else, check if legacy root-level harness files need migration:
+
+1. Check if any of these files exist in the project root:
+   - `feature-list.json`
+   - `feature-archive.json`
+   - `claude-progress.json`
+   - `working-context.json`
+   - `agent-context.json`
+   - `agent-memory.json`
+
+2. If any legacy files exist AND `.claude-harness/` directory does NOT exist:
+   - Create `.claude-harness/` directory
+   - Move each file to `.claude-harness/`:
+     - `mv feature-list.json .claude-harness/`
+     - `mv feature-archive.json .claude-harness/`
+     - `mv claude-progress.json .claude-harness/`
+     - `mv working-context.json .claude-harness/`
+     - `mv agent-context.json .claude-harness/`
+     - `mv agent-memory.json .claude-harness/`
+   - Report to user: "Migrated harness files to .claude-harness/ directory"
+
+3. If `.claude-harness/` already exists, skip migration (assume already migrated)
+
 ## Phase 1: Local Status
 
 1. **Load working context** (if exists):
-   - Read `working-context.json`
+   - Read `.claude-harness/working-context.json`
    - If `activeFeature` is set, display prominently:
      ```
      === Resuming Work ===
@@ -20,25 +45,25 @@ Run the initialization script and prepare for a new coding session:
 
 2. Execute `./init.sh` to see environment status (if it exists)
 
-3. Read `claude-progress.json` for session context
+3. Read `.claude-harness/claude-progress.json` for session context
 
-4. Read `feature-list.json` to identify next priority
-   - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" feature-list.json` to see pending features
+4. Read `.claude-harness/feature-list.json` to identify next priority
+   - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" .claude-harness/feature-list.json` to see pending features
    - Run `/claude-harness:checkpoint` to auto-archive completed features and reduce file size
 
-5. Optionally check `feature-archive.json` to see completed feature count/history
+5. Optionally check `.claude-harness/feature-archive.json` to see completed feature count/history
 
 ## Phase 2: Orchestration State
 
 6. Check orchestration state:
-   - Read `agent-context.json` if it exists
+   - Read `.claude-harness/agent-context.json` if it exists
    - Check for `currentSession.activeFeature` - indicates incomplete orchestration
    - Check `pendingHandoffs` array for work waiting to be continued
    - Check `agentResults` for recently completed agent work
    - If active orchestration exists, recommend: "Run `/claude-harness:orchestrate {feature-id}` to resume"
 
 7. Check agent memory:
-   - Read `agent-memory.json` if it exists
+   - Read `.claude-harness/agent-memory.json` if it exists
    - Report any `codebaseInsights.hotspots` that may affect current work
    - Show `agentPerformance` summary if significant history exists
 
@@ -50,12 +75,12 @@ Run the initialization script and prepare for a new coding session:
    - Open issues with "feature" label
    - Open PRs from feature branches
    - CI/CD status for open PRs
-   - Cross-reference with feature-list.json
+   - Cross-reference with .claude-harness/feature-list.json
 
-10. Sync GitHub Issues with feature-list.json:
-   - For each GitHub issue with "feature" label NOT in feature-list.json:
+10. Sync GitHub Issues with .claude-harness/feature-list.json:
+   - For each GitHub issue with "feature" label NOT in .claude-harness/feature-list.json:
      - Add new entry with issueNumber linked
-   - For each feature in feature-list.json with passes=true:
+   - For each feature in .claude-harness/feature-list.json with passes=true:
      - If linked GitHub issue is still open, close it
    - Report sync results
 

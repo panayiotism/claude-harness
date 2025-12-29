@@ -4,9 +4,47 @@ description: Initialize harness in current project - creates tracking files
 
 Initialize the claude-harness in the current project directory.
 
+## Phase 0: Migration Check (for upgrades from v2.1.0 or earlier)
+
+Before creating any files, check for legacy root-level harness files:
+
+1. Check if ANY of these files exist in the project root:
+   - `feature-list.json`
+   - `feature-archive.json`
+   - `claude-progress.json`
+   - `working-context.json`
+   - `agent-context.json`
+   - `agent-memory.json`
+
+2. If legacy files exist AND `.claude-harness/` directory does NOT exist:
+   - Create `.claude-harness/` directory
+   - Move each existing file to `.claude-harness/`:
+     - `mv feature-list.json .claude-harness/` (if exists)
+     - `mv feature-archive.json .claude-harness/` (if exists)
+     - `mv claude-progress.json .claude-harness/` (if exists)
+     - `mv working-context.json .claude-harness/` (if exists)
+     - `mv agent-context.json .claude-harness/` (if exists)
+     - `mv agent-memory.json .claude-harness/` (if exists)
+   - Report: "Migrated X existing harness files to .claude-harness/"
+
+3. If legacy files exist AND `.claude-harness/` directory ALREADY exists:
+   - DO NOT overwrite - the `.claude-harness/` files take precedence
+   - Warn user: "Found legacy files in root that were not migrated. Please manually review and delete if no longer needed: [list files]"
+
+4. Check if `init.sh` exists and contains old root-level paths:
+   - If `init.sh` references `claude-progress.json` or `feature-list.json` (without `.claude-harness/` prefix):
+     - Update `init.sh` to use `.claude-harness/` paths
+     - Report: "Updated init.sh to use new .claude-harness/ paths"
+
+5. Continue with Phase 1 (create missing files)
+
+## Phase 1: Create Harness Files
+
+Create the `.claude-harness/` directory if it does not exist.
+
 Create the following files if they don't exist:
 
-1. **feature-list.json** - Feature tracking
+1. **.claude-harness/feature-list.json** - Feature tracking
 ```json
 {
   "version": 1,
@@ -14,7 +52,7 @@ Create the following files if they don't exist:
 }
 ```
 
-2. **feature-archive.json** - Completed feature archive (auto-populated by /claude-harness:checkpoint when features have passes=true)
+2. **.claude-harness/feature-archive.json** - Completed feature archive (auto-populated by /claude-harness:checkpoint when features have passes=true)
 ```json
 {
   "version": 1,
@@ -22,7 +60,7 @@ Create the following files if they don't exist:
 }
 ```
 
-3. **claude-progress.json** - Session continuity
+3. **.claude-harness/claude-progress.json** - Session continuity
 ```json
 {
   "lastUpdated": "<current ISO timestamp>",
@@ -43,7 +81,7 @@ Create the following files if they don't exist:
 }
 ```
 
-4. **agent-context.json** - Multi-agent orchestration shared context
+4. **.claude-harness/agent-context.json** - Multi-agent orchestration shared context
 ```json
 {
   "version": 1,
@@ -72,7 +110,7 @@ Create the following files if they don't exist:
 }
 ```
 
-5. **agent-memory.json** - Multi-agent orchestration persistent memory
+5. **.claude-harness/agent-memory.json** - Multi-agent orchestration persistent memory
 ```json
 {
   "version": 1,
@@ -92,7 +130,7 @@ Create the following files if they don't exist:
 }
 ```
 
-6. **working-context.json** - Active working state for session continuity
+6. **.claude-harness/working-context.json** - Active working state for session continuity
 ```json
 {
   "version": 1,

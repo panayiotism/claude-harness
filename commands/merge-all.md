@@ -14,7 +14,7 @@ Requires GitHub MCP to be configured.
 1. Gather state:
    - List all open PRs for this repository
    - List all open issues with "feature" label
-   - Read feature-list.json for linked issue/PR numbers
+   - Read .claude-harness/feature-list.json for linked issue/PR numbers
    - Get latest version tag from git: `git describe --tags --abbrev=0`
 
 ## Phase 2: Build Dependency Graph
@@ -37,9 +37,9 @@ Requires GitHub MCP to be configured.
 4. Execute merges in dependency order:
    - Merge the PR (squash merge preferred)
    - Wait for merge to complete
-   - Find and close any linked issues (from PR body or feature-list.json)
+   - Find and close any linked issues (from PR body or .claude-harness/feature-list.json)
    - Delete the source branch
-   - Update feature-list.json: set passes=true for related feature
+   - Update .claude-harness/feature-list.json: set passes=true for related feature
 
 ## Phase 5: Version Tagging
 

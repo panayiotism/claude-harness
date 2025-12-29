@@ -105,6 +105,9 @@ echo ""
 echo "Creating harness files..."
 echo ""
 
+# Create .claude-harness directory for state files
+mkdir -p .claude-harness
+
 # 1. CLAUDE.md
 create_file "CLAUDE.md" "# $PROJECT_NAME
 
@@ -120,15 +123,15 @@ $SCRIPTS
 ## Session Startup Protocol
 On every session start:
 1. Run \`pwd\` to confirm working directory
-2. Read \`claude-progress.json\` for context
+2. Read \`.claude-harness/claude-progress.json\` for context
 3. Run \`git log --oneline -5\` to see recent changes
-4. Check \`feature-list.json\` for current priorities
-   - If file is too large, use: \`grep -A 5 '\"passes\": false' feature-list.json\`
-   - Completed features are auto-archived to \`feature-archive.json\` on /checkpoint
+4. Check \`.claude-harness/feature-list.json\` for current priorities
+   - If file is too large, use: \`grep -A 5 '\"passes\": false' .claude-harness/feature-list.json\`
+   - Completed features are auto-archived to \`.claude-harness/feature-archive.json\` on /checkpoint
 
 ## Development Rules
 - Work on ONE feature at a time
-- Always update \`claude-progress.json\` after completing work
+- Always update \`.claude-harness/claude-progress.json\` after completing work
 - Run tests before marking features complete
 - Commit with descriptive messages
 - Leave codebase in clean, working state
@@ -140,11 +143,11 @@ On every session start:
 - Test: \`npm test\` (or equivalent)
 
 ## Progress Tracking
-See: \`claude-progress.json\` and \`feature-list.json\`
+See: \`.claude-harness/claude-progress.json\` and \`.claude-harness/feature-list.json\`
 "
 
 # 2. claude-progress.json
-create_file "claude-progress.json" '{
+create_file ".claude-harness/claude-progress.json" '{
   "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
   "currentProject": "'$PROJECT_NAME'",
   "lastSession": {
@@ -163,19 +166,19 @@ create_file "claude-progress.json" '{
 }'
 
 # 3. feature-list.json
-create_file "feature-list.json" '{
+create_file ".claude-harness/feature-list.json" '{
   "version": 1,
   "features": []
 }'
 
 # 3b. feature-archive.json (for archiving completed features)
-create_file "feature-archive.json" '{
+create_file ".claude-harness/feature-archive.json" '{
   "version": 1,
   "archived": []
 }'
 
 # 3c. agent-context.json (multi-agent orchestration shared context)
-create_file "agent-context.json" '{
+create_file ".claude-harness/agent-context.json" '{
   "version": 1,
   "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
   "currentSession": null,
@@ -202,7 +205,7 @@ create_file "agent-context.json" '{
 }'
 
 # 3d. agent-memory.json (multi-agent orchestration persistent memory)
-create_file "agent-memory.json" '{
+create_file ".claude-harness/agent-memory.json" '{
   "version": 1,
   "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
   "learnedPatterns": {
@@ -240,8 +243,8 @@ git log --oneline -5 2>/dev/null || echo "Not a git repo yet"
 # Show current progress
 echo ""
 echo "=== Current Progress ==="
-if [ -f "claude-progress.json" ]; then
-    cat claude-progress.json | head -30
+if [ -f ".claude-harness/claude-progress.json" ]; then
+    cat .claude-harness/claude-progress.json | head -30
 else
     echo "No progress file found"
 fi
@@ -249,8 +252,8 @@ fi
 # Check feature status
 echo ""
 echo "=== Pending Features ==="
-if [ -f "feature-list.json" ]; then
-    grep -A 3 "passes.*false" feature-list.json 2>/dev/null || echo "No pending features"
+if [ -f ".claude-harness/feature-list.json" ]; then
+    grep -A 3 "passes.*false" .claude-harness/feature-list.json 2>/dev/null || echo "No pending features"
 else
     echo "No feature list found"
 fi
@@ -258,8 +261,8 @@ fi
 # Check archived features
 echo ""
 echo "=== Archived Features ==="
-if [ -f "feature-archive.json" ]; then
-    count=$(grep -c "\"id\":" feature-archive.json 2>/dev/null || echo "0")
+if [ -f ".claude-harness/feature-archive.json" ]; then
+    count=$(grep -c "\"id\":" .claude-harness/feature-archive.json 2>/dev/null || echo "0")
     echo "$count completed features archived"
 else
     echo "No archive yet"
@@ -267,19 +270,19 @@ fi
 
 echo ""
 echo "=== GitHub Integration ==="
-echo "Run /gh-status for GitHub issues, PRs, and CI status"
+echo "Run /claude-harness:start for GitHub issues, PRs, and CI status"
 
 echo ""
 echo "=== Orchestration State ==="
-if [ -f "agent-context.json" ]; then
-    session=$(grep -o "\"activeFeature\":[^,}]*" agent-context.json 2>/dev/null | head -1)
+if [ -f ".claude-harness/agent-context.json" ]; then
+    session=$(grep -o "\"activeFeature\":[^,}]*" .claude-harness/agent-context.json 2>/dev/null | head -1)
     if [ -n "$session" ] && [ "$session" != "\"activeFeature\": null" ]; then
         echo "Active orchestration: $session"
-        echo "Run /orchestrate to resume"
+        echo "Run /claude-harness:orchestrate to resume"
     else
         echo "No active orchestration"
     fi
-    handoffs=$(grep -c "\"from\":" agent-context.json 2>/dev/null || echo "0")
+    handoffs=$(grep -c "\"from\":" .claude-harness/agent-context.json 2>/dev/null || echo "0")
     if [ "$handoffs" != "0" ]; then
         echo "Pending handoffs: $handoffs"
     fi
@@ -289,8 +292,8 @@ fi
 
 echo ""
 echo "=== Environment Ready ==="
-echo "Next: Review claude-progress.json and pick a feature to work on"
-echo "Commands: /start, /feature, /orchestrate, /checkpoint, /merge-all"
+echo "Next: Review .claude-harness/claude-progress.json and pick a feature to work on"
+echo "Commands: /claude-harness:start, /claude-harness:feature, /claude-harness:orchestrate, /claude-harness:checkpoint, /claude-harness:merge-all"
 '
 chmod +x init.sh 2>/dev/null || true
 
@@ -313,18 +316,27 @@ create_file ".claude/settings.local.json" '{
 # 7. /start command
 create_file ".claude/commands/start.md" 'Run the initialization script and prepare for a new coding session:
 
+## Phase 0: Auto-Migration (Legacy Files)
+Check if legacy root-level files exist and migrate them:
+1. If `.claude-harness/` directory does NOT exist AND any of these files exist in root:
+   - claude-progress.json, feature-list.json, feature-archive.json
+   - agent-context.json, agent-memory.json, working-context.json
+2. Create `.claude-harness/` directory
+3. Move each legacy file to `.claude-harness/`
+4. Report: "Migrated X files to .claude-harness/"
+
 ## Phase 1: Local Status
 1. Execute `./init.sh` to see environment status
-2. Read `claude-progress.json` for session context
-3. Read `feature-list.json` to identify next priority
+2. Read `.claude-harness/claude-progress.json` for session context
+3. Read `.claude-harness/feature-list.json` to identify next priority
 
 ## Phase 2: Orchestration State
-4. Read `agent-context.json` if exists - check for pending handoffs
-5. Read `agent-memory.json` if exists - check for codebase insights
+4. Read `.claude-harness/agent-context.json` if exists - check for pending handoffs
+5. Read `.claude-harness/agent-memory.json` if exists - check for codebase insights
 
 ## Phase 3: GitHub Integration (if MCP configured)
 6. Fetch GitHub dashboard: open issues, PRs, CI status
-7. Sync GitHub Issues with feature-list.json (import new, close completed)
+7. Sync GitHub Issues with .claude-harness/feature-list.json (import new, close completed)
 
 ## Phase 4: Recommendations
 8. Report: current state, blockers, GitHub sync results, recommended next action
@@ -333,7 +345,7 @@ create_file ".claude/commands/start.md" 'Run the initialization script and prepa
 # 8. /checkpoint command
 create_file ".claude/commands/checkpoint.md" 'Create a checkpoint of the current session:
 
-1. Update `claude-progress.json` with:
+1. Update `.claude-harness/claude-progress.json` with:
    - Summary of what was accomplished this session
    - Any blockers encountered
    - Recommended next steps
@@ -350,7 +362,7 @@ create_file ".claude/commands/checkpoint.md" 'Create a checkpoint of the current
    - Check if PR exists for this branch
    - If no PR: Create PR with title, body linking to issue
    - If PR exists: Update PR description with latest progress
-   - Update feature-list.json with prNumber
+   - Update .claude-harness/feature-list.json with prNumber
 
 5. Report final status:
    - Build/test results
@@ -359,19 +371,19 @@ create_file ".claude/commands/checkpoint.md" 'Create a checkpoint of the current
    - Remaining work
 
 6. Archive completed features (to prevent feature-list.json from growing too large):
-   - Read feature-list.json
+   - Read .claude-harness/feature-list.json
    - Find all features with passes=true
    - If any completed features exist:
-     - Read feature-archive.json (create if it does not exist with {"version":1,"archived":[]})
+     - Read .claude-harness/feature-archive.json (create if it does not exist with {"version":1,"archived":[]})
      - Add archivedAt timestamp to each completed feature
      - Append completed features to the archived[] array
-     - Write updated feature-archive.json
-     - Remove completed features from feature-list.json and save
+     - Write updated .claude-harness/feature-archive.json
+     - Remove completed features from .claude-harness/feature-list.json and save
    - Report: "Archived X completed features"
 ' "command"
 
 # 9. /feature command for adding features
-create_file ".claude/commands/feature.md" 'Add a new feature to feature-list.json and create GitHub Issue:
+create_file ".claude/commands/feature.md" 'Add a new feature to .claude-harness/feature-list.json and create GitHub Issue:
 
 Arguments: $ARGUMENTS
 
@@ -384,7 +396,7 @@ Arguments: $ARGUMENTS
      - Labels: ["feature", "claude-harness"]
    - Create feature branch: `feature/feature-XXX`
    - Checkout the feature branch
-4. Add to feature-list.json with:
+4. Add to .claude-harness/feature-list.json with:
    - id, name, description, priority (default 1)
    - passes: false
    - verification: Generate reasonable verification steps
@@ -405,7 +417,7 @@ Requires GitHub MCP to be configured.
 1. Gather state:
    - List all open PRs for this repository
    - List all open issues with "feature" label
-   - Read feature-list.json for linked issue/PR numbers
+   - Read .claude-harness/feature-list.json for linked issue/PR numbers
 
 2. Build dependency graph:
    - For each PR, check if its base branch is another feature branch (not main/master)
@@ -421,9 +433,9 @@ Requires GitHub MCP to be configured.
 4. Execute merges in dependency order:
    - Merge the PR (squash merge preferred)
    - Wait for merge to complete
-   - Find and close any linked issues (from PR body or feature-list.json)
+   - Find and close any linked issues (from PR body or .claude-harness/feature-list.json)
    - Delete the source branch
-   - Update feature-list.json: set passes=true for related feature
+   - Update .claude-harness/feature-list.json: set passes=true for related feature
 
 5. Cleanup:
    - Prune local branches: `git fetch --prune`
@@ -450,13 +462,13 @@ Arguments: $ARGUMENTS
 ## Phase 1: Task Analysis
 
 1. Identify the target:
-   - If $ARGUMENTS matches a feature ID (e.g., "feature-001"), read from feature-list.json
+   - If $ARGUMENTS matches a feature ID (e.g., "feature-001"), read from .claude-harness/feature-list.json
    - Otherwise, treat $ARGUMENTS as a task description
 
 2. Read orchestration context:
-   - Read `agent-context.json` for current state (create if missing)
-   - Read `agent-memory.json` for learned patterns (create if missing)
-   - Read `feature-list.json` if working on a tracked feature
+   - Read `.claude-harness/agent-context.json` for current state (create if missing)
+   - Read `.claude-harness/agent-memory.json` for learned patterns (create if missing)
+   - Read `.claude-harness/feature-list.json` if working on a tracked feature
 
 3. Analyze the task:
    - Identify file types that will be modified
@@ -493,11 +505,11 @@ Arguments: $ARGUMENTS
 
 ## Phase 3: Agent Spawning
 
-6. Update `agent-context.json` with session info
+6. Update `.claude-harness/agent-context.json` with session info
 
 7. For each agent, use Task tool with:
-   - Shared context from agent-context.json
-   - Learned patterns from agent-memory.json
+   - Shared context from .claude-harness/agent-context.json
+   - Learned patterns from .claude-harness/agent-memory.json
    - Specific task assignment
    - Files to work on
 
@@ -508,7 +520,7 @@ Arguments: $ARGUMENTS
 ## Phase 4: Coordination
 
 9. After each agent:
-   - Update agent-context.json with results
+   - Update .claude-harness/agent-context.json with results
    - Record patterns discovered
    - Handle failures (retry or fallback)
 
@@ -517,8 +529,8 @@ Arguments: $ARGUMENTS
 ## Phase 5: Aggregation
 
 11. Aggregate all results
-12. Update agent-memory.json with learnings
-13. Update feature-list.json if applicable
+12. Update .claude-harness/agent-memory.json with learnings
+13. Update .claude-harness/feature-list.json if applicable
 
 ## Phase 6: Report
 
@@ -529,20 +541,20 @@ Arguments: $ARGUMENTS
     - Issues found
     - Next steps
 
-Run `/checkpoint` after to commit changes.
+Run `/claude-harness:checkpoint` after to commit changes.
 ' "command"
 
 echo ""
 echo "=== Setup Complete ==="
 echo ""
 echo "Files created:"
-echo "  - CLAUDE.md             (main context file)"
-echo "  - claude-progress.json  (session continuity)"
-echo "  - feature-list.json     (feature tracking)"
-echo "  - feature-archive.json  (completed feature archive)"
-echo "  - agent-context.json    (multi-agent shared context)"
-echo "  - agent-memory.json     (multi-agent persistent memory)"
-echo "  - init.sh               (startup script)"
+echo "  - CLAUDE.md                                  (main context file)"
+echo "  - .claude-harness/claude-progress.json       (session continuity)"
+echo "  - .claude-harness/feature-list.json          (feature tracking)"
+echo "  - .claude-harness/feature-archive.json       (completed feature archive)"
+echo "  - .claude-harness/agent-context.json         (multi-agent shared context)"
+echo "  - .claude-harness/agent-memory.json          (multi-agent persistent memory)"
+echo "  - init.sh                                    (startup script)"
 echo "  - .claude/settings.local.json"
 echo "  - .claude/commands/start.md"
 echo "  - .claude/commands/checkpoint.md"
@@ -586,6 +598,6 @@ echo "  /orchestrate - Spawn multi-agent team for complex features"
 echo "  /checkpoint  - Save progress (commits, creates/updates PR)"
 echo "  /merge-all   - Merge all PRs, close issues, delete branches"
 echo ""
-echo "Tip: Add these to .gitignore if you don't want to commit them:"
-echo "  claude-progress.json"
+echo "Tip: Add this to .gitignore if you don't want to commit state files:"
+echo "  .claude-harness/"
 echo "  .claude/settings.local.json"
