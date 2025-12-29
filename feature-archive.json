@@ -27,6 +27,35 @@
         "branch": "feature/feature-001"
       },
       "archivedAt": "2025-12-29T14:36:00.000Z"
+    },
+    {
+      "id": "feature-002",
+      "name": "Shorten plugin command names by removing redundant 'harness-' prefix",
+      "description": "Rename commands to eliminate redundancy: /claude-harness:harness-* becomes /claude-harness:* (e.g., harness-orchestrate → orchestrate)",
+      "priority": 1,
+      "passes": true,
+      "verification": [
+        "All command files in commands/ are renamed (remove harness- prefix)",
+        "All internal command references are updated to new naming scheme",
+        "Plugin registers commands with shorter names",
+        "Commands work correctly after rename",
+        "README.md updated with new command names"
+      ],
+      "relatedFiles": [
+        "commands/start.md",
+        "commands/feature.md",
+        "commands/checkpoint.md",
+        "commands/orchestrate.md",
+        "commands/merge-all.md",
+        "commands/setup.md",
+        "README.md"
+      ],
+      "github": {
+        "issueNumber": 3,
+        "prNumber": 4,
+        "branch": "feature/feature-002"
+      },
+      "archivedAt": "2025-12-29T14:45:00.000Z"
     }
   ]
 }
