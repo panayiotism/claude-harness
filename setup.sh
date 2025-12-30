@@ -102,6 +102,31 @@ create_file() {
 detect_project_info
 
 echo ""
+
+# Phase 0: Migration from legacy root-level files
+migrate_file() {
+    local filename=$1
+    if [ -f "$filename" ] && [ ! -f ".claude-harness/$filename" ]; then
+        mkdir -p .claude-harness
+        mv "$filename" ".claude-harness/$filename"
+        echo "  [MIGRATE] $filename -> .claude-harness/$filename"
+    fi
+}
+
+MIGRATED=0
+for legacy_file in feature-list.json feature-archive.json claude-progress.json working-context.json agent-context.json agent-memory.json init.sh; do
+    if [ -f "$legacy_file" ] && [ ! -f ".claude-harness/$legacy_file" ]; then
+        migrate_file "$legacy_file"
+        MIGRATED=$((MIGRATED + 1))
+    fi
+done
+
+if [ $MIGRATED -gt 0 ]; then
+    echo ""
+    echo "Migrated $MIGRATED legacy file(s) to .claude-harness/"
+    echo ""
+fi
+
 echo "Creating harness files..."
 echo ""
 
@@ -222,8 +247,8 @@ create_file ".claude-harness/agent-memory.json" '{
   }
 }'
 
-# 4. init.sh
-create_file "init.sh" '#!/bin/bash
+# 4. init.sh (inside .claude-harness for organization)
+create_file ".claude-harness/init.sh" '#!/bin/bash
 # Development Environment Initializer
 
 echo "=== Dev Environment Setup ==="
@@ -295,7 +320,7 @@ echo "=== Environment Ready ==="
 echo "Next: Review .claude-harness/claude-progress.json and pick a feature to work on"
 echo "Commands: /claude-harness:start, /claude-harness:feature, /claude-harness:orchestrate, /claude-harness:checkpoint, /claude-harness:merge-all"
 '
-chmod +x init.sh 2>/dev/null || true
+chmod +x .claude-harness/init.sh 2>/dev/null || true
 
 # 5. .claude directory structure
 mkdir -p .claude/commands
@@ -304,7 +329,7 @@ mkdir -p .claude/commands
 create_file ".claude/settings.local.json" '{
   "permissions": {
     "allow": [
-      "Bash(./init.sh)",
+      "Bash(./.claude-harness/init.sh)",
       "Bash(git:*)",
       "WebSearch"
     ],
@@ -326,7 +351,7 @@ Check if legacy root-level files exist and migrate them:
 4. Report: "Migrated X files to .claude-harness/"
 
 ## Phase 1: Local Status
-1. Execute `./init.sh` to see environment status
+1. Execute `./.claude-harness/init.sh` to see environment status
 2. Read `.claude-harness/claude-progress.json` for session context
 3. Read `.claude-harness/feature-list.json` to identify next priority
 
@@ -544,6 +569,12 @@ Arguments: $ARGUMENTS
 Run `/claude-harness:checkpoint` after to commit changes.
 ' "command"
 
+# 12. Record plugin version for update detection
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "unknown")
+echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
+echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
+
 echo ""
 echo "=== Setup Complete ==="
 echo ""
@@ -554,7 +585,8 @@ echo "  - .claude-harness/feature-list.json          (feature tracking)"
 echo "  - .claude-harness/feature-archive.json       (completed feature archive)"
 echo "  - .claude-harness/agent-context.json         (multi-agent shared context)"
 echo "  - .claude-harness/agent-memory.json          (multi-agent persistent memory)"
-echo "  - init.sh                                    (startup script)"
+echo "  - .claude-harness/.plugin-version            (plugin version tracking)"
+echo "  - .claude-harness/init.sh                    (startup script)"
 echo "  - .claude/settings.local.json"
 echo "  - .claude/commands/start.md"
 echo "  - .claude/commands/checkpoint.md"

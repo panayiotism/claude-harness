@@ -15,6 +15,7 @@ Before anything else, check if legacy root-level harness files need migration:
    - `working-context.json`
    - `agent-context.json`
    - `agent-memory.json`
+   - `init.sh`
 
 2. If any legacy files exist AND `.claude-harness/` directory does NOT exist:
    - Create `.claude-harness/` directory
@@ -25,6 +26,7 @@ Before anything else, check if legacy root-level harness files need migration:
      - `mv working-context.json .claude-harness/`
      - `mv agent-context.json .claude-harness/`
      - `mv agent-memory.json .claude-harness/`
+     - `mv init.sh .claude-harness/`
    - Report to user: "Migrated harness files to .claude-harness/ directory"
 
 3. If `.claude-harness/` already exists, skip migration (assume already migrated)
@@ -43,7 +45,7 @@ Before anything else, check if legacy root-level harness files need migration:
      ```
    - This orients the session before other status info
 
-2. Execute `./init.sh` to see environment status (if it exists)
+2. Execute `./.claude-harness/init.sh` to see environment status (if it exists)
 
 3. Read `.claude-harness/claude-progress.json` for session context
 

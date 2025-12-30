@@ -136,7 +136,7 @@ When you run `/claude-harness:setup`, the following files are created in your pr
 | `.claude-harness/working-context.json` | Active working state for session continuity |
 | `.claude-harness/agent-context.json` | Multi-agent shared context (decisions, handoffs) |
 | `.claude-harness/agent-memory.json` | Persistent agent memory (patterns, performance) |
-| `init.sh` | Environment startup script |
+| `.claude-harness/init.sh` | Environment startup script |
 
 ## GitHub MCP Integration (Optional)
 
@@ -283,7 +283,7 @@ Add if you don't want to commit session state:
 Keep committed for team sharing:
 ```
 CLAUDE.md
-init.sh
+.claude-harness/init.sh
 ```
 
 Alternatively, commit specific harness files and ignore others:
@@ -317,12 +317,15 @@ Alternatively, commit specific harness files and ignore others:
 
 3. Update the description if adding major features
 
-**Current version: 2.0.0**
+**Current version: 2.3.0**
 
 ### Changelog
 
 | Version | Changes |
 |---------|---------|
+| 2.3.0 | SessionStart hook for auto-setup detection, moved `init.sh` to `.claude-harness/`, added migration in `setup.sh` |
+| 2.2.0 | **BREAKING**: Moved all state files to `.claude-harness/` directory, auto-migration for upgrades, deleted unused `templates/` |
+| 2.1.0 | Added `working-context.json` for session continuity - captures active working state during `/checkpoint` |
 | 2.0.0 | **BREAKING**: Shortened command names - removed redundant `harness-` prefix (e.g., `/claude-harness:harness-start` → `/claude-harness:start`) |
 | 1.2.2 | Made auto-versioning the default for `harness-merge-all` (no need to specify 'auto') |
 | 1.2.1 | Added industry-standard versioning: conventional commits for PRs, labeling standards, auto version tagging, release notes |

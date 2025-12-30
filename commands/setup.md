@@ -31,10 +31,12 @@ Before creating any files, check for legacy root-level harness files:
    - DO NOT overwrite - the `.claude-harness/` files take precedence
    - Warn user: "Found legacy files in root that were not migrated. Please manually review and delete if no longer needed: [list files]"
 
-4. Check if `init.sh` exists and contains old root-level paths:
-   - If `init.sh` references `claude-progress.json` or `feature-list.json` (without `.claude-harness/` prefix):
-     - Update `init.sh` to use `.claude-harness/` paths
-     - Report: "Updated init.sh to use new .claude-harness/ paths"
+4. Check if `init.sh` exists in project root (legacy location):
+   - If root `init.sh` exists AND `.claude-harness/init.sh` does NOT exist:
+     - Move `init.sh` to `.claude-harness/init.sh`
+     - Report: "Moved init.sh to .claude-harness/"
+   - If root `init.sh` exists AND `.claude-harness/init.sh` ALREADY exists:
+     - Warn user: "Found legacy init.sh in root. Please manually review and delete if no longer needed."
 
 5. Continue with Phase 1 (create missing files)
 
@@ -149,7 +151,7 @@ Create the following files if they don't exist:
    - Include session startup protocol referencing harness commands
    - Include common commands for the detected stack
 
-8. **init.sh** - Environment startup script
+8. **.claude-harness/init.sh** - Environment startup script
 ```bash
 #!/bin/bash
 echo "=== Dev Environment Setup ==="
@@ -157,9 +159,15 @@ echo "Working directory: $(pwd)"
 # Show git history, progress, pending features, orchestration state
 ```
 
+9. **.claude-harness/.plugin-version** - Plugin version tracking (for update detection)
+   - Read the current plugin version from the installed `claude-harness` plugin's `.claude-plugin/plugin.json`
+   - Write just the version number to this file (e.g., "2.3.0")
+   - Used by SessionStart hook to detect plugin updates and prompt for re-running setup
+
 After creating files, report:
 - Files created vs skipped (already exist)
 - Detected tech stack
+- Plugin version recorded
 - Next steps:
   1. Use /claude-harness:feature to add features to track
   2. Use /claude-harness:orchestrate to spawn multi-agent teams for complex features
