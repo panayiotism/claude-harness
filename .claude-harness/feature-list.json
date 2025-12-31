@@ -1,28 +1,4 @@
 {
   "version": 1,
-  "features": [
-    {
-      "id": "feature-005",
-      "name": "Agentic Loops",
-      "description": "Implement persistent agentic loops that continue across context windows until verification passes",
-      "priority": 1,
-      "passes": false,
-      "verification": [
-        "/claude-harness:implement command works",
-        "Loop state persists across sessions",
-        "SessionStart hook shows active loops",
-        "Verification gates are mandatory"
-      ],
-      "relatedFiles": [
-        "commands/implement.md",
-        "commands/feature.md",
-        "hooks/session-start.sh",
-        "setup.sh"
-      ],
-      "github": {
-        "branch": "feature/agentic-loops",
-        "prNumber": 9
-      }
-    }
-  ]
+  "features": []
 }
