@@ -31,6 +31,33 @@ Before anything else, check if legacy root-level harness files need migration:
 
 3. If `.claude-harness/` already exists, skip migration (assume already migrated)
 
+4. **Create missing state files** (for plugin updates):
+   - Check if each required state file exists, create with defaults if missing:
+   - `.claude-harness/loop-state.json` (if missing):
+     ```json
+     {
+       "version": 1,
+       "feature": null,
+       "status": "idle",
+       "attempt": 0,
+       "maxAttempts": 10,
+       "verification": {},
+       "history": []
+     }
+     ```
+   - `.claude-harness/working-context.json` (if missing):
+     ```json
+     {
+       "version": 1,
+       "activeFeature": null,
+       "summary": null,
+       "workingFiles": {},
+       "decisions": [],
+       "nextSteps": []
+     }
+     ```
+   - Report: "Created missing state file: {filename}"
+
 ## Phase 1: Local Status
 
 1. **Load working context** (if exists):
@@ -55,9 +82,28 @@ Before anything else, check if legacy root-level harness files need migration:
 
 5. Optionally check `.claude-harness/feature-archive.json` to see completed feature count/history
 
-## Phase 2: Orchestration State
+## Phase 2: Loop & Orchestration State
 
-6. Check orchestration state:
+6. **Check active loop state** (PRIORITY):
+   - Read `.claude-harness/loop-state.json`
+   - If `status` is "in_progress":
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  🔄 ACTIVE AGENTIC LOOP                                        │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Feature: {feature}                                            │
+     │  Attempt: {attempt}/{maxAttempts}                              │
+     │  Last approach: {history[-1].approach}                         │
+     │  Last result: {history[-1].result}                             │
+     │                                                                │
+     │  Resume: /claude-harness:implement {feature}                   │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+   - If `status` is "escalated":
+     - Show escalation reason and history summary
+     - Recommend: increase maxAttempts or provide guidance
+
+7. Check orchestration state:
    - Read `.claude-harness/agent-context.json` if it exists
    - Check for `currentSession.activeFeature` - indicates incomplete orchestration
    - Check `pendingHandoffs` array for work waiting to be continued
@@ -88,11 +134,15 @@ Before anything else, check if legacy root-level harness files need migration:
 
 ## Phase 4: Recommendations
 
-11. Report session summary:
+12. Report session summary:
     - Current state and blockers
     - Pending features prioritized
     - GitHub sync results
-    - Recommended next action:
-      - If pending handoffs exist, prioritize resuming orchestration
-      - If no orchestration active, recommend starting one for complex features
-      - Suggest next feature to work on
+    - Recommended next action (in priority order):
+      1. **Active loop**: Resume with `/claude-harness:implement {feature-id}`
+      2. **Escalated loop**: Review history and provide guidance, or increase maxAttempts
+      3. **Pending handoffs**: Resume orchestration with `/claude-harness:orchestrate {feature-id}`
+      4. **Pending features**: Start implementation:
+         - Simple feature: `/claude-harness:implement {feature-id}`
+         - Complex feature: `/claude-harness:orchestrate {feature-id}`
+      5. **No features**: Add one with `/claude-harness:feature <description>`
