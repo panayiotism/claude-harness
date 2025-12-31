@@ -317,12 +317,13 @@ Alternatively, commit specific harness files and ignore others:
 
 3. Update the description if adding major features
 
-**Current version: 2.5.0**
+**Current version: 2.5.1**
 
 ### Changelog
 
 | Version | Changes |
 |---------|---------|
+| 2.5.1 | Show full command paths in session start output for easy copy/paste |
 | 2.5.0 | Enhanced terminal output with box-drawn UI showing version, status, and command reference on session start |
 | 2.4.0 | Fixed hooks not loading (added `hooks` field to plugin.json). SessionStart hook now outputs `systemMessage` (user-visible) + `additionalContext` (Claude-visible) |
 | 2.3.0 | SessionStart hook for auto-setup detection, moved `init.sh` to `.claude-harness/`, added migration in `setup.sh` |
