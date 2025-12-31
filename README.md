@@ -118,21 +118,24 @@ When you start Claude Code in a harness-enabled project, you'll automatically se
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     CLAUDE HARNESS v2.5.1                       │
+│                     CLAUDE HARNESS v2.6.0                       │
+├─────────────────────────────────────────────────────────────────┤
+│  ACTIVE LOOP: feature-001 (attempt 3/10)                        │
+│  Resume: /claude-harness:implement feature-001                  │
 ├─────────────────────────────────────────────────────────────────┤
 │  2 pending | Resuming: feature-001                              │
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
+│  /claude-harness:implement   Resume/start agentic loop          │
 │  /claude-harness:start       Full status + GitHub sync          │
 │  /claude-harness:feature     Add new feature + GitHub issue     │
-│  /claude-harness:orchestrate Spawn multi-agent team             │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
-│  /claude-harness:merge-all   Merge PRs + create release         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 This shows:
 - **Plugin version** - Know what version you're running
+- **Active loop** - If an agentic loop is in progress, shows attempt count and resume command
 - **Status** - Pending features, active work, orchestration state
 - **Commands** - Quick reference for available commands
 
@@ -304,7 +307,8 @@ For complex features, spawn a team of specialized agents that work together:
 3. **Parallel Execution** - Independent tasks run simultaneously via Task tool
 4. **Coordinated Handoffs** - Sequential tasks pass context between agents
 5. **Quality Gates** - Code reviewer and security auditor run after implementation
-6. **Memory Persistence** - Learnings saved for future sessions
+6. **Verification Loop** - Runs build/tests/lint/typecheck; re-runs agents on failure
+7. **Memory Persistence** - Learnings saved for future sessions
 
 ### Available Agent Types
 
@@ -354,6 +358,14 @@ For complex features, spawn a team of specialized agents that work together:
     "Theme persists on reload",
     "All components respect theme"
   ],
+  "verificationCommands": {
+    "build": "npm run build",
+    "tests": "npm run test",
+    "lint": "npm run lint",
+    "typecheck": "npx tsc --noEmit",
+    "custom": []
+  },
+  "maxAttempts": 10,
   "relatedFiles": ["src/theme.ts"],
   "github": {
     "issueNumber": 42,

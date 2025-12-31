@@ -110,9 +110,34 @@ Create a checkpoint of the current session:
    - PR URL, CI status, review status
    - Remaining work
 
-## Phase 6: Archive Completed Features
+## Phase 6: Clear Loop State (if feature completed)
 
-6. Archive completed features (to prevent .claude-harness/feature-list.json from growing too large):
+6. If an agentic loop just completed successfully:
+   - Read `.claude-harness/loop-state.json`
+   - If `status` is "completed" and matches current feature:
+     - Reset loop state to idle:
+       ```json
+       {
+         "version": 1,
+         "feature": null,
+         "featureName": null,
+         "status": "idle",
+         "attempt": 0,
+         "maxAttempts": 10,
+         "startedAt": null,
+         "lastAttemptAt": null,
+         "verification": {},
+         "history": [],
+         "lastCheckpoint": "{commit-hash}",
+         "escalationRequested": false
+       }
+       ```
+     - Report: "Loop completed and reset"
+   - If loop is still in progress, preserve state for session continuity
+
+## Phase 7: Archive Completed Features
+
+7. Archive completed features (to prevent .claude-harness/feature-list.json from growing too large):
    - Read .claude-harness/feature-list.json
    - Find all features with passes=true
    - If any completed features exist:
@@ -123,9 +148,9 @@ Create a checkpoint of the current session:
      - Remove completed features from .claude-harness/feature-list.json and save
    - Report: "Archived X completed features"
 
-## Phase 7: Persist Orchestration Memory
+## Phase 8: Persist Orchestration Memory
 
-7. Persist orchestration memory (if .claude-harness/agent-context.json exists):
+8. Persist orchestration memory (if .claude-harness/agent-context.json exists):
    - Read `.claude-harness/agent-context.json`
    - Read `.claude-harness/agent-memory.json` (create if missing)
 

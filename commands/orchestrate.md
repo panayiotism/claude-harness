@@ -189,9 +189,37 @@ Arguments: $ARGUMENTS
       - Add new files to relatedFiles
       - Update verification status if applicable
 
-## Phase 6: Reporting
+## Phase 6: Verification Loop (MANDATORY)
 
-15. Report orchestration summary:
+15. Run verification commands (from feature's `verificationCommands`):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  VERIFICATION PHASE                                             │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  ⏳ Running: npm run build                                      │
+    │  ⏳ Running: npm run test                                       │
+    │  ⏳ Running: npm run lint                                       │
+    │  ⏳ Running: npx tsc --noEmit                                   │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+
+16. Handle verification results:
+    - **If ALL pass**: Continue to Phase 7 (Reporting)
+    - **If ANY fail**:
+      - Parse error messages to identify failing component
+      - Determine which agent should fix (e.g., type errors → typescript-pro)
+      - Re-spawn relevant agent with error context
+      - Repeat verification
+      - Track attempts in loop state (max 10 by default)
+
+17. If verification keeps failing after multiple agent re-runs:
+    - Escalate: Report which verification step fails persistently
+    - Provide error summary and agent history
+    - Recommend: Manual intervention or `/claude-harness:implement` for focused loop
+
+## Phase 7: Reporting
+
+18. Report orchestration summary:
     ```
     ## Orchestration Complete
 
@@ -202,6 +230,14 @@ Arguments: $ARGUMENTS
     | Agent | Task | Status | Duration |
     |-------|------|--------|----------|
     | {agent} | {task} | {status} | {time} |
+
+    ### Verification Results
+    | Check | Status |
+    |-------|--------|
+    | Build | ✅ PASSED |
+    | Tests | ✅ PASSED |
+    | Lint | ✅ PASSED |
+    | Typecheck | ✅ PASSED |
 
     ### Files Modified
     - {filepath} ({agent that modified})
@@ -226,9 +262,15 @@ Arguments: $ARGUMENTS
     - Run `/claude-harness:orchestrate {next-feature}` for next task
     ```
 
+19. Update feature status if verification passed:
+    - Set `passes: true` in `.claude-harness/feature-list.json`
+    - Create git checkpoint with verification results
+
 ## Error Recovery
 
 If orchestration is interrupted:
 - `.claude-harness/agent-context.json` preserves state
+- `.claude-harness/loop-state.json` tracks verification attempts
 - Run `/claude-harness:orchestrate` again to resume from pendingHandoffs
+- Run `/claude-harness:implement {feature-id}` for focused single-agent loop
 - Use `/claude-harness:start` to see orchestration state and recommendations
