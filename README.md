@@ -1,468 +1,543 @@
 # Claude Code Long-Running Agent Harness
 
-A Claude Code plugin for automated, context-preserving coding sessions with feature tracking, GitHub integration, and **multi-agent orchestration**.
+A Claude Code plugin for automated, context-preserving coding sessions with **4-layer memory architecture**, failure prevention, test-driven features, GitHub integration, and multi-agent orchestration.
 
-Based on [Anthropic's engineering article](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents).
+Based on [Anthropic's engineering article](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) and enhanced with patterns from:
+- [Context-Engine](https://github.com/zeddy89/Context-Engine) - Memory architecture
+- [Agent-Foreman](https://github.com/mylukin/agent-foreman) - Task management patterns
+- [Autonomous-Coding](https://github.com/anthropics/claude-quickstarts/tree/main/autonomous-coding) - Test-driven approach
 
-## TL;DR - How It Works
-
-```
-/claude-harness:feature "Add user dashboard with analytics"
-```
-Creates feature + GitHub issue + branch
-
-```
-/claude-harness:orchestrate feature-001
-```
-Spawns specialized agents as a coordinated team:
+## TL;DR - What's New in v3.0
 
 ```mermaid
 flowchart TB
-    O[["🎯 ORCHESTRATOR<br/>Analyzes task → Selects agents → Coordinates work"]]
+    subgraph Memory["4-Layer Memory Architecture"]
+        W["Working Context<br/>(rebuilt each session)"]
+        E["Episodic Memory<br/>(rolling decisions)"]
+        S["Semantic Memory<br/>(persistent knowledge)"]
+        P["Procedural Memory<br/>(success/failure patterns)"]
+    end
 
-    O --> R["⚛️ react-specialist<br/>(frontend)"]
-    O --> B["🔧 backend-developer<br/>(API routes)"]
-    O --> D["🗄️ database-administrator<br/>(schema)"]
+    subgraph Features["v3.0 Features"]
+        FP["Failure Prevention<br/>Learn from mistakes"]
+        TD["Test-Driven<br/>Generate tests first"]
+        TP["Two-Phase Pattern<br/>Plan → Implement"]
+        IA["Impact Analysis<br/>Warn on breaking changes"]
+    end
 
-    R --> C
-    B --> C
-    D --> C
-
-    C[["✅ code-reviewer<br/>(mandatory review)"]]
-```
-
-**Shared Context:** `.claude-harness/agent-context.json` - decisions, patterns, handoffs
-**Persistent Memory:** `.claude-harness/agent-memory.json` - learnings across sessions
-
-```
-/claude-harness:checkpoint
-```
-Commits, pushes, creates PR, persists agent learnings to memory
-
-## Installation
-
-### As a Plugin (Recommended)
-
-```bash
-# Add the marketplace
-claude plugin marketplace add panayiotism/claude-harness
-
-# Install the plugin
-claude plugin install claude-harness@claude-harness
-```
-
-Or in Claude Code:
-```
-/plugin marketplace add panayiotism/claude-harness
-/plugin install claude-harness@claude-harness
-```
-
-### Alternative: Direct Install
-
-```bash
-claude plugin install claude-harness github:panayiotism/claude-harness
-```
-
-### Alternative: Local Setup Script
-
-Clone the repo and run setup directly:
-
-```bash
-git clone https://github.com/panayiotism/claude-harness.git
-cd ~/your-project
-/path/to/claude-harness/setup.sh
-```
-
-### Updating
-
-```bash
-# Update plugin to latest version
-claude plugin update claude-harness@claude-harness
-
-# Re-run setup in your project to get new files (if needed)
-/claude-harness:setup
-```
-
-Note: Restart Claude Code after updating for changes to take effect.
-
-### Uninstalling
-
-```bash
-claude plugin uninstall claude-harness@claude-harness
+    W --> FP
+    P --> FP
+    S --> TD
+    E --> TP
 ```
 
 ## Quick Start
 
-After installing the plugin:
-
 ```bash
-# In your project directory
-claude
+# Install plugin
+claude plugin install claude-harness github:panayiotism/claude-harness
 
-# Initialize harness files
+# In your project
+claude
 /claude-harness:setup
 
-# Add a feature to work on
+# Add a feature (generates tests first!)
 /claude-harness:feature Add user authentication
 
-# For complex features, spawn a multi-agent team
-/claude-harness:orchestrate feature-001
+# Plan before implementing
+/claude-harness:plan-feature feature-001
 
-# Save progress (commits, pushes, creates PR, persists agent memory)
+# Implement until all tests pass
+/claude-harness:implement feature-001
+
+# Save progress + persist memory
 /claude-harness:checkpoint
 ```
 
 ## Session Start Hook
 
-When you start Claude Code in a harness-enabled project, you'll automatically see:
+When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     CLAUDE HARNESS v2.6.0                       │
+│                  CLAUDE HARNESS v3.0.0 (Memory Architecture)     │
 ├─────────────────────────────────────────────────────────────────┤
-│  ACTIVE LOOP: feature-001 (attempt 3/10)                        │
-│  Resume: /claude-harness:implement feature-001                  │
-├─────────────────────────────────────────────────────────────────┤
-│  2 pending | Resuming: feature-001                              │
+│  P:2 WIP:1 Tests:1 | Active: feature-001                        │
+│  Memory: 12 decisions | 3 failures | 8 successes                │
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
-│  /claude-harness:implement   Resume/start agentic loop          │
-│  /claude-harness:start       Full status + GitHub sync          │
-│  /claude-harness:feature     Add new feature + GitHub issue     │
-│  /claude-harness:checkpoint  Commit, push, create/update PR     │
+│  /claude-harness:start        Compile context + GitHub sync     │
+│  /claude-harness:feature      Add feature (test-driven)         │
+│  /claude-harness:plan-feature Plan before implementation        │
+│  /claude-harness:implement    Start agentic loop                │
+│  /claude-harness:checkpoint   Commit + persist memory           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-This shows:
-- **Plugin version** - Know what version you're running
-- **Active loop** - If an agentic loop is in progress, shows attempt count and resume command
-- **Status** - Pending features, active work, orchestration state
-- **Commands** - Quick reference for available commands
+Shows:
+- **Feature status**: Pending / Work-in-progress / Needs tests
+- **Memory stats**: Decisions recorded, failures to avoid, successes to reuse
+- **Failure prevention**: If failures exist, warns before implementing
 
-Claude also receives context about the session state to help with continuity.
+## v3.0 Memory Architecture
 
-## Commands
-
-| Command | Purpose |
-|---------|---------|
-| `/claude-harness:setup` | Initialize harness in current project |
-| `/claude-harness:start` | Start session - shows status, GitHub dashboard, syncs issues |
-| `/claude-harness:feature <desc>` | Add feature - creates GitHub issue + branch (if MCP configured) |
-| `/claude-harness:implement <id>` | Start agentic loop - runs until verification passes |
-| `/claude-harness:orchestrate <id>` | Spawn multi-agent team for complex features |
-| `/claude-harness:checkpoint` | Save progress - commits, pushes, creates/updates PR, persists agent memory |
-| `/claude-harness:merge-all` | Merge all PRs, close issues, delete branches (dependency order) |
-
-## What It Creates
-
-When you run `/claude-harness:setup`, the following files are created in your project:
-
-| File | Purpose |
-|------|---------|
-| `CLAUDE.md` | Main context file (auto-read by Claude Code) |
-| `.claude-harness/claude-progress.json` | Session continuity tracking |
-| `.claude-harness/feature-list.json` | Feature tracking with pass/fail status |
-| `.claude-harness/feature-archive.json` | Archive for completed features (auto-populated) |
-| `.claude-harness/working-context.json` | Active working state for session continuity |
-| `.claude-harness/agent-context.json` | Multi-agent shared context (decisions, handoffs) |
-| `.claude-harness/agent-memory.json` | Persistent agent memory (patterns, performance) |
-| `.claude-harness/loop-state.json` | Agentic loop state (attempts, history, verification) |
-| `.claude-harness/init.sh` | Environment startup script |
-
-## GitHub MCP Integration (Optional)
-
-### Setup
-
-```bash
-# Easy way (interactive)
-claude mcp add github -s user
-
-# Manual way
-export GITHUB_TOKEN=ghp_xxxx
-claude mcp add-json github '{"command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_PERSONAL_ACCESS_TOKEN":"'$GITHUB_TOKEN'"}}'
-
-# Verify
-claude mcp list
-```
-
-### Workflow with GitHub
+### Four Layers
 
 ```
-/claude-harness:feature Add dark mode support
-```
-Creates:
-- GitHub Issue #42 with description
-- Branch `feature/feature-001`
-- Entry in feature-list.json with links
-
-```
-/claude-harness:checkpoint
-```
-- Commits and pushes to feature branch
-- Creates/updates PR linked to issue
-- Shows PR status (CI, reviews, conflicts)
-- Updates progress tracking
-- Archives any completed features
-
-```
-/claude-harness:merge-all
-```
-- Merges all PRs if CI passes (in dependency order)
-- Closes linked issues
-- Marks features as `passes: true`
-- Creates version tag (auto-calculated or specified)
-- Generates GitHub release with changelog
-- Cleans up merged branches
-
-## Agentic Loops
-
-**The core innovation**: Autonomous loops that continue until verification passes, even across multiple context windows.
-
-Based on [Anthropic's insight](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents): "Claude marked features complete without proper testing" - so we **never trust self-assessment**. All verification is mandatory.
-
-### How It Works
-
-```
-/claude-harness:implement feature-001
+.claude-harness/memory/
+├── working/context.json      # Rebuilt each session (computed)
+├── episodic/decisions.json   # Rolling window of recent decisions
+├── semantic/                 # Persistent project knowledge
+│   ├── architecture.json
+│   ├── entities.json
+│   └── constraints.json
+└── procedural/               # Success/failure patterns (append-only)
+    ├── failures.json
+    ├── successes.json
+    └── patterns.json
 ```
 
-The loop runs autonomously:
+| Layer | Purpose | Lifecycle |
+|-------|---------|-----------|
+| **Working** | Current task only | Rebuilt each session |
+| **Episodic** | Recent decisions, context | Rolling window (50 max) |
+| **Semantic** | Project architecture, patterns | Persistent |
+| **Procedural** | What worked, what failed | Append-only |
+
+### Context Compilation
+
+Each session compiles **fresh working context** by pulling relevant information from memory layers:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  AGENTIC LOOP: Add user authentication                          │
-├─────────────────────────────────────────────────────────────────┤
-│  Attempt 3/10                                                   │
-│  ├─ Health check: ✅ Build passing                              │
-│  ├─ Implementation: Fixed JWT validation                        │
-│  ├─ Verification:                                               │
-│  │   ├─ Build:     ✅ PASSED                                    │
-│  │   ├─ Tests:     ✅ PASSED                                    │
-│  │   ├─ Lint:      ✅ PASSED                                    │
-│  │   └─ Typecheck: ✅ PASSED                                    │
-│  └─ Result: ✅ SUCCESS                                          │
-├─────────────────────────────────────────────────────────────────┤
-│  Feature complete in 3 attempts! Committed: abc123f             │
-└─────────────────────────────────────────────────────────────────┘
+/claude-harness:start
+
+→ Compile working context:
+  • Pull recent decisions from episodic (last 10 relevant)
+  • Pull project patterns from semantic
+  • Pull failures to avoid from procedural
+  • Pull successful approaches from procedural
+
+→ Result: Clean, relevant context without accumulation
 ```
 
-### Session Continuity
+## Failure Prevention System
 
-Context windows are no longer a limitation. Loop state persists in `.claude-harness/loop-state.json`:
+Never repeat the same mistakes. When you try an approach that fails, it's recorded:
 
-```
-SESSION 1           SESSION 2           SESSION 3
-┌─────────┐        ┌─────────┐        ┌─────────┐
-│ Attempt │        │ Attempt │        │ Attempt │
-│  1, 2   │───────▶│  3, 4   │───────▶│  5 ✅   │
-└─────────┘        └─────────┘        └─────────┘
-```
-
-On session start, you'll see:
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  🔄 ACTIVE LOOP: feature-001 (attempt 4/10)                     │
-│     Resume: /claude-harness:implement feature-001               │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Loop State Schema
-
-`.claude-harness/loop-state.json`:
 ```json
+// .claude-harness/memory/procedural/failures.json
 {
-  "feature": "feature-001",
-  "status": "in_progress",
-  "attempt": 3,
-  "maxAttempts": 10,
-  "verification": {
-    "build": "npm run build",
-    "tests": "npm run test",
-    "lint": "npm run lint",
-    "typecheck": "npx tsc --noEmit"
-  },
-  "history": [
+  "entries": [
     {
-      "attempt": 1,
-      "approach": "Created auth routes",
-      "result": "failed",
-      "errors": ["TS2322: Type mismatch"]
+      "id": "uuid",
+      "timestamp": "2025-01-20T10:30:00Z",
+      "feature": "feature-001",
+      "approach": "Used direct DOM manipulation for state",
+      "files": ["src/components/Auth.tsx"],
+      "errors": ["React hydration mismatch"],
+      "rootCause": "SSR incompatibility with direct DOM access",
+      "prevention": "Use useState and useEffect instead"
     }
   ]
 }
 ```
 
-## Multi-Agent Orchestration
-
-For complex features, spawn a team of specialized agents that work together:
+Before each implementation attempt:
 
 ```
-/claude-harness:orchestrate feature-001
+/claude-harness:implement feature-002
+
+⚠️  SIMILAR APPROACH FAILED BEFORE
+
+Failure: Used direct DOM manipulation for state
+When: 2025-01-20
+Files: src/components/Auth.tsx
+Error: React hydration mismatch
+Root Cause: SSR incompatibility with direct DOM access
+
+Prevention Tip: Use useState and useEffect instead
+
+✅ SUCCESSFUL ALTERNATIVE
+Approach: React hooks with conditional rendering
+Files: src/components/User.tsx
+Why it worked: Proper SSR hydration
 ```
 
-### How It Works
+### Check Your Approach
 
-1. **Task Analysis** - Identifies domains (frontend, backend, database, etc.)
-2. **Agent Selection** - Auto-picks specialists based on file types and task requirements
-3. **Parallel Execution** - Independent tasks run simultaneously via Task tool
-4. **Coordinated Handoffs** - Sequential tasks pass context between agents
-5. **Quality Gates** - Code reviewer and security auditor run after implementation
-6. **Verification Loop** - Runs build/tests/lint/typecheck; re-runs agents on failure
-7. **Memory Persistence** - Learnings saved for future sessions
+```
+/claude-harness:check-approach "I plan to use localStorage for auth state"
 
-### Available Agent Types
+→ Checks procedural/failures.json for similar approaches
+→ Checks procedural/successes.json for alternatives
+→ Reports matches and recommendations
+```
 
-| Domain | Agent | Triggers |
-|--------|-------|----------|
-| React/Frontend | `react-specialist` | .tsx, .jsx, component |
-| Backend/API | `backend-developer` | route.ts, api/, endpoint |
-| Next.js | `nextjs-developer` | app/, pages/ |
-| Database | `database-administrator` | prisma, schema, SQL |
-| Review | `code-reviewer` | Always for code changes |
-| Security | `security-auditor` | Auth, tokens, encryption |
-| Testing | `qa-expert` | New features, bug fixes |
+## Test-Driven Features
 
-### Shared Context Schema
+Features now generate tests **before** implementation:
 
-`.claude-harness/agent-context.json`:
+```
+/claude-harness:feature Add user authentication
+
+→ Creates feature entry with status: "pending"
+→ Creates GitHub issue (if MCP configured)
+→ Creates feature branch
+→ Recommends: Run /claude-harness:generate-tests feature-001
+```
+
+```
+/claude-harness:generate-tests feature-001
+
+→ Reads feature description
+→ Analyzes project test patterns from semantic memory
+→ Generates test cases:
+  • Unit tests for core functionality
+  • Integration tests for API/database
+  • Edge cases and error handling
+→ Creates test files (they FAIL initially - no implementation yet)
+→ Updates feature: status = "needs_implementation"
+```
+
+### Test Cases Schema
+
 ```json
+// .claude-harness/features/tests/feature-001.json
 {
-  "currentSession": { "activeFeature": "feature-001", "activeAgents": [...] },
-  "architecturalDecisions": [{ "decision": "...", "madeBy": "agent" }],
-  "sharedState": { "discoveredPatterns": {...} },
-  "agentResults": [{ "agent": "...", "status": "completed", "filesModified": [...] }],
-  "pendingHandoffs": [{ "from": "agent-a", "to": "agent-b", "context": "..." }]
+  "featureId": "feature-001",
+  "generatedAt": "2025-01-20T10:30:00Z",
+  "framework": "jest",
+  "cases": [
+    {
+      "id": "test-001",
+      "type": "unit",
+      "description": "Should authenticate user with valid credentials",
+      "file": "tests/auth/login.test.ts",
+      "status": "pending",
+      "code": "test('authenticates with valid credentials', async () => {...})"
+    }
+  ],
+  "coverage": {
+    "target": 80,
+    "current": 0
+  }
 }
 ```
 
-`.claude-harness/agent-memory.json`:
-```json
-{
-  "learnedPatterns": { "codePatterns": [...], "namingConventions": {...} },
-  "successfulApproaches": [{ "task": "...", "approach": "...", "agents": [...] }],
-  "agentPerformance": { "react-specialist": { "tasksCompleted": 12, "successRate": 0.95 } }
-}
+## Two-Phase Pattern
+
+Separate planning from implementation:
+
+### Phase 1: Plan
+
+```
+/claude-harness:plan-feature feature-001
+
+→ Analyzes requirements
+→ Identifies files to create/modify
+→ Runs impact analysis
+→ Checks failure patterns
+→ Generates tests (if not done)
+→ Creates implementation plan
 ```
 
-## Feature Schema
+Output:
+```
+Implementation Plan for feature-001:
+
+Steps:
+1. Create auth service (src/services/auth.ts)
+2. Add login API route (src/app/api/auth/login/route.ts)
+3. Create login form component (src/components/LoginForm.tsx)
+4. Add protected route wrapper (src/components/ProtectedRoute.tsx)
+
+Impact Analysis:
+- High: src/app/layout.tsx (15 dependents)
+- Medium: src/lib/api.ts (8 dependents)
+
+Failures to Avoid:
+- Don't use direct DOM manipulation (failed in feature-003)
+
+Successful Patterns to Use:
+- React hooks with conditional rendering
+- Server-side session validation
+```
+
+### Phase 2: Implement
+
+```
+/claude-harness:implement feature-001
+
+→ Loads loop state (resume if active)
+→ Checks failure patterns before each attempt
+→ Verifies tests are generated
+→ Implements to pass tests
+→ Runs ALL verification commands
+→ Records success/failure to procedural memory
+```
+
+## Commands Reference
+
+| Command | Purpose |
+|---------|---------|
+| `/claude-harness:setup` | Initialize harness with v3.0 structure |
+| `/claude-harness:start` | Compile context + GitHub sync + status |
+| `/claude-harness:feature <desc>` | Add feature (test-driven) |
+| `/claude-harness:generate-tests <id>` | Generate test cases before implementation |
+| `/claude-harness:plan-feature <id>` | Plan implementation (Phase 1) |
+| `/claude-harness:check-approach <desc>` | Check if approach matches past failures |
+| `/claude-harness:implement <id>` | Agentic loop until tests pass (Phase 2) |
+| `/claude-harness:orchestrate <id>` | Spawn multi-agent team |
+| `/claude-harness:checkpoint` | Commit + persist memory + create/update PR |
+| `/claude-harness:merge-all` | Merge PRs, close issues, archive features |
+
+## v3.0 Directory Structure
+
+```
+.claude-harness/
+├── memory/
+│   ├── working/
+│   │   └── context.json          # Rebuilt each session
+│   ├── episodic/
+│   │   └── decisions.json        # Rolling window (50 max)
+│   ├── semantic/
+│   │   ├── architecture.json     # Project structure
+│   │   ├── entities.json         # Key components
+│   │   └── constraints.json      # Rules & conventions
+│   └── procedural/
+│       ├── failures.json         # Append-only failure log
+│       ├── successes.json        # Append-only success log
+│       └── patterns.json         # Learned patterns
+├── impact/
+│   ├── dependency-graph.json     # File dependencies
+│   └── change-log.json           # Recent changes
+├── features/
+│   ├── active.json               # Current features
+│   ├── archive.json              # Completed features
+│   └── tests/
+│       └── {feature-id}.json     # Test cases per feature
+├── agents/
+│   ├── context.json              # Orchestration state
+│   └── handoffs.json             # Agent handoff queue
+├── loops/
+│   └── state.json                # Agentic loop state
+├── config.json                   # Plugin configuration
+└── claude-progress.json          # Session summary
+```
+
+## Feature Schema (v3.0)
 
 ```json
 {
   "id": "feature-001",
-  "name": "Dark mode support",
-  "description": "Add dark mode toggle to settings",
+  "name": "User Authentication",
+  "description": "Add login/logout with session management",
   "priority": 1,
-  "passes": false,
-  "verification": [
-    "Toggle appears in settings",
-    "Theme persists on reload",
-    "All components respect theme"
-  ],
-  "verificationCommands": {
+  "status": "pending|needs_tests|in_progress|passing|failing|blocked|escalated",
+  "phase": "planning|test_generation|implementation|verification",
+  "tests": {
+    "generated": true,
+    "file": "features/tests/feature-001.json",
+    "passing": 0,
+    "total": 15
+  },
+  "verification": {
     "build": "npm run build",
     "tests": "npm run test",
     "lint": "npm run lint",
     "typecheck": "npx tsc --noEmit",
     "custom": []
   },
+  "attempts": 0,
   "maxAttempts": 10,
-  "relatedFiles": ["src/theme.ts"],
+  "relatedFiles": [],
   "github": {
     "issueNumber": 42,
-    "prNumber": 43,
+    "prNumber": null,
     "branch": "feature/feature-001"
+  },
+  "createdAt": "2025-01-20T10:30:00Z",
+  "updatedAt": "2025-01-20T10:30:00Z"
+}
+```
+
+## Agentic Loops
+
+Autonomous implementation loops that continue until ALL tests pass:
+
+```
+/claude-harness:implement feature-001
+
+┌─────────────────────────────────────────────────────────────────┐
+│  AGENTIC LOOP: User Authentication                              │
+├─────────────────────────────────────────────────────────────────┤
+│  Attempt 3/10                                                   │
+│  ├─ Failure Prevention: Checked 3 past failures                 │
+│  ├─ Implementation: Using React hooks pattern                   │
+│  ├─ Verification:                                               │
+│  │   ├─ Build:     ✅ PASSED                                    │
+│  │   ├─ Tests:     ✅ PASSED (15/15)                            │
+│  │   ├─ Lint:      ✅ PASSED                                    │
+│  │   └─ Typecheck: ✅ PASSED                                    │
+│  └─ Result: ✅ SUCCESS                                          │
+├─────────────────────────────────────────────────────────────────┤
+│  ✅ Feature complete! Approach saved to successes.json          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+On failure:
+- Records approach to `failures.json` with root cause analysis
+- Analyzes errors and tries different approach
+- Consults `successes.json` for working patterns
+- Up to 10 attempts before escalation
+
+## Multi-Agent Orchestration
+
+For complex features, spawn specialized agents:
+
+```
+/claude-harness:orchestrate feature-001
+
+→ Phase 1: Task Analysis
+  - Identifies domains: frontend, backend, database
+  - Checks impact analysis
+
+→ Phase 2: Failure Prevention Check
+  - Queries procedural/failures.json
+  - Warns agents about approaches to avoid
+
+→ Phase 3: Agent Selection
+  - react-specialist (frontend components)
+  - backend-developer (API routes)
+  - database-administrator (schema)
+  - code-reviewer (mandatory)
+
+→ Phase 4: Parallel Execution
+  - Independent tasks run simultaneously
+  - Handoffs managed via agents/handoffs.json
+
+→ Phase 5: Verification Loop
+  - All commands must pass
+  - Re-spawns agents on failure (max 3 cycles)
+
+→ Phase 6: Memory Persistence
+  - Records successes/failures
+  - Updates patterns
+```
+
+## Impact Analysis
+
+Track how changes affect other components:
+
+```json
+// .claude-harness/impact/dependency-graph.json
+{
+  "nodes": {
+    "src/lib/auth.ts": {
+      "imports": ["src/lib/api.ts", "src/types/user.ts"],
+      "importedBy": ["src/app/api/auth/login/route.ts", "src/components/LoginForm.tsx"],
+      "tests": ["tests/lib/auth.test.ts"],
+      "type": "module"
+    }
+  },
+  "hotspots": ["src/lib/api.ts"],
+  "criticalPaths": ["src/app/layout.tsx"]
+}
+```
+
+When modifying files:
+- Identifies dependent files
+- Warns about high-impact changes
+- Suggests running related tests
+
+## Migration from v2.x
+
+```bash
+# In your project with existing harness
+./setup.sh --migrate
+
+# Creates backup: .claude-harness-backup-{timestamp}/
+# Migrates:
+#   feature-list.json → features/active.json
+#   agent-memory.json → memory/procedural/
+#   working-context.json → memory/working/context.json
+#   loop-state.json → loops/state.json
+```
+
+Or let it auto-migrate on first run of a harness command.
+
+## GitHub MCP Integration
+
+```bash
+# Setup
+claude mcp add github -s user
+
+# Workflow
+/claude-harness:feature Add dark mode   # Creates issue + branch
+/claude-harness:implement feature-001   # Implements until tests pass
+/claude-harness:checkpoint              # Commits, pushes, creates PR
+/claude-harness:merge-all               # Merges PRs in dependency order
+```
+
+## Configuration
+
+```json
+// .claude-harness/config.json
+{
+  "version": 3,
+  "verification": {
+    "build": "npm run build",
+    "tests": "npm run test",
+    "lint": "npm run lint",
+    "typecheck": "npx tsc --noEmit"
+  },
+  "memory": {
+    "episodicMaxEntries": 50,
+    "contextCompilationEnabled": true
+  },
+  "failurePrevention": {
+    "enabled": true,
+    "similarityThreshold": 0.7
+  },
+  "impactAnalysis": {
+    "enabled": true,
+    "warnOnHighImpact": true
+  },
+  "testDriven": {
+    "enabled": true,
+    "generateTestsBeforeImplementation": true
   }
 }
 ```
 
-## Key Principles
-
-1. **JSON over Markdown** - Models are less likely to corrupt JSON files
-2. **Single Feature Focus** - One feature per session prevents scope creep
-3. **Clean Handoffs** - Every session ends in deployable state
-4. **Explicit Verification** - Clear criteria for "done"
-5. **Progress Persistence** - Context survives session boundaries
-6. **Auto-Archiving** - Completed features archived to prevent file bloat
-7. **GitHub Integration** - Issues and PRs as source of truth
-
-## Customization
-
-After running `/claude-harness:setup`, edit:
-- `CLAUDE.md` - Add project-specific context
-- `.claude-harness/feature-list.json` - Add your features
-
-## .gitignore Suggestions
-
-Add if you don't want to commit session state:
-```
-.claude-harness/
-```
-
-Keep committed for team sharing:
-```
-CLAUDE.md
-.claude-harness/init.sh
-```
-
-Alternatively, commit specific harness files and ignore others:
-```
-# Ignore session-specific files
-.claude-harness/claude-progress.json
-.claude-harness/working-context.json
-
-# Keep feature tracking (for team visibility)
-!.claude-harness/feature-list.json
-!.claude-harness/feature-archive.json
-```
-
-## Contributing / Development
-
-### Version Updates
-
-**Always update the version when making changes to this plugin.**
-
-1. Edit `.claude-plugin/plugin.json`:
-   ```json
-   {
-     "version": "X.Y.Z"
-   }
-   ```
-
-2. Follow semantic versioning:
-   - **MAJOR (X)**: Breaking changes
-   - **MINOR (Y)**: New features (e.g., adding `/claude-harness:orchestrate`)
-   - **PATCH (Z)**: Bug fixes, documentation updates
-
-3. Update the description if adding major features
-
-**Current version: 2.6.0**
-
-### Changelog
+## Changelog
 
 | Version | Changes |
 |---------|---------|
-| 2.6.0 | **Agentic Loops**: `/implement` command runs autonomous loops until verification passes. Persists across context windows via `loop-state.json`. SessionStart hook shows active loops. Features now include `verificationCommands` for automated testing. |
-| 2.5.1 | Show full command paths in session start output for easy copy/paste |
-| 2.5.0 | Enhanced terminal output with box-drawn UI showing version, status, and command reference on session start |
-| 2.4.0 | Fixed hooks not loading (added `hooks` field to plugin.json). SessionStart hook now outputs `systemMessage` (user-visible) + `additionalContext` (Claude-visible) |
-| 2.3.0 | SessionStart hook for auto-setup detection, moved `init.sh` to `.claude-harness/`, added migration in `setup.sh` |
-| 2.2.0 | **BREAKING**: Moved all state files to `.claude-harness/` directory, auto-migration for upgrades, deleted unused `templates/` |
-| 2.1.0 | Added `working-context.json` for session continuity - captures active working state during `/checkpoint` |
-| 2.0.0 | **BREAKING**: Shortened command names - removed redundant `harness-` prefix (e.g., `/claude-harness:harness-start` → `/claude-harness:start`) |
-| 1.2.2 | Made auto-versioning the default for `harness-merge-all` (no need to specify 'auto') |
-| 1.2.1 | Added industry-standard versioning: conventional commits for PRs, labeling standards, auto version tagging, release notes |
-| 1.2.0 | Consolidated commands: removed `pr`, `gh-status`, `sync-issues` (absorbed into `start` and `checkpoint`) |
-| 1.1.2 | Updated docs with full plugin-qualified command names, GitHub install instructions |
-| 1.1.1 | Fixed `/claude-harness:harness-setup` to create orchestration files |
-| 1.1.0 | Added multi-agent orchestration (`/orchestrate`, `agent-context.json`, `agent-memory.json`) |
-| 1.0.0 | Initial release with feature tracking and GitHub integration |
+| **3.0.0** | **Memory Architecture Release**: 4-layer memory system (Working/Episodic/Semantic/Procedural), failure prevention system, test-driven features with `/generate-tests`, two-phase pattern with `/plan-feature`, impact analysis, computed context compilation, new directory structure, v2.x migration support |
+| 2.6.0 | Agentic Loops: `/implement` runs until verification passes |
+| 2.5.1 | Full command paths in session output |
+| 2.5.0 | Box-drawn UI in session start |
+| 2.4.0 | Fixed hooks loading |
+| 2.3.0 | SessionStart hook, auto-setup detection |
+| 2.2.0 | Moved files to `.claude-harness/` |
+| 2.1.0 | Added `working-context.json` |
+| 2.0.0 | Shortened command names |
+| 1.1.0 | Multi-agent orchestration |
+| 1.0.0 | Initial release |
 
-## Demo
+## Key Principles
 
-See a working example: [claude-harness-demo](https://github.com/panayiotism/claude-harness-demo)
+1. **Never Trust Self-Assessment** - All verification is mandatory via commands
+2. **Learn From Mistakes** - Failure prevention system records and warns
+3. **Test First** - Generate tests before implementation
+4. **Computed Context** - Fresh, relevant context each session (no accumulation)
+5. **Memory Persistence** - Knowledge survives context windows
+6. **Single Feature Focus** - One feature at a time prevents scope creep
 
 ## Sources
 
-- [Claude Code Plugins](https://code.claude.com/docs/en/plugins)
-- [GitHub MCP Server](https://github.com/github/github-mcp-server)
 - [Anthropic: Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
+- [Context-Engine](https://github.com/zeddy89/Context-Engine) - Memory architecture inspiration
+- [Agent-Foreman](https://github.com/mylukin/agent-foreman) - Task management patterns
+- [Autonomous-Coding](https://github.com/anthropics/claude-quickstarts/tree/main/autonomous-coding) - Test-driven approach
