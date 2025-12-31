@@ -112,6 +112,32 @@ claude
 /claude-harness:checkpoint
 ```
 
+## Session Start Hook
+
+When you start Claude Code in a harness-enabled project, you'll automatically see:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     CLAUDE HARNESS v2.5.1                       │
+├─────────────────────────────────────────────────────────────────┤
+│  2 pending | Resuming: feature-001                              │
+├─────────────────────────────────────────────────────────────────┤
+│  Commands:                                                      │
+│  /claude-harness:start       Full status + GitHub sync          │
+│  /claude-harness:feature     Add new feature + GitHub issue     │
+│  /claude-harness:orchestrate Spawn multi-agent team             │
+│  /claude-harness:checkpoint  Commit, push, create/update PR     │
+│  /claude-harness:merge-all   Merge PRs + create release         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+This shows:
+- **Plugin version** - Know what version you're running
+- **Status** - Pending features, active work, orchestration state
+- **Commands** - Quick reference for available commands
+
+Claude also receives context about the session state to help with continuity.
+
 ## Commands
 
 | Command | Purpose |
