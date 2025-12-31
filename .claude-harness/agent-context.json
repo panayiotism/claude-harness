@@ -1,13 +1,7 @@
 {
   "version": 1,
-  "lastUpdated": "2025-12-29T14:37:00.000Z",
-  "currentSession": {
-    "id": "session-20251229-162800",
-    "activeFeature": "feature-004",
-    "startedAt": "2025-12-29T16:28:00.000Z",
-    "orchestrationPhase": "completed",
-    "activeAgents": []
-  },
+  "lastUpdated": "2025-12-31T12:00:00.000Z",
+  "currentSession": null,
   "projectContext": {
     "name": "claude-harness",
     "techStack": ["Shell/Bash", "Markdown", "JSON"],
@@ -15,10 +9,23 @@
     "buildCommand": null,
     "testCommand": null
   },
-  "architecturalDecisions": [],
+  "architecturalDecisions": [
+    {
+      "decision": "Orchestrator uses loop-state.json for verification loop; agents use agent-context.json",
+      "madeBy": "feature-005",
+      "timestamp": "2025-12-31T12:00:00.000Z"
+    },
+    {
+      "decision": "Verification is MANDATORY - never trust self-assessment",
+      "madeBy": "feature-005",
+      "timestamp": "2025-12-31T12:00:00.000Z"
+    }
+  ],
   "activeConstraints": [],
   "sharedState": {
-    "discoveredPatterns": {},
+    "discoveredPatterns": {
+      "loopArchitecture": "/implement for single-agent, /orchestrate for multi-agent"
+    },
     "fileIndex": {
       "components": [],
       "apiRoutes": [],
@@ -30,36 +37,11 @@
         "commands/checkpoint.md",
         "commands/orchestrate.md",
         "commands/merge-all.md",
-        "commands/setup.md"
+        "commands/setup.md",
+        "commands/implement.md"
       ]
     }
   },
-  "agentResults": [
-    {
-      "agent": "documentation-engineer",
-      "task": "Update all command files and docs for .claude-harness/ paths",
-      "status": "completed",
-      "filesModified": [
-        "commands/setup.md",
-        "commands/start.md",
-        "commands/feature.md",
-        "commands/checkpoint.md",
-        "commands/orchestrate.md",
-        "commands/merge-all.md",
-        "CLAUDE.md",
-        "README.md"
-      ],
-      "completedAt": "2025-12-29T16:30:00.000Z",
-      "notes": "Updated all 8 files with .claude-harness/ prefix for state files"
-    },
-    {
-      "agent": "code-reviewer",
-      "task": "Review .claude-harness/ refactor for consistency",
-      "status": "completed",
-      "filesModified": [],
-      "completedAt": "2025-12-29T16:32:00.000Z",
-      "notes": "Identified additional files needing updates: setup.sh and templates"
-    }
-  ],
+  "agentResults": [],
   "pendingHandoffs": []
 }

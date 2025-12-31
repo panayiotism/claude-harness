@@ -1,17 +1,33 @@
 {
   "version": 1,
-  "lastUpdated": "2025-12-29T16:20:00.000Z",
-  "activeFeature": null,
-  "summary": "No active feature - v2.1.0 released",
-  "workingFiles": {},
-  "decisions": [],
+  "lastUpdated": "2025-12-31T12:00:00.000Z",
+  "activeFeature": "feature-005",
+  "summary": "Agentic Loops - autonomous loops until verification passes",
+  "workingFiles": {
+    "commands/implement.md": "new - full agentic loop command specification",
+    "commands/feature.md": "modified - added verificationCommands schema",
+    "commands/start.md": "modified - loop state checking in Phase 2",
+    "commands/setup.md": "modified - creates loop-state.json",
+    "commands/orchestrate.md": "modified - added verification loop phase",
+    "commands/checkpoint.md": "modified - clears loop state on completion",
+    "hooks/session-start.sh": "modified - displays active loops",
+    "README.md": "modified - Agentic Loops documentation",
+    ".claude-plugin/plugin.json": "modified - version 2.6.0"
+  },
+  "decisions": [
+    "Orchestrator uses loop-state.json for overall verification (agents use agent-context.json)",
+    "Verification is MANDATORY - never trust self-assessment",
+    "Loop state persists across context windows for session continuity",
+    "maxAttempts defaults to 10, escalates to user on exhaustion"
+  ],
   "codebaseUnderstanding": {
-    "pluginStructure": "Commands in commands/*.md, state in JSON files, config in .claude-plugin/",
-    "checkpointFlow": "8 phases including 1.5 for working context capture",
-    "currentVersion": "v2.1.0"
+    "loopArchitecture": "/implement for single-agent, /orchestrate for multi-agent with shared loop state",
+    "verificationFlow": "Build → Tests → Lint → Typecheck - ALL must pass",
+    "currentVersion": "v2.6.0"
   },
   "nextSteps": [
-    "Add new features with /claude-harness:feature",
-    "Test session continuity in real usage"
+    "Create PR for feature/agentic-loops branch",
+    "Test /implement command in a real project",
+    "Merge to main and release v2.6.0"
   ]
 }

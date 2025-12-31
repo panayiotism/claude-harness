@@ -20,7 +20,8 @@
         "setup.sh"
       ],
       "github": {
-        "branch": "feature/agentic-loops"
+        "branch": "feature/agentic-loops",
+        "prNumber": 9
       }
     }
   ]
