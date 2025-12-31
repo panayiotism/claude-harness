@@ -25,9 +25,27 @@ Arguments: $ARGUMENTS
 4. Add to .claude-harness/feature-list.json with:
    - id, name, description, priority (default 1)
    - passes: false
-   - verification: Generate reasonable verification steps
+   - verification: Generate reasonable verification steps (human-readable)
+   - verificationCommands: Auto-detect or ask user for verification commands:
+     ```json
+     {
+       "build": "npm run build",      // or null if not applicable
+       "tests": "npm run test",       // or null
+       "lint": "npm run lint",        // or null
+       "typecheck": "npx tsc --noEmit", // or null
+       "custom": []                   // additional verification commands
+     }
+     ```
+   - maxAttempts: 10 (default, adjustable)
    - relatedFiles: []
    - github: { issueNumber, prNumber: null, branch }
+
+   **Auto-Detection of Verification Commands:**
+   - Check for package.json and detect available scripts (build, test, lint)
+   - Check for tsconfig.json → add typecheck
+   - Check for pytest.ini/.py files → use pytest
+   - Check for Makefile → use make targets
+   - If unknown, ask user what commands verify the feature is complete
 5. Confirm creation with:
    - Feature ID
    - GitHub issue URL (if created)

@@ -49,6 +49,21 @@ if [ -f "$HARNESS_DIR/agent-context.json" ]; then
     ORCH_PHASE=$(grep -o '"orchestrationPhase"[[:space:]]*:[[:space:]]*"[^"]*"' "$HARNESS_DIR/agent-context.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 fi
 
+# Get active loop state (PRIORITY - shows before other status)
+LOOP_FEATURE=""
+LOOP_STATUS=""
+LOOP_ATTEMPT=""
+LOOP_MAX=""
+LOOP_LAST_APPROACH=""
+if [ -f "$HARNESS_DIR/loop-state.json" ]; then
+    LOOP_STATUS=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$HARNESS_DIR/loop-state.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    if [ "$LOOP_STATUS" = "in_progress" ]; then
+        LOOP_FEATURE=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$HARNESS_DIR/loop-state.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+        LOOP_ATTEMPT=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$HARNESS_DIR/loop-state.json" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
+        LOOP_MAX=$(grep -o '"maxAttempts"[[:space:]]*:[[:space:]]*[0-9]*' "$HARNESS_DIR/loop-state.json" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
+    fi
+fi
+
 # Get last session summary
 LAST_SUMMARY=""
 if [ -f "$HARNESS_DIR/claude-progress.json" ]; then
@@ -56,6 +71,12 @@ if [ -f "$HARNESS_DIR/claude-progress.json" ]; then
 fi
 
 # Build user-visible message (systemMessage) - enhanced box format
+# Check for active loop first (highest priority)
+LOOP_LINE=""
+if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
+    LOOP_LINE="ACTIVE LOOP: $LOOP_FEATURE (attempt $LOOP_ATTEMPT/$LOOP_MAX)"
+fi
+
 # Build status line
 STATUS_LINE=""
 if [ "$PENDING_FEATURES" != "0" ]; then
@@ -73,10 +94,31 @@ if [ -n "$ORCH_FEATURE" ] && [ "$ORCH_FEATURE" != "null" ] && [ "$ORCH_PHASE" !=
 fi
 
 # Build the box output (65 chars wide inner content)
-# Pad status line to fixed width
+# Pad lines to fixed width
 STATUS_PADDED=$(printf "%-61s" "$STATUS_LINE")
 
-USER_MSG="
+# Build box with or without loop section
+if [ -n "$LOOP_LINE" ]; then
+    LOOP_PADDED=$(printf "%-61s" "$LOOP_LINE")
+    RESUME_CMD="/claude-harness:implement $LOOP_FEATURE"
+    RESUME_PADDED=$(printf "%-61s" "Resume: $RESUME_CMD")
+    USER_MSG="
+┌─────────────────────────────────────────────────────────────────┐
+│                     CLAUDE HARNESS v$PLUGIN_VERSION                       │
+├─────────────────────────────────────────────────────────────────┤
+│  $LOOP_PADDED│
+│  $RESUME_PADDED│
+├─────────────────────────────────────────────────────────────────┤
+│  $STATUS_PADDED│
+├─────────────────────────────────────────────────────────────────┤
+│  Commands:                                                      │
+│  /claude-harness:implement   Resume/start agentic loop          │
+│  /claude-harness:start       Full status + GitHub sync          │
+│  /claude-harness:feature     Add new feature + GitHub issue     │
+│  /claude-harness:checkpoint  Commit, push, create/update PR     │
+└─────────────────────────────────────────────────────────────────┘"
+else
+    USER_MSG="
 ┌─────────────────────────────────────────────────────────────────┐
 │                     CLAUDE HARNESS v$PLUGIN_VERSION                       │
 ├─────────────────────────────────────────────────────────────────┤
@@ -85,10 +127,12 @@ USER_MSG="
 │  Commands:                                                      │
 │  /claude-harness:start       Full status + GitHub sync          │
 │  /claude-harness:feature     Add new feature + GitHub issue     │
+│  /claude-harness:implement   Start agentic loop for feature     │
 │  /claude-harness:orchestrate Spawn multi-agent team             │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
 │  /claude-harness:merge-all   Merge PRs + create release         │
 └─────────────────────────────────────────────────────────────────┘"
+fi
 
 # Add version update notice if applicable
 if [ -n "$VERSION_MSG" ]; then
@@ -109,6 +153,11 @@ fi
 
 if [ "$TOTAL_FEATURES" != "0" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nFeatures: $PENDING_FEATURES pending / $TOTAL_FEATURES total"
+fi
+
+# Add active loop context (PRIORITY)
+if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress\n\nIMPORTANT: Resume the loop with: /claude-harness:implement $LOOP_FEATURE\nThe loop will continue from the last attempt, analyzing previous errors to try a different approach."
 fi
 
 if [ -n "$ORCH_FEATURE" ] && [ "$ORCH_FEATURE" != "null" ] && [ "$ORCH_PHASE" != "completed" ]; then

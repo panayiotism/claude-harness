@@ -247,6 +247,28 @@ create_file ".claude-harness/agent-memory.json" '{
   }
 }'
 
+# 3e. loop-state.json (agentic loop state tracking)
+create_file ".claude-harness/loop-state.json" '{
+  "version": 1,
+  "feature": null,
+  "featureName": null,
+  "status": "idle",
+  "attempt": 0,
+  "maxAttempts": 10,
+  "startedAt": null,
+  "lastAttemptAt": null,
+  "verification": {
+    "build": null,
+    "tests": null,
+    "lint": null,
+    "typecheck": null,
+    "custom": []
+  },
+  "history": [],
+  "lastCheckpoint": null,
+  "escalationRequested": false
+}'
+
 # 4. init.sh (inside .claude-harness for organization)
 create_file ".claude-harness/init.sh" '#!/bin/bash
 # Development Environment Initializer
@@ -474,7 +496,44 @@ Requires GitHub MCP to be configured.
    - Any failures or skipped items
 ' "command"
 
-# 11. /orchestrate command (multi-agent orchestration)
+# 11. /implement command (agentic loop execution)
+create_file ".claude/commands/implement.md" '---
+description: Start or resume an agentic loop to implement a feature until verification passes
+argumentsPrompt: Feature ID to implement (e.g., feature-001)
+---
+
+Implement a feature using a persistent agentic loop that continues until verification passes:
+
+Arguments: $ARGUMENTS
+
+## Core Principle
+"Claude marked features complete without proper testing" - NEVER trust self-assessment.
+Always run actual verification commands.
+
+## Loop Cycle
+
+1. **Load State**: Read .claude-harness/loop-state.json - resume or start new
+2. **Health Check**: Verify environment works (build succeeds)
+3. **Attempt**: Execute implementation with planned approach
+4. **Verify (MANDATORY)**: Run ALL verification commands (build, tests, lint, typecheck)
+5. **On Success**: Git commit, mark feature complete, report
+6. **On Failure**: Analyze errors, increment attempt, retry with different approach
+7. **On Max Attempts**: Escalate to user with full history
+
+## Session Continuity
+
+Loop state persists in .claude-harness/loop-state.json across context windows.
+SessionStart hook shows active loops and prompts to resume.
+
+## Commands
+
+- Start/resume: `/claude-harness:implement feature-001`
+- With more attempts: `/claude-harness:implement feature-001 --max-attempts 20`
+
+See full documentation in plugin commands/implement.md
+' "command"
+
+# 12. /orchestrate command (multi-agent orchestration)
 create_file ".claude/commands/orchestrate.md" '---
 description: Orchestrate multi-agent teams for complex features
 argumentsPrompt: Feature ID or description to orchestrate
@@ -585,12 +644,14 @@ echo "  - .claude-harness/feature-list.json          (feature tracking)"
 echo "  - .claude-harness/feature-archive.json       (completed feature archive)"
 echo "  - .claude-harness/agent-context.json         (multi-agent shared context)"
 echo "  - .claude-harness/agent-memory.json          (multi-agent persistent memory)"
+echo "  - .claude-harness/loop-state.json            (agentic loop state)"
 echo "  - .claude-harness/.plugin-version            (plugin version tracking)"
 echo "  - .claude-harness/init.sh                    (startup script)"
 echo "  - .claude/settings.local.json"
 echo "  - .claude/commands/start.md"
 echo "  - .claude/commands/checkpoint.md"
 echo "  - .claude/commands/feature.md"
+echo "  - .claude/commands/implement.md"
 echo "  - .claude/commands/merge-all.md"
 echo "  - .claude/commands/orchestrate.md"
 echo ""
@@ -626,6 +687,7 @@ echo ""
 echo "Available commands:"
 echo "  /start       - Start session (shows status, GitHub dashboard, syncs issues)"
 echo "  /feature     - Add a feature (creates GitHub issue if MCP configured)"
+echo "  /implement   - Start agentic loop (runs until verification passes)"
 echo "  /orchestrate - Spawn multi-agent team for complex features"
 echo "  /checkpoint  - Save progress (commits, creates/updates PR)"
 echo "  /merge-all   - Merge all PRs, close issues, delete branches"

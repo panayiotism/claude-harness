@@ -145,6 +145,7 @@ Claude also receives context about the session state to help with continuity.
 | `/claude-harness:setup` | Initialize harness in current project |
 | `/claude-harness:start` | Start session - shows status, GitHub dashboard, syncs issues |
 | `/claude-harness:feature <desc>` | Add feature - creates GitHub issue + branch (if MCP configured) |
+| `/claude-harness:implement <id>` | Start agentic loop - runs until verification passes |
 | `/claude-harness:orchestrate <id>` | Spawn multi-agent team for complex features |
 | `/claude-harness:checkpoint` | Save progress - commits, pushes, creates/updates PR, persists agent memory |
 | `/claude-harness:merge-all` | Merge all PRs, close issues, delete branches (dependency order) |
@@ -162,6 +163,7 @@ When you run `/claude-harness:setup`, the following files are created in your pr
 | `.claude-harness/working-context.json` | Active working state for session continuity |
 | `.claude-harness/agent-context.json` | Multi-agent shared context (decisions, handoffs) |
 | `.claude-harness/agent-memory.json` | Persistent agent memory (patterns, performance) |
+| `.claude-harness/loop-state.json` | Agentic loop state (attempts, history, verification) |
 | `.claude-harness/init.sh` | Environment startup script |
 
 ## GitHub MCP Integration (Optional)
@@ -208,6 +210,84 @@ Creates:
 - Creates version tag (auto-calculated or specified)
 - Generates GitHub release with changelog
 - Cleans up merged branches
+
+## Agentic Loops
+
+**The core innovation**: Autonomous loops that continue until verification passes, even across multiple context windows.
+
+Based on [Anthropic's insight](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents): "Claude marked features complete without proper testing" - so we **never trust self-assessment**. All verification is mandatory.
+
+### How It Works
+
+```
+/claude-harness:implement feature-001
+```
+
+The loop runs autonomously:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  AGENTIC LOOP: Add user authentication                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Attempt 3/10                                                   │
+│  ├─ Health check: ✅ Build passing                              │
+│  ├─ Implementation: Fixed JWT validation                        │
+│  ├─ Verification:                                               │
+│  │   ├─ Build:     ✅ PASSED                                    │
+│  │   ├─ Tests:     ✅ PASSED                                    │
+│  │   ├─ Lint:      ✅ PASSED                                    │
+│  │   └─ Typecheck: ✅ PASSED                                    │
+│  └─ Result: ✅ SUCCESS                                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Feature complete in 3 attempts! Committed: abc123f             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Session Continuity
+
+Context windows are no longer a limitation. Loop state persists in `.claude-harness/loop-state.json`:
+
+```
+SESSION 1           SESSION 2           SESSION 3
+┌─────────┐        ┌─────────┐        ┌─────────┐
+│ Attempt │        │ Attempt │        │ Attempt │
+│  1, 2   │───────▶│  3, 4   │───────▶│  5 ✅   │
+└─────────┘        └─────────┘        └─────────┘
+```
+
+On session start, you'll see:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🔄 ACTIVE LOOP: feature-001 (attempt 4/10)                     │
+│     Resume: /claude-harness:implement feature-001               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Loop State Schema
+
+`.claude-harness/loop-state.json`:
+```json
+{
+  "feature": "feature-001",
+  "status": "in_progress",
+  "attempt": 3,
+  "maxAttempts": 10,
+  "verification": {
+    "build": "npm run build",
+    "tests": "npm run test",
+    "lint": "npm run lint",
+    "typecheck": "npx tsc --noEmit"
+  },
+  "history": [
+    {
+      "attempt": 1,
+      "approach": "Created auth routes",
+      "result": "failed",
+      "errors": ["TS2322: Type mismatch"]
+    }
+  ]
+}
+```
 
 ## Multi-Agent Orchestration
 
@@ -343,12 +423,13 @@ Alternatively, commit specific harness files and ignore others:
 
 3. Update the description if adding major features
 
-**Current version: 2.5.1**
+**Current version: 2.6.0**
 
 ### Changelog
 
 | Version | Changes |
 |---------|---------|
+| 2.6.0 | **Agentic Loops**: `/implement` command runs autonomous loops until verification passes. Persists across context windows via `loop-state.json`. SessionStart hook shows active loops. Features now include `verificationCommands` for automated testing. |
 | 2.5.1 | Show full command paths in session start output for easy copy/paste |
 | 2.5.0 | Enhanced terminal output with box-drawn UI showing version, status, and command reference on session start |
 | 2.4.0 | Fixed hooks not loading (added `hooks` field to plugin.json). SessionStart hook now outputs `systemMessage` (user-visible) + `additionalContext` (Claude-visible) |
