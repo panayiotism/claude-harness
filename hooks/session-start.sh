@@ -254,13 +254,15 @@ fi
 # Add version update notice if applicable
 if [ -n "$VERSION_MSG" ]; then
     USER_MSG="$USER_MSG
-⚠️  $VERSION_MSG - run ./setup.sh --force-commands to update"
+     ⚠️  $VERSION_MSG
+     To update commands: bash \"$CLAUDE_PLUGIN_ROOT/setup.sh\" --force-commands"
 fi
 
 # Add migration notice if needed
 if [ "$NEEDS_MIGRATION" = true ]; then
     USER_MSG="$USER_MSG
-🔄 v2.x detected - run ./setup.sh --migrate to upgrade to v3.0 Memory Architecture"
+     🔄 v2.x detected - To upgrade to v3.0 Memory Architecture:
+     bash \"$CLAUDE_PLUGIN_ROOT/setup.sh\" --migrate"
 fi
 
 # ============================================================================
