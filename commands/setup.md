@@ -146,7 +146,31 @@ Create the following files if they don't exist:
 }
 ```
 
-7. **CLAUDE.md** - Project context (only if it doesn't exist)
+7. **.claude-harness/loop-state.json** - Agentic loop state tracking
+```json
+{
+  "version": 1,
+  "feature": null,
+  "featureName": null,
+  "status": "idle",
+  "attempt": 0,
+  "maxAttempts": 10,
+  "startedAt": null,
+  "lastAttemptAt": null,
+  "verification": {
+    "build": null,
+    "tests": null,
+    "lint": null,
+    "typecheck": null,
+    "custom": []
+  },
+  "history": [],
+  "lastCheckpoint": null,
+  "escalationRequested": false
+}
+```
+
+8. **CLAUDE.md** - Project context (only if it doesn't exist)
    - Detect tech stack from package.json, requirements.txt, Cargo.toml, go.mod, etc.
    - Include session startup protocol referencing harness commands
    - Include common commands for the detected stack
