@@ -193,10 +193,9 @@ if [ -n "$LOOP_LINE" ]; then
 │  $STATUS_PADDED│
 │  $MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  Commands:                                                      │
-│  /claude-harness:implement   Resume agentic loop                │
-│  /claude-harness:start       Compile context + GitHub sync      │
-│  /claude-harness:checkpoint  Commit, push, persist memory       │
+│  /claude-harness:implement    Resume agentic loop               │
+│  /claude-harness:checkpoint   Commit + persist memory           │
+│  /claude-harness:check-approach  Validate approach vs failures  │
 └─────────────────────────────────────────────────────────────────┘"
     else
         USER_MSG="
@@ -224,12 +223,15 @@ elif [ "$IS_V3" = true ]; then
 │  $STATUS_PADDED│
 │  $MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  Commands:                                                      │
-│  /claude-harness:start        Compile context + GitHub sync     │
-│  /claude-harness:feature      Add feature (test-driven)         │
-│  /claude-harness:plan-feature Plan before implementation        │
-│  /claude-harness:implement    Start agentic loop                │
-│  /claude-harness:checkpoint   Commit + persist memory           │
+│  /claude-harness:start          Compile context + GitHub sync   │
+│  /claude-harness:feature        Add feature (test-driven)       │
+│  /claude-harness:generate-tests Generate tests before coding    │
+│  /claude-harness:plan-feature   Plan before implementation      │
+│  /claude-harness:check-approach Validate approach vs failures   │
+│  /claude-harness:implement      Start agentic loop              │
+│  /claude-harness:orchestrate    Spawn multi-agent team          │
+│  /claude-harness:checkpoint     Commit + persist memory         │
+│  /claude-harness:merge-all      Merge PRs + archive features    │
 └─────────────────────────────────────────────────────────────────┘"
 else
     # v2.x display
