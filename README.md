@@ -7,51 +7,64 @@ Based on [Anthropic's engineering article](https://www.anthropic.com/engineering
 - [Agent-Foreman](https://github.com/mylukin/agent-foreman) - Task management patterns
 - [Autonomous-Coding](https://github.com/anthropics/claude-quickstarts/tree/main/autonomous-coding) - Test-driven approach
 
-## TL;DR - What's New in v3.0
-
-```mermaid
-flowchart TB
-    subgraph Memory["4-Layer Memory Architecture"]
-        W["Working Context<br/>(rebuilt each session)"]
-        E["Episodic Memory<br/>(rolling decisions)"]
-        S["Semantic Memory<br/>(persistent knowledge)"]
-        P["Procedural Memory<br/>(success/failure patterns)"]
-    end
-
-    subgraph Features["v3.0 Features"]
-        FP["Failure Prevention<br/>Learn from mistakes"]
-        TD["Test-Driven<br/>Generate tests first"]
-        TP["Two-Phase Pattern<br/>Plan → Implement"]
-        IA["Impact Analysis<br/>Warn on breaking changes"]
-    end
-
-    W --> FP
-    P --> FP
-    S --> TD
-    E --> TP
-```
-
-## Quick Start
+## TL;DR - End-to-End Workflow
 
 ```bash
-# Install plugin
+# 1. SETUP - Install plugin and initialize in your project
 claude plugin install claude-harness github:panayiotism/claude-harness
+cd your-project && claude
+/claude-harness:setup                    # Creates .claude-harness/ with memory architecture
 
-# In your project
-claude
-/claude-harness:setup
+# 2. START SESSION - Compile fresh context from memory layers
+/claude-harness:start                    # Shows status, syncs GitHub, compiles context
 
-# Add a feature (generates tests first!)
-/claude-harness:feature Add user authentication
+# 3. ADD FEATURE - Creates GitHub issue + branch
+/claude-harness:feature Add user authentication with JWT tokens
 
-# Plan before implementing
+# 4. GENERATE TESTS - Write tests BEFORE implementation (TDD)
+/claude-harness:generate-tests feature-001
+
+# 5. PLAN - Analyze impact, check past failures, create implementation plan
 /claude-harness:plan-feature feature-001
 
-# Implement until all tests pass
-/claude-harness:implement feature-001
+# 6. CHECK APPROACH (optional) - Validate your approach against past failures
+/claude-harness:check-approach "Using localStorage for token storage"
 
-# Save progress + persist memory
-/claude-harness:checkpoint
+# 7. IMPLEMENT - Agentic loop runs until ALL tests pass
+/claude-harness:implement feature-001    # Retries up to 10x, learns from failures
+
+# 8. CHECKPOINT - Commit, push, create PR, persist to memory
+/claude-harness:checkpoint               # Saves successful approach to memory
+
+# 9. FOR COMPLEX FEATURES - Spawn multi-agent team instead of /implement
+/claude-harness:orchestrate feature-001  # Coordinates react-specialist, backend-developer, etc.
+
+# 10. MERGE & RELEASE - When all PRs ready
+/claude-harness:merge-all                # Merges PRs, closes issues, archives features
+```
+
+### What Happens Behind the Scenes
+
+```
+/start           → Compiles working context from 4 memory layers
+/feature         → Creates issue + branch + feature entry (status: pending)
+/generate-tests  → Writes test files that FAIL (no implementation yet)
+/plan-feature    → Checks impact graph + failure patterns → creates plan
+/implement       → Loop: implement → verify → if fail: record + retry
+                   On success: saves approach to procedural/successes.json
+                   On failure: saves to procedural/failures.json (prevents repeat)
+/checkpoint      → Persists decisions to episodic, patterns to semantic
+/merge-all       → Merges in dependency order, archives completed features
+```
+
+### v3.0 Memory Architecture
+
+```
+.claude-harness/memory/
+├── working/     → Rebuilt each session (fresh, relevant context)
+├── episodic/    → Rolling window of 50 recent decisions
+├── semantic/    → Persistent project architecture & patterns
+└── procedural/  → Append-only success/failure logs (never repeat mistakes)
 ```
 
 ## Session Start Hook
@@ -65,17 +78,20 @@ When you start Claude Code in a harness-enabled project:
 │  P:2 WIP:1 Tests:1 | Active: feature-001                        │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
 ├─────────────────────────────────────────────────────────────────┤
-│  Commands:                                                      │
-│  /claude-harness:start        Compile context + GitHub sync     │
-│  /claude-harness:feature      Add feature (test-driven)         │
-│  /claude-harness:plan-feature Plan before implementation        │
-│  /claude-harness:implement    Start agentic loop                │
-│  /claude-harness:checkpoint   Commit + persist memory           │
+│  /claude-harness:start          Compile context + GitHub sync   │
+│  /claude-harness:feature        Add feature (test-driven)       │
+│  /claude-harness:generate-tests Generate tests before coding    │
+│  /claude-harness:plan-feature   Plan before implementation      │
+│  /claude-harness:check-approach Validate approach vs failures   │
+│  /claude-harness:implement      Start agentic loop              │
+│  /claude-harness:orchestrate    Spawn multi-agent team          │
+│  /claude-harness:checkpoint     Commit + persist memory         │
+│  /claude-harness:merge-all      Merge PRs + archive features    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 Shows:
-- **Feature status**: Pending / Work-in-progress / Needs tests
+- **Feature status**: P (Pending) / WIP (Work-in-progress) / Tests (Needs tests)
 - **Memory stats**: Decisions recorded, failures to avoid, successes to reuse
 - **Failure prevention**: If failures exist, warns before implementing
 
