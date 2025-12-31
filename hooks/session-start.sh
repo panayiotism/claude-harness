@@ -83,11 +83,11 @@ USER_MSG="
 │  $STATUS_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
-│    :start        Full status + GitHub sync                      │
-│    :feature      Add new feature + GitHub issue                 │
-│    :orchestrate  Spawn multi-agent team                         │
-│    :checkpoint   Commit, push, create/update PR                 │
-│    :merge-all    Merge PRs + create release                     │
+│  /claude-harness:start       Full status + GitHub sync          │
+│  /claude-harness:feature     Add new feature + GitHub issue     │
+│  /claude-harness:orchestrate Spawn multi-agent team             │
+│  /claude-harness:checkpoint  Commit, push, create/update PR     │
+│  /claude-harness:merge-all   Merge PRs + create release         │
 └─────────────────────────────────────────────────────────────────┘"
 
 # Add version update notice if applicable
