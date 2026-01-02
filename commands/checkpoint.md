@@ -64,25 +64,34 @@ Create a checkpoint of the current session:
 
 3. ALWAYS commit changes:
    - Stage all modified files (except secrets/env files)
+   - Check loop state to determine commit prefix:
+     - Read `.claude-harness/loops/state.json` (or legacy `loop-state.json`)
+     - If `type` is "fix": Use `fix({linkedTo.featureId}): <description>` prefix
+     - If `type` is "feature" or undefined: Use `feat({feature-id}): <description>` prefix
    - Write descriptive commit message summarizing the work
+   - For fixes, include: `Fixes #{fix-issue-number}` and `Related to #{original-issue-number}`
    - Push to remote
 
 ## Phase 4: PR Management (if GitHub MCP available)
 
-4. If on a feature branch and GitHub MCP is available:
+4. If on a feature/fix branch and GitHub MCP is available:
+   - Check loop state type to determine if this is a feature or fix
    - Check if PR exists for this branch
    - If no PR exists:
      - Create PR with descriptive title following conventional commits:
-       - `feat: <description>` for features
-       - `fix: <description>` for bug fixes
+       - For features: `feat: <description>`
+       - For fixes: `fix: <description>`
        - `refactor: <description>` for refactoring
        - `docs: <description>` for documentation
      - Body should include:
        - Link to issue: "Closes #XX" or "Fixes #XX"
+       - For fixes: Also reference original feature issue: "Related to #{original-issue}"
        - Summary of changes (bullet points)
        - Testing instructions
        - Breaking changes (if any)
-     - Labels: Copy from linked issue + add `status:ready-for-review`
+     - Labels:
+       - For features: Copy from linked issue + add `status:ready-for-review`
+       - For fixes: Add `bugfix` + `linked-to:{feature-id}` + `status:ready-for-review`
    - If PR exists:
      - Update PR description with latest progress
      - Add comment summarizing checkpoint changes
@@ -91,12 +100,14 @@ Create a checkpoint of the current session:
      - CI/CD status
      - Review status
      - Merge conflicts
-   - Update .claude-harness/feature-list.json with prNumber
+   - Update tracking:
+     - For features: Update `.claude-harness/features/active.json` features array with prNumber
+     - For fixes: Update `.claude-harness/features/active.json` fixes array with prNumber
    - Report PR URL and status
 
    **PR Title Convention (Conventional Commits):**
-   - `feat:` New feature
-   - `fix:` Bug fix
+   - `feat:` New feature (triggers MINOR version bump)
+   - `fix:` Bug fix (triggers PATCH version bump)
    - `refactor:` Code refactoring
    - `docs:` Documentation
    - `test:` Tests
@@ -110,17 +121,22 @@ Create a checkpoint of the current session:
    - PR URL, CI status, review status
    - Remaining work
 
-## Phase 6: Clear Loop State (if feature completed)
+## Phase 6: Clear Loop State (if feature/fix completed)
 
 6. If an agentic loop just completed successfully:
-   - Read `.claude-harness/loop-state.json`
-   - If `status` is "completed" and matches current feature:
+   - Read `.claude-harness/loops/state.json` (or legacy `loop-state.json`)
+   - If `status` is "completed" and matches current feature/fix:
      - Reset loop state to idle:
        ```json
        {
-         "version": 1,
+         "version": 3,
          "feature": null,
          "featureName": null,
+         "type": "feature",
+         "linkedTo": {
+           "featureId": null,
+           "featureName": null
+         },
          "status": "idle",
          "attempt": 0,
          "maxAttempts": 10,
@@ -132,21 +148,32 @@ Create a checkpoint of the current session:
          "escalationRequested": false
        }
        ```
-     - Report: "Loop completed and reset"
+     - Report: "Loop completed and reset" (indicate if it was a feature or fix)
    - If loop is still in progress, preserve state for session continuity
 
-## Phase 7: Archive Completed Features
+## Phase 7: Archive Completed Features and Fixes
 
-7. Archive completed features (to prevent .claude-harness/feature-list.json from growing too large):
-   - Read .claude-harness/feature-list.json
-   - Find all features with passes=true
+7. Archive completed features and fixes:
+   - Read `.claude-harness/features/active.json` (or legacy `feature-list.json`)
+
+   **Archive features:**
+   - Find all features with status="passing" or passes=true
    - If any completed features exist:
-     - Read .claude-harness/feature-archive.json (create if it does not exist with {"version":1,"archived":[]})
+     - Read `.claude-harness/features/archive.json` (create if missing with `{"version":3,"archived":[],"archivedFixes":[]}`)
      - Add archivedAt timestamp to each completed feature
-     - Append completed features to the archived[] array
-     - Write updated .claude-harness/feature-archive.json
-     - Remove completed features from .claude-harness/feature-list.json and save
+     - Append completed features to the `archived[]` array
+     - Remove completed features from features array
    - Report: "Archived X completed features"
+
+   **Archive fixes:**
+   - Find all fixes with status="passing"
+   - If any completed fixes exist:
+     - Add archivedAt timestamp to each completed fix
+     - Append completed fixes to the `archivedFixes[]` array
+     - Remove completed fixes from fixes array
+   - Report: "Archived X completed fixes"
+
+   - Write updated `.claude-harness/features/active.json` and `.claude-harness/features/archive.json`
 
 ## Phase 8: Persist Orchestration Memory
 

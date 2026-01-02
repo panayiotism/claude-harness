@@ -2,51 +2,186 @@
 description: Initialize harness in current project - creates tracking files
 ---
 
-Initialize the claude-harness in the current project directory.
+Initialize or upgrade claude-harness in the current project directory.
 
-## Phase 0: Migration Check (for upgrades from v2.1.0 or earlier)
+## Auto-Detection
 
-Before creating any files, check for legacy root-level harness files:
+This command automatically detects what needs to be done:
+- **Fresh install**: Creates v3.0 structure from scratch
+- **v2.x upgrade**: Migrates existing files to v3.0 memory architecture
+- **Update**: Refreshes plugin version tracking
 
-1. Check if ANY of these files exist in the project root:
-   - `feature-list.json`
-   - `feature-archive.json`
-   - `claude-progress.json`
-   - `working-context.json`
-   - `agent-context.json`
-   - `agent-memory.json`
+## Phase 0: Version Detection
 
-2. If legacy files exist AND `.claude-harness/` directory does NOT exist:
-   - Create `.claude-harness/` directory
-   - Move each existing file to `.claude-harness/`:
-     - `mv feature-list.json .claude-harness/` (if exists)
-     - `mv feature-archive.json .claude-harness/` (if exists)
-     - `mv claude-progress.json .claude-harness/` (if exists)
-     - `mv working-context.json .claude-harness/` (if exists)
-     - `mv agent-context.json .claude-harness/` (if exists)
-     - `mv agent-memory.json .claude-harness/` (if exists)
-   - Report: "Migrated X existing harness files to .claude-harness/"
+1. Check if `.claude-harness/memory/` directory exists:
+   - If YES: Already v3.0, skip to Phase 3 (update version)
+   - If NO: Continue to Phase 1
 
-3. If legacy files exist AND `.claude-harness/` directory ALREADY exists:
-   - DO NOT overwrite - the `.claude-harness/` files take precedence
-   - Warn user: "Found legacy files in root that were not migrated. Please manually review and delete if no longer needed: [list files]"
+## Phase 1: Migration from v2.x (if applicable)
 
-4. Check if `init.sh` exists in project root (legacy location):
-   - If root `init.sh` exists AND `.claude-harness/init.sh` does NOT exist:
-     - Move `init.sh` to `.claude-harness/init.sh`
-     - Report: "Moved init.sh to .claude-harness/"
-   - If root `init.sh` exists AND `.claude-harness/init.sh` ALREADY exists:
-     - Warn user: "Found legacy init.sh in root. Please manually review and delete if no longer needed."
+Check for existing v2.x harness structure:
 
-5. Continue with Phase 1 (create missing files)
+1. If `.claude-harness/` exists BUT `.claude-harness/memory/` does NOT exist:
+   - This is a v2.x installation, migrate it:
 
-## Phase 1: Create Harness Files
+   **Create v3.0 directory structure:**
+   ```bash
+   mkdir -p .claude-harness/memory/working
+   mkdir -p .claude-harness/memory/episodic
+   mkdir -p .claude-harness/memory/semantic
+   mkdir -p .claude-harness/memory/procedural
+   mkdir -p .claude-harness/features
+   mkdir -p .claude-harness/impact
+   mkdir -p .claude-harness/agents
+   mkdir -p .claude-harness/loops
+   ```
 
-Create the `.claude-harness/` directory if it does not exist.
+   **Migrate existing files:**
+   - If `agent-memory.json` exists: Extract `failedApproaches` → `memory/procedural/failures.json`, `successfulApproaches` → `memory/procedural/successes.json`
+   - If `working-context.json` exists: Move to `memory/working/context.json`
+   - If `agent-context.json` exists: Move to `agents/context.json`
+   - If `loop-state.json` exists: Move to `loops/state.json`
+   - Keep `feature-list.json`, `feature-archive.json`, `claude-progress.json` in place (backward compatible)
 
-Create the following files if they don't exist:
+   **Create memory layer files:**
+   - `memory/episodic/decisions.json` with empty entries array
+   - `memory/semantic/architecture.json` with project structure
+   - `memory/procedural/patterns.json` with empty entries
 
-1. **.claude-harness/feature-list.json** - Feature tracking
+   **Create marker file:**
+   - Write `3.0.0` to `.claude-harness/.migrated-from-v2`
+
+   Report: "Migrated v2.x to v3.0 Memory Architecture"
+
+2. Check for legacy root-level files (v2.1.0 or earlier):
+   - If `feature-list.json`, `claude-progress.json`, etc. exist in project root:
+   - Move them to `.claude-harness/` first, then apply v3.0 migration
+
+## Phase 2: Fresh v3.0 Installation
+
+If no `.claude-harness/` directory exists, create full v3.0 structure:
+
+**Directory structure:**
+```
+.claude-harness/
+├── memory/
+│   ├── working/context.json
+│   ├── episodic/decisions.json
+│   ├── semantic/architecture.json
+│   └── procedural/
+│       ├── failures.json
+│       ├── successes.json
+│       └── patterns.json
+├── features/
+│   └── active.json
+├── impact/
+│   └── dependency-graph.json
+├── agents/
+│   └── context.json
+├── loops/
+│   └── state.json
+├── feature-list.json (backward compat)
+├── feature-archive.json
+├── claude-progress.json
+└── init.sh
+```
+
+**File contents - see schemas below**
+
+## Phase 3: Update Plugin Version
+
+Always update the plugin version tracking:
+1. Read current plugin version from the installed plugin
+2. Write to `.claude-harness/.plugin-version`
+3. Report version recorded
+
+## File Schemas
+
+### memory/working/context.json
+```json
+{
+  "computedAt": null,
+  "sessionId": null,
+  "activeFeature": null,
+  "relevantMemory": {
+    "recentDecisions": [],
+    "projectPatterns": [],
+    "avoidApproaches": []
+  },
+  "currentTask": null,
+  "compilationLog": []
+}
+```
+
+### memory/episodic/decisions.json
+```json
+{
+  "maxEntries": 50,
+  "entries": []
+}
+```
+
+### memory/semantic/architecture.json
+```json
+{
+  "projectType": null,
+  "techStack": {},
+  "structure": {
+    "entryPoints": [],
+    "components": [],
+    "api": [],
+    "tests": []
+  },
+  "patterns": {},
+  "discoveredAt": "<current timestamp>",
+  "lastUpdated": "<current timestamp>"
+}
+```
+
+### memory/procedural/failures.json
+```json
+{
+  "entries": []
+}
+```
+
+### memory/procedural/successes.json
+```json
+{
+  "entries": []
+}
+```
+
+### features/active.json
+```json
+{
+  "features": []
+}
+```
+
+### loops/state.json
+```json
+{
+  "version": 1,
+  "feature": null,
+  "status": "idle",
+  "attempt": 0,
+  "maxAttempts": 10,
+  "history": []
+}
+```
+
+### agents/context.json
+```json
+{
+  "version": 1,
+  "currentSession": null,
+  "agentResults": [],
+  "pendingHandoffs": []
+}
+```
+
+### feature-list.json (backward compatible)
 ```json
 {
   "version": 1,
@@ -54,147 +189,28 @@ Create the following files if they don't exist:
 }
 ```
 
-2. **.claude-harness/feature-archive.json** - Completed feature archive (auto-populated by /claude-harness:checkpoint when features have passes=true)
+### claude-progress.json
 ```json
 {
-  "version": 1,
-  "archived": []
-}
-```
-
-3. **.claude-harness/claude-progress.json** - Session continuity
-```json
-{
-  "lastUpdated": "<current ISO timestamp>",
+  "lastUpdated": "<current timestamp>",
   "currentProject": "<directory name>",
   "lastSession": {
     "summary": "Initial harness setup",
     "completedTasks": [],
     "blockers": [],
-    "nextSteps": ["Add features with /claude-harness:feature", "Use /claude-harness:orchestrate for complex features", "Use /claude-harness:checkpoint to save progress"]
-  },
-  "recentChanges": [],
-  "knownIssues": [],
-  "environmentState": {
-    "devServerRunning": false,
-    "lastSuccessfulBuild": null,
-    "lastTypeCheck": null
+    "nextSteps": ["Run /claude-harness:start to begin"]
   }
 }
 ```
 
-4. **.claude-harness/agent-context.json** - Multi-agent orchestration shared context
-```json
-{
-  "version": 1,
-  "lastUpdated": "<current ISO timestamp>",
-  "currentSession": null,
-  "projectContext": {
-    "name": "<directory name>",
-    "techStack": ["<detected tech stack>"],
-    "testingFramework": null,
-    "buildCommand": null,
-    "testCommand": null
-  },
-  "architecturalDecisions": [],
-  "activeConstraints": [],
-  "sharedState": {
-    "discoveredPatterns": {},
-    "fileIndex": {
-      "components": [],
-      "apiRoutes": [],
-      "tests": [],
-      "configs": []
-    }
-  },
-  "agentResults": [],
-  "pendingHandoffs": []
-}
-```
+## After Setup
 
-5. **.claude-harness/agent-memory.json** - Multi-agent orchestration persistent memory
-```json
-{
-  "version": 1,
-  "lastUpdated": "<current ISO timestamp>",
-  "learnedPatterns": {
-    "codePatterns": [],
-    "namingConventions": {},
-    "projectSpecificRules": []
-  },
-  "successfulApproaches": [],
-  "failedApproaches": [],
-  "agentPerformance": {},
-  "codebaseInsights": {
-    "hotspots": [],
-    "technicalDebt": []
-  }
-}
-```
-
-6. **.claude-harness/working-context.json** - Active working state for session continuity
-```json
-{
-  "version": 1,
-  "lastUpdated": null,
-  "activeFeature": null,
-  "summary": null,
-  "workingFiles": {},
-  "decisions": [],
-  "codebaseUnderstanding": {},
-  "nextSteps": []
-}
-```
-
-7. **.claude-harness/loop-state.json** - Agentic loop state tracking
-```json
-{
-  "version": 1,
-  "feature": null,
-  "featureName": null,
-  "status": "idle",
-  "attempt": 0,
-  "maxAttempts": 10,
-  "startedAt": null,
-  "lastAttemptAt": null,
-  "verification": {
-    "build": null,
-    "tests": null,
-    "lint": null,
-    "typecheck": null,
-    "custom": []
-  },
-  "history": [],
-  "lastCheckpoint": null,
-  "escalationRequested": false
-}
-```
-
-8. **CLAUDE.md** - Project context (only if it doesn't exist)
-   - Detect tech stack from package.json, requirements.txt, Cargo.toml, go.mod, etc.
-   - Include session startup protocol referencing harness commands
-   - Include common commands for the detected stack
-
-8. **.claude-harness/init.sh** - Environment startup script
-```bash
-#!/bin/bash
-echo "=== Dev Environment Setup ==="
-echo "Working directory: $(pwd)"
-# Show git history, progress, pending features, orchestration state
-```
-
-9. **.claude-harness/.plugin-version** - Plugin version tracking (for update detection)
-   - Read the current plugin version from the installed `claude-harness` plugin's `.claude-plugin/plugin.json`
-   - Write just the version number to this file (e.g., "2.3.0")
-   - Used by SessionStart hook to detect plugin updates and prompt for re-running setup
-
-After creating files, report:
-- Files created vs skipped (already exist)
-- Detected tech stack
-- Plugin version recorded
+Report:
+- What was done (fresh install / migration / version update)
+- Files created or migrated
+- Current plugin version
 - Next steps:
-  1. Use /claude-harness:feature to add features to track
-  2. Use /claude-harness:orchestrate to spawn multi-agent teams for complex features
-  3. Use /claude-harness:checkpoint to save progress and persist agent memory
-
-Note: This command will NOT overwrite existing files. To update commands, reinstall the plugin.
+  1. Run `/claude-harness:start` to compile context and sync GitHub
+  2. Use `/claude-harness:feature` to add features
+  3. Use `/claude-harness:generate-tests` before implementation
+  4. Use `/claude-harness:implement` for agentic loops
