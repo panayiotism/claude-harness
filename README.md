@@ -39,7 +39,10 @@ cd your-project && claude
 # 9. FOR COMPLEX FEATURES - Spawn multi-agent team instead of /implement
 /claude-harness:orchestrate feature-001  # Coordinates react-specialist, backend-developer, etc.
 
-# 10. MERGE & RELEASE - When all PRs ready
+# 10. FIX BUGS IN COMPLETED FEATURES
+/claude-harness:fix feature-001 "Token expiry not handled"  # Creates linked bug fix
+
+# 11. MERGE & RELEASE - When all PRs ready
 /claude-harness:merge-all                # Merges PRs, closes issues, archives features
 ```
 
@@ -53,6 +56,9 @@ cd your-project && claude
 /implement       → Loop: implement → verify → if fail: record + retry
                    On success: saves approach to procedural/successes.json
                    On failure: saves to procedural/failures.json (prevents repeat)
+/fix             → Creates bug fix linked to original feature
+                   Same agentic loop, shares memory context with original
+                   Commits with fix: prefix (PATCH version bump)
 /checkpoint      → Persists decisions to episodic, patterns to semantic
 /merge-all       → Merges in dependency order, archives completed features
 ```
@@ -73,13 +79,14 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v3.0.0 (Memory Architecture)     │
+│                  CLAUDE HARNESS v3.1.0 (Memory Architecture)     │
 ├─────────────────────────────────────────────────────────────────┤
-│  P:2 WIP:1 Tests:1 | Active: feature-001                        │
+│  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
 ├─────────────────────────────────────────────────────────────────┤
 │  /claude-harness:start          Compile context + GitHub sync   │
 │  /claude-harness:feature        Add feature (test-driven)       │
+│  /claude-harness:fix            Create bug fix for a feature    │
 │  /claude-harness:generate-tests Generate tests before coding    │
 │  /claude-harness:plan-feature   Plan before implementation      │
 │  /claude-harness:check-approach Validate approach vs failures   │
@@ -296,9 +303,10 @@ Successful Patterns to Use:
 
 | Command | Purpose |
 |---------|---------|
-| `/claude-harness:setup` | Initialize harness with v3.0 structure |
+| `/claude-harness:setup` | Initialize harness with v3.1 structure |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
 | `/claude-harness:feature <desc>` | Add feature (test-driven) |
+| `/claude-harness:fix <feature-id> "<desc>"` | Create bug fix linked to original feature |
 | `/claude-harness:generate-tests <id>` | Generate test cases before implementation |
 | `/claude-harness:plan-feature <id>` | Plan implementation (Phase 1) |
 | `/claude-harness:check-approach <desc>` | Check if approach matches past failures |
@@ -376,6 +384,50 @@ Successful Patterns to Use:
   "updatedAt": "2025-01-20T10:30:00Z"
 }
 ```
+
+## Fix Schema (v3.1)
+
+Bug fixes are linked to their original features:
+
+```json
+{
+  "id": "fix-feature-001-001",
+  "name": "Token expiry not handled",
+  "description": "User gets stuck on expired token",
+  "linkedTo": {
+    "featureId": "feature-001",
+    "featureName": "User Authentication",
+    "issueNumber": 42
+  },
+  "type": "bugfix",
+  "status": "pending|in_progress|passing|escalated",
+  "verification": {
+    "build": "npm run build",
+    "tests": "npm run test",
+    "lint": "npm run lint",
+    "typecheck": "npx tsc --noEmit",
+    "custom": [],
+    "inherited": true
+  },
+  "attempts": 0,
+  "maxAttempts": 10,
+  "relatedFiles": [],
+  "github": {
+    "issueNumber": 55,
+    "prNumber": null,
+    "branch": "fix/feature-001-token-expiry"
+  },
+  "createdAt": "2025-01-20T11:00:00Z",
+  "updatedAt": "2025-01-20T11:00:00Z"
+}
+```
+
+Key differences from features:
+- `linkedTo` - References the original feature
+- `type: "bugfix"` - Distinguishes from features
+- `verification.inherited` - Indicates commands came from original feature
+- Branch format: `fix/{feature-id}-{slug}` instead of `feature/`
+- Commits use `fix:` prefix (triggers PATCH version bump)
 
 ## Agentic Loops
 
@@ -532,6 +584,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.1.0** | **Bug Fix Command**: `/fix` - Create bug fixes linked to original features with shared memory context, GitHub issue linkage, and PATCH versioning |
 | **3.0.0** | **Memory Architecture Release** - See release notes above |
 | 2.6.0 | Agentic Loops: `/implement` runs until verification passes |
 | 2.5.1 | Full command paths in session output |

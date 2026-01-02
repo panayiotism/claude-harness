@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v3.0
+# Claude Code Long-Running Agent Harness Setup v3.1
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v3.0 ==="
+echo "=== Claude Code Agent Harness Setup v3.1 ==="
 echo ""
 
 # Detect project info
@@ -491,12 +491,14 @@ create_file ".claude-harness/impact/change-log.json" '{
 
 create_file ".claude-harness/features/active.json" '{
   "version": 3,
-  "features": []
+  "features": [],
+  "fixes": []
 }'
 
 create_file ".claude-harness/features/archive.json" '{
   "version": 3,
-  "archived": []
+  "archived": [],
+  "archivedFixes": []
 }'
 
 # ============================================================================
@@ -542,6 +544,11 @@ create_file ".claude-harness/loops/state.json" '{
   "version": 3,
   "feature": null,
   "featureName": null,
+  "type": "feature",
+  "linkedTo": {
+    "featureId": null,
+    "featureName": null
+  },
   "status": "idle",
   "attempt": 0,
   "maxAttempts": 10,
@@ -687,12 +694,29 @@ echo "=== Agentic Loop State ==="
 if [ -f ".claude-harness/loops/state.json" ]; then
     status=$(grep -o "\"status\":\"[^\"]*\"" .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
     feature=$(grep -o "\"feature\":\"[^\"]*\"" .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
+    looptype=$(grep -o "\"type\":\"[^\"]*\"" .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
+    linkedFeature=$(grep -o "\"featureId\":\"[^\"]*\"" .claude-harness/loops/state.json 2>/dev/null | head -1 | cut -d'"' -f4)
     if [ "$status" != "idle" ] && [ -n "$feature" ]; then
         attempt=$(grep -o "\"attempt\":[0-9]*" .claude-harness/loops/state.json 2>/dev/null | cut -d':' -f2)
-        echo "ACTIVE LOOP: $feature (attempt $attempt, status: $status)"
-        echo "Resume with: /claude-harness:implement $feature"
+        if [ "$looptype" = "fix" ]; then
+            echo "ACTIVE FIX: $feature (attempt $attempt, status: $status)"
+            echo "Linked to: $linkedFeature"
+            echo "Resume with: /claude-harness:implement $feature"
+        else
+            echo "ACTIVE LOOP: $feature (attempt $attempt, status: $status)"
+            echo "Resume with: /claude-harness:implement $feature"
+        fi
     else
         echo "No active loop"
+    fi
+fi
+
+# Pending fixes
+if [ -f ".claude-harness/features/active.json" ]; then
+    pendingFixes=$(grep -c "\"type\":\"bugfix\"" .claude-harness/features/active.json 2>/dev/null || echo "0")
+    if [ "$pendingFixes" != "0" ]; then
+        echo ""
+        echo "Pending fixes: $pendingFixes"
     fi
 fi
 
@@ -716,10 +740,11 @@ else
 fi
 
 echo ""
-echo "=== Environment Ready (v3.0) ==="
+echo "=== Environment Ready (v3.1) ==="
 echo "Commands:"
 echo "  /start           - Compile context, show GitHub dashboard"
 echo "  /feature         - Add feature (generates tests first)"
+echo "  /fix             - Create bug fix linked to a feature"
 echo "  /plan-feature    - Plan implementation before coding"
 echo "  /generate-tests  - Generate test cases for a feature"
 echo "  /check-approach  - Check if approach matches past failures"
@@ -1438,7 +1463,7 @@ Run `/checkpoint` after to commit changes.
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.0.0")
+PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.1.0")
 echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
 echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 
@@ -1447,9 +1472,9 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v3.0 Memory Architecture) ==="
+echo "=== Setup Complete (v3.1 - Bug Fix Command) ==="
 echo ""
-echo "New v3.0 Directory Structure:"
+echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
 echo "  ├── memory/"
 echo "  │   ├── working/context.json      (rebuilt each session)"
@@ -1498,7 +1523,8 @@ echo "  2. Run /start to compile context and see status"
 echo "  3. Run /feature to add features (tests generated first)"
 echo "  4. Run /implement to start test-driven implementation"
 echo ""
-echo "v3.0 Features:"
+echo "v3.1 Features:"
+echo "  • Bug Fix Command (/fix) - Create fixes linked to original features"
 echo "  • 4-Layer Memory Architecture (Working/Episodic/Semantic/Procedural)"
 echo "  • Failure Prevention (learns from mistakes)"
 echo "  • Impact Analysis (warns about breaking changes)"

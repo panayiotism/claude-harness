@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v3.0
+# Claude Harness SessionStart Hook v3.1
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with memory layer awareness and context compilation
 
@@ -225,6 +225,7 @@ elif [ "$IS_V3" = true ]; then
 ├─────────────────────────────────────────────────────────────────┤
 │  /claude-harness:start          Compile context + GitHub sync   │
 │  /claude-harness:feature        Add feature (test-driven)       │
+│  /claude-harness:fix            Create bug fix for a feature    │
 │  /claude-harness:generate-tests Generate tests before coding    │
 │  /claude-harness:plan-feature   Plan before implementation      │
 │  /claude-harness:check-approach Validate approach vs failures   │
@@ -325,7 +326,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.0 WORKFLOW ===\n1. /start - Compile fresh context from memory layers\n2. /feature - Add feature (generates tests first)\n3. /plan-feature - Plan implementation\n4. /implement - Execute until tests pass\n5. /checkpoint - Persist to memory + commit"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.1 WORKFLOW ===\n1. /start - Compile fresh context from memory layers\n2. /feature - Add feature (generates tests first)\n3. /plan-feature - Plan implementation\n4. /implement - Execute until tests pass\n5. /checkpoint - Persist to memory + commit\n6. /fix - Create bug fix for completed feature"
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi

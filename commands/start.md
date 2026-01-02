@@ -85,8 +85,9 @@ Before anything else, check if legacy root-level harness files need migration:
 ## Phase 2: Loop & Orchestration State
 
 6. **Check active loop state** (PRIORITY):
-   - Read `.claude-harness/loop-state.json`
-   - If `status` is "in_progress":
+   - Read `.claude-harness/loops/state.json` (or legacy `.claude-harness/loop-state.json`)
+   - Check `type` field to determine if this is a feature or fix
+   - If `status` is "in_progress" and `type` is "feature":
      ```
      ┌─────────────────────────────────────────────────────────────────┐
      │  🔄 ACTIVE AGENTIC LOOP                                        │
@@ -99,9 +100,38 @@ Before anything else, check if legacy root-level harness files need migration:
      │  Resume: /claude-harness:implement {feature}                   │
      └─────────────────────────────────────────────────────────────────┘
      ```
+   - If `status` is "in_progress" and `type` is "fix":
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  🔧 ACTIVE FIX                                                 │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Fix: {feature}                                                │
+     │  Linked to: {linkedTo.featureName} ({linkedTo.featureId})      │
+     │  Attempt: {attempt}/{maxAttempts}                              │
+     │  Last approach: {history[-1].approach}                         │
+     │  Last result: {history[-1].result}                             │
+     │                                                                │
+     │  Resume: /claude-harness:implement {feature}                   │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
    - If `status` is "escalated":
      - Show escalation reason and history summary
      - Recommend: increase maxAttempts or provide guidance
+
+6b. **Check pending fixes**:
+   - Read `.claude-harness/features/active.json`
+   - Check `fixes` array for entries with `status` != "passing"
+   - If pending fixes exist:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  📋 PENDING FIXES                                              │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  {fix-id}: {name}                                              │
+     │    Linked to: {linkedTo.featureName}                           │
+     │    Status: {status}                                            │
+     │  ...                                                           │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
 
 7. Check orchestration state:
    - Read `.claude-harness/agent-context.json` if it exists
@@ -136,13 +166,16 @@ Before anything else, check if legacy root-level harness files need migration:
 
 12. Report session summary:
     - Current state and blockers
-    - Pending features prioritized
+    - Pending features and fixes prioritized
     - GitHub sync results
     - Recommended next action (in priority order):
-      1. **Active loop**: Resume with `/claude-harness:implement {feature-id}`
-      2. **Escalated loop**: Review history and provide guidance, or increase maxAttempts
-      3. **Pending handoffs**: Resume orchestration with `/claude-harness:orchestrate {feature-id}`
-      4. **Pending features**: Start implementation:
+      1. **Active loop (fix)**: Resume with `/claude-harness:implement {fix-id}`
+      2. **Active loop (feature)**: Resume with `/claude-harness:implement {feature-id}`
+      3. **Escalated loop**: Review history and provide guidance, or increase maxAttempts
+      4. **Pending fixes**: Resume fix with `/claude-harness:implement {fix-id}`
+      5. **Pending handoffs**: Resume orchestration with `/claude-harness:orchestrate {feature-id}`
+      6. **Pending features**: Start implementation:
          - Simple feature: `/claude-harness:implement {feature-id}`
          - Complex feature: `/claude-harness:orchestrate {feature-id}`
-      5. **No features**: Add one with `/claude-harness:feature <description>`
+      7. **No features**: Add one with `/claude-harness:feature <description>`
+      8. **Create fix for completed feature**: `/claude-harness:fix {feature-id} "bug description"`
