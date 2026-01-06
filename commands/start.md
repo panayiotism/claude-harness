@@ -58,10 +58,76 @@ Before anything else, check if legacy root-level harness files need migration:
      ```
    - Report: "Created missing state file: {filename}"
 
-## Phase 1: Local Status
+## Phase 1: Context Compilation (Memory System)
 
-1. **Load working context** (if exists):
-   - Read `.claude-harness/working-context.json`
+1. **Compile working context from memory layers**:
+   - Clear/initialize `.claude-harness/memory/working/context.json`
+   - Read `.claude-harness/features/active.json` (or legacy `feature-list.json`) to identify active feature
+
+2. **Query procedural memory for failures to avoid**:
+   - Read `.claude-harness/memory/procedural/failures.json`
+   - If active feature exists, filter entries where `feature` matches or `files` overlap with `relatedFiles`
+   - Extract top 5 most recent relevant failures
+   - Add to `relevantMemory.avoidApproaches` in working context
+
+3. **Query procedural memory for successful approaches**:
+   - Read `.claude-harness/memory/procedural/successes.json`
+   - Filter entries for similar file patterns or feature types
+   - Extract top 5 most relevant successes
+   - Add to `relevantMemory.projectPatterns` in working context
+
+4. **Query episodic memory for recent decisions**:
+   - Read `.claude-harness/memory/episodic/decisions.json`
+   - Get entries from last 7 days or last 20 entries (whichever is smaller)
+   - Add to `relevantMemory.recentDecisions` in working context
+
+5. **Write compiled context**:
+   - Update `.claude-harness/memory/working/context.json`:
+     ```json
+     {
+       "version": 3,
+       "computedAt": "{ISO timestamp}",
+       "sessionId": "{unique-id}",
+       "activeFeature": "{feature-id or null}",
+       "relevantMemory": {
+         "recentDecisions": [{...}],
+         "projectPatterns": [{...}],
+         "avoidApproaches": [{...}]
+       },
+       "currentTask": {
+         "description": "{feature description}",
+         "files": ["{relatedFiles}"],
+         "acceptanceCriteria": ["{verification}"]
+       },
+       "compilationLog": ["Loaded N failures", "Loaded N successes", ...]
+     }
+     ```
+
+6. **Display memory summary**:
+   ```
+   ┌─────────────────────────────────────────────────────────────────┐
+   │  📚 MEMORY CONTEXT COMPILED                                     │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  Recent decisions: {N} loaded                                   │
+   │  Success patterns: {N} loaded                                   │
+   │  Approaches to AVOID: {N} loaded                                │
+   └─────────────────────────────────────────────────────────────────┘
+   ```
+
+   If `avoidApproaches` has entries, display prominently:
+   ```
+   ┌─────────────────────────────────────────────────────────────────┐
+   │  ⚠️  APPROACHES TO AVOID (from past failures)                   │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  • {failure.approach} - {failure.rootCause}                     │
+   │  • {failure.approach} - {failure.rootCause}                     │
+   └─────────────────────────────────────────────────────────────────┘
+   ```
+
+## Phase 2: Local Status
+
+7. **Load working context** (if exists):
+   - Read `.claude-harness/working-context.json` (legacy) or use compiled context
    - If `activeFeature` is set, display prominently:
      ```
      === Resuming Work ===
@@ -72,19 +138,19 @@ Before anything else, check if legacy root-level harness files need migration:
      ```
    - This orients the session before other status info
 
-2. Execute `./.claude-harness/init.sh` to see environment status (if it exists)
+8. Execute `./.claude-harness/init.sh` to see environment status (if it exists)
 
-3. Read `.claude-harness/claude-progress.json` for session context
+9. Read `.claude-harness/claude-progress.json` for session context
 
-4. Read `.claude-harness/feature-list.json` to identify next priority
+10. Read `.claude-harness/features/active.json` (or legacy `feature-list.json`) to identify next priority
    - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" .claude-harness/feature-list.json` to see pending features
    - Run `/claude-harness:checkpoint` to auto-archive completed features and reduce file size
 
-5. Optionally check `.claude-harness/feature-archive.json` to see completed feature count/history
+11. Optionally check `.claude-harness/features/archive.json` (or legacy `feature-archive.json`) to see completed feature count/history
 
-## Phase 2: Loop & Orchestration State
+## Phase 3: Loop & Orchestration State
 
-6. **Check active loop state** (PRIORITY):
+12. **Check active loop state** (PRIORITY):
    - Read `.claude-harness/loops/state.json` (or legacy `.claude-harness/loop-state.json`)
    - Check `type` field to determine if this is a feature or fix
    - If `status` is "in_progress" and `type` is "feature":
@@ -118,7 +184,7 @@ Before anything else, check if legacy root-level harness files need migration:
      - Show escalation reason and history summary
      - Recommend: increase maxAttempts or provide guidance
 
-6b. **Check pending fixes**:
+12b. **Check pending fixes**:
    - Read `.claude-harness/features/active.json`
    - Check `fixes` array for entries with `status` != "passing"
    - If pending fixes exist:
@@ -133,38 +199,38 @@ Before anything else, check if legacy root-level harness files need migration:
      └─────────────────────────────────────────────────────────────────┘
      ```
 
-7. Check orchestration state:
-   - Read `.claude-harness/agent-context.json` if it exists
+13. Check orchestration state:
+   - Read `.claude-harness/agents/context.json` (or legacy `agent-context.json`) if it exists
    - Check for `currentSession.activeFeature` - indicates incomplete orchestration
    - Check `pendingHandoffs` array for work waiting to be continued
    - Check `agentResults` for recently completed agent work
    - If active orchestration exists, recommend: "Run `/claude-harness:orchestrate {feature-id}` to resume"
 
-7. Check agent memory:
-   - Read `.claude-harness/agent-memory.json` if it exists
+14. Check procedural memory hotspots:
+   - Read `.claude-harness/memory/procedural/patterns.json` if it exists
    - Report any `codebaseInsights.hotspots` that may affect current work
-   - Show `agentPerformance` summary if significant history exists
+   - Show success/failure rates if significant history exists
 
-## Phase 3: GitHub Integration (if MCP configured)
+## Phase 4: GitHub Integration (if MCP configured)
 
-8. Check GitHub MCP connection status
+15. Check GitHub MCP connection status
 
-9. Fetch and display GitHub dashboard:
+16. Fetch and display GitHub dashboard:
    - Open issues with "feature" label
    - Open PRs from feature branches
    - CI/CD status for open PRs
    - Cross-reference with .claude-harness/feature-list.json
 
-10. Sync GitHub Issues with .claude-harness/feature-list.json:
-   - For each GitHub issue with "feature" label NOT in .claude-harness/feature-list.json:
+17. Sync GitHub Issues with .claude-harness/features/active.json:
+   - For each GitHub issue with "feature" label NOT in active.json:
      - Add new entry with issueNumber linked
-   - For each feature in .claude-harness/feature-list.json with passes=true:
+   - For each feature in active.json with status="passing" or passes=true:
      - If linked GitHub issue is still open, close it
    - Report sync results
 
-## Phase 4: Recommendations
+## Phase 5: Recommendations
 
-12. Report session summary:
+18. Report session summary:
     - Current state and blockers
     - Pending features and fixes prioritized
     - GitHub sync results

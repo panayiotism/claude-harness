@@ -1,0 +1,19 @@
+{
+  "version": 3,
+  "feature": null,
+  "featureName": null,
+  "type": "feature",
+  "linkedTo": {
+    "featureId": null,
+    "featureName": null
+  },
+  "status": "idle",
+  "attempt": 0,
+  "maxAttempts": 10,
+  "startedAt": null,
+  "lastAttemptAt": null,
+  "verification": {},
+  "history": [],
+  "lastCheckpoint": "0fdf41febdab823730f8def2d357c76385cf22f1",
+  "escalationRequested": false
+}

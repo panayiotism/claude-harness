@@ -143,6 +143,46 @@
         "prNumber": 9
       },
       "archivedAt": "2025-12-31T17:10:00.000Z"
+    },
+    {
+      "id": "feature-006",
+      "name": "Memory System Utilization",
+      "description": "Actually implement the 4-layer memory read/write operations in commands (implement, checkpoint, start) that setup.sh creates but are never used",
+      "priority": 1,
+      "passes": true,
+      "verification": [
+        "/start compiles working context from memory layers",
+        "/start displays 'approaches to avoid' from failure memory",
+        "/implement queries failure memory before attempting implementation",
+        "/implement records successes to procedural/successes.json",
+        "/implement records failures to procedural/failures.json",
+        "/checkpoint persists decisions to episodic memory",
+        "Memory entries include feature ID for cross-feature queries",
+        "Commands reference v3.0 paths (.claude-harness/memory/...)"
+      ],
+      "verificationCommands": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": []
+      },
+      "maxAttempts": 10,
+      "relatedFiles": [
+        "commands/start.md",
+        "commands/implement.md",
+        "commands/checkpoint.md",
+        "commands/orchestrate.md",
+        "commands/fix.md",
+        "setup.sh"
+      ],
+      "github": {
+        "issueNumber": 11,
+        "prNumber": 12,
+        "branch": "feature/feature-006"
+      },
+      "createdAt": "2026-01-06T10:50:23Z",
+      "archivedAt": "2026-01-06T11:30:00.000Z"
     }
   ]
 }
