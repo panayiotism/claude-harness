@@ -1,48 +1,19 @@
 {
   "version": 3,
-  "feature": "feature-006",
-  "featureName": "Memory System Utilization",
+  "feature": null,
+  "featureName": null,
   "type": "feature",
   "linkedTo": {
     "featureId": null,
     "featureName": null
   },
-  "status": "completed",
-  "attempt": 1,
+  "status": "idle",
+  "attempt": 0,
   "maxAttempts": 10,
-  "startedAt": "2026-01-06T10:55:00Z",
-  "lastAttemptAt": "2026-01-06T11:15:00Z",
-  "completedAt": "2026-01-06T11:20:00Z",
-  "totalAttempts": 1,
-  "finalCommit": "d77a4b70ae88864782cb864e467a3f25fbc4d6db",
-  "verification": {
-    "build": null,
-    "tests": null,
-    "lint": null,
-    "typecheck": null,
-    "custom": []
-  },
-  "history": [
-    {
-      "attempt": 1,
-      "timestamp": "2026-01-06T11:15:00Z",
-      "approach": "Update commands/start.md with Phase 1 Context Compilation, commands/implement.md with Phase 0.5 memory queries and success/failure recording, commands/checkpoint.md with Phase 1.6 memory persistence",
-      "filesModified": [
-        "commands/start.md",
-        "commands/implement.md",
-        "commands/checkpoint.md"
-      ],
-      "filesCreated": [],
-      "result": "passed",
-      "verificationResults": {
-        "build": "n/a",
-        "tests": "n/a",
-        "lint": "n/a",
-        "typecheck": "n/a",
-        "manual": "All 8 verification criteria passed"
-      }
-    }
-  ],
-  "lastCheckpoint": "d77a4b70ae88864782cb864e467a3f25fbc4d6db",
+  "startedAt": null,
+  "lastAttemptAt": null,
+  "verification": {},
+  "history": [],
+  "lastCheckpoint": "0fdf41febdab823730f8def2d357c76385cf22f1",
   "escalationRequested": false
 }
