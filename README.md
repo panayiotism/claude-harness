@@ -584,6 +584,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.2.0** | **Memory System Utilization**: Commands now actually use the 4-layer memory system - `/start` compiles context, `/implement` queries failures before attempting, `/checkpoint` persists to memory |
 | **3.1.0** | **Bug Fix Command**: `/fix` - Create bug fixes linked to original features with shared memory context, GitHub issue linkage, and PATCH versioning |
 | **3.0.0** | **Memory Architecture Release** - See release notes above |
 | 2.6.0 | Agentic Loops: `/implement` runs until verification passes |
