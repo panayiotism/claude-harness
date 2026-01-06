@@ -7,11 +7,14 @@
     "featureId": null,
     "featureName": null
   },
-  "status": "in_progress",
+  "status": "completed",
   "attempt": 1,
   "maxAttempts": 10,
   "startedAt": "2026-01-06T10:55:00Z",
   "lastAttemptAt": "2026-01-06T11:15:00Z",
+  "completedAt": "2026-01-06T11:20:00Z",
+  "totalAttempts": 1,
+  "finalCommit": "d77a4b70ae88864782cb864e467a3f25fbc4d6db",
   "verification": {
     "build": null,
     "tests": null,
@@ -30,9 +33,16 @@
         "commands/checkpoint.md"
       ],
       "filesCreated": [],
-      "result": "pending_verification"
+      "result": "passed",
+      "verificationResults": {
+        "build": "n/a",
+        "tests": "n/a",
+        "lint": "n/a",
+        "typecheck": "n/a",
+        "manual": "All 8 verification criteria passed"
+      }
     }
   ],
-  "lastCheckpoint": null,
+  "lastCheckpoint": "d77a4b70ae88864782cb864e467a3f25fbc4d6db",
   "escalationRequested": false
 }

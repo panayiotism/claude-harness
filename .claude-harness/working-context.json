@@ -1,34 +1,23 @@
 {
   "version": 1,
-  "lastUpdated": "2026-01-02T12:00:00.000Z",
-  "activeFeature": "feature-006",
-  "summary": "Bug Fix Command - /fix for linked fixes to completed features",
-  "workingFiles": {
-    "commands/fix.md": "new - full fix command specification with 7 phases",
-    "setup.sh": "modified - added fixes array, archivedFixes, type/linkedTo to loop state",
-    "commands/start.md": "modified - displays active fixes and pending fixes section",
-    "commands/checkpoint.md": "modified - fix: commit prefix, fix archival",
-    "commands/merge-all.md": "modified - includes fix PRs with PATCH versioning",
-    "hooks/session-start.sh": "modified - added /fix to display, v3.1 workflow",
-    "README.md": "modified - Fix Schema section, changelog, commands table",
-    ".claude-plugin/plugin.json": "modified - version 3.1.0",
-    ".claude-harness/.plugin-version": "modified - version 3.1.0"
-  },
+  "lastUpdated": "2026-01-06T11:25:00.000Z",
+  "activeFeature": null,
+  "summary": null,
+  "workingFiles": {},
   "decisions": [
-    "Fixes are linked to original features via linkedTo object (featureId, featureName, issueNumber)",
-    "Fixes stored in separate fixes array in features/active.json, not nested under features",
-    "Loop state gains type field (feature|fix) and linkedTo for fix context",
-    "Fixes use fix: commit prefix for PATCH version bumps in merge-all",
-    "Memory entries include linkedTo field for cross-feature context queries"
+    "Memory context compilation happens in /start Phase 1 before local status",
+    "/implement checks procedural memory BEFORE attempting (Phase 0.5)",
+    "Success/failure recording happens immediately after verification",
+    "All memory paths use v3.0 structure (.claude-harness/memory/...)",
+    "Memory entries always include feature ID for cross-feature queries"
   ],
   "codebaseUnderstanding": {
-    "fixWorkflow": "/fix creates linked issue, branch, and fix entry then starts agentic loop",
-    "schemaChanges": "active.json now has features[] and fixes[], archive.json has archivedFixes[]",
-    "currentVersion": "v3.1.0"
+    "memoryLayers": "working (session), episodic (decisions), semantic (architecture), procedural (patterns)",
+    "currentVersion": "v3.2.0 (pending PR)"
   },
   "nextSteps": [
-    "Commit and push v3.1.0 changes",
-    "Update PR for feature/v3.0-memory-architecture branch",
-    "Test /fix command in a real project"
+    "Push feature-006 branch",
+    "Create PR for Memory System Utilization",
+    "Review and merge PR"
   ]
 }
