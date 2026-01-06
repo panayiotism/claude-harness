@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2025-12-31T12:00:00.000Z",
+  "lastUpdated": "2026-01-06T10:50:23Z",
   "currentSession": null,
   "projectContext": {
     "name": "claude-harness",
@@ -38,7 +38,11 @@
         "commands/orchestrate.md",
         "commands/merge-all.md",
         "commands/setup.md",
-        "commands/implement.md"
+        "commands/implement.md",
+        "commands/fix.md",
+        "commands/check-approach.md",
+        "commands/plan-feature.md",
+        "commands/generate-tests.md"
       ]
     }
   },

@@ -1,0 +1,38 @@
+{
+  "version": 3,
+  "feature": "feature-006",
+  "featureName": "Memory System Utilization",
+  "type": "feature",
+  "linkedTo": {
+    "featureId": null,
+    "featureName": null
+  },
+  "status": "in_progress",
+  "attempt": 1,
+  "maxAttempts": 10,
+  "startedAt": "2026-01-06T10:55:00Z",
+  "lastAttemptAt": "2026-01-06T11:15:00Z",
+  "verification": {
+    "build": null,
+    "tests": null,
+    "lint": null,
+    "typecheck": null,
+    "custom": []
+  },
+  "history": [
+    {
+      "attempt": 1,
+      "timestamp": "2026-01-06T11:15:00Z",
+      "approach": "Update commands/start.md with Phase 1 Context Compilation, commands/implement.md with Phase 0.5 memory queries and success/failure recording, commands/checkpoint.md with Phase 1.6 memory persistence",
+      "filesModified": [
+        "commands/start.md",
+        "commands/implement.md",
+        "commands/checkpoint.md"
+      ],
+      "filesCreated": [],
+      "result": "pending_verification"
+    }
+  ],
+  "lastCheckpoint": null,
+  "escalationRequested": false
+}

@@ -54,6 +54,53 @@ Create a checkpoint of the current session:
    }
    ```
 
+## Phase 1.6: Persist to Memory Layers
+
+1.6. **Persist session decisions to episodic memory**:
+   - Read `.claude-harness/memory/episodic/decisions.json`
+   - For each key decision made during this session:
+     - Append new entry:
+       ```json
+       {
+         "id": "{uuid}",
+         "timestamp": "{ISO timestamp}",
+         "feature": "{feature-id}",
+         "decision": "{what was decided}",
+         "rationale": "{why this decision was made}",
+         "alternatives": ["{other options considered}"],
+         "impact": "{files or areas affected}"
+       }
+       ```
+   - If entries exceed `maxEntries` (default 50), remove oldest entries (FIFO)
+   - Write updated file
+   - Report: "Recorded {N} decisions to episodic memory"
+
+1.7. **Update semantic memory with discovered patterns**:
+   - Read `.claude-harness/memory/semantic/architecture.json`
+   - Update based on work done this session:
+     - Add new file paths to `structure.entryPoints`, `structure.components`, etc.
+     - Update `patterns.naming` with discovered naming conventions
+     - Update `patterns.fileOrganization` with discovered structures
+     - Update `patterns.codeStyle` with observed patterns
+   - Set `lastUpdated` to current timestamp
+   - Write updated file
+
+1.8. **Update semantic entities (if new concepts discovered)**:
+   - Read `.claude-harness/memory/semantic/entities.json`
+   - For new concepts/entities discovered:
+     - Append entry with name, type, location, relationships
+   - Write updated file
+
+1.9. **Update procedural patterns**:
+   - Read `.claude-harness/memory/procedural/patterns.json`
+   - Extract reusable patterns from this session:
+     - Code patterns that worked well
+     - Naming conventions used
+     - Project-specific rules learned
+   - Merge into existing patterns (don't duplicate)
+   - Write updated file
+   - Report: "Updated procedural patterns"
+
 ## Phase 2: Build & Test
 
 2. Run build/test commands appropriate for the project
@@ -177,36 +224,49 @@ Create a checkpoint of the current session:
 
 ## Phase 8: Persist Orchestration Memory
 
-8. Persist orchestration memory (if .claude-harness/agent-context.json exists):
-   - Read `.claude-harness/agent-context.json`
-   - Read `.claude-harness/agent-memory.json` (create if missing)
+8. Persist orchestration memory (if orchestration was active):
+   - Read `.claude-harness/agents/context.json` (or legacy `agent-context.json`)
+   - Skip if no `currentSession` or no `agentResults`
 
    - For each entry in `agentResults`:
      - If status is "completed":
-       - Add to `.claude-harness/agent-memory.json.successfulApproaches` with:
-         - task: the task description
-         - approach: summary of what the agent did
-         - agents: [agent name]
-         - successRate: 1.0
-       - Update `.claude-harness/agent-memory.json.agentPerformance[agent]`:
-         - Increment tasksCompleted
-         - Update successRate
+       - Add to `.claude-harness/memory/procedural/successes.json`:
+         ```json
+         {
+           "id": "{uuid}",
+           "timestamp": "{ISO timestamp}",
+           "feature": "{feature-id}",
+           "type": "orchestration",
+           "approach": "{summary of what the agent did}",
+           "agent": "{agent name}",
+           "files": ["{affected files}"]
+         }
+         ```
      - If status is "failed":
-       - Add to `.claude-harness/agent-memory.json.failedApproaches` with:
-         - task: the task description
-         - reason: failure reason
-         - recordedAt: timestamp
+       - Add to `.claude-harness/memory/procedural/failures.json`:
+         ```json
+         {
+           "id": "{uuid}",
+           "timestamp": "{ISO timestamp}",
+           "feature": "{feature-id}",
+           "type": "orchestration",
+           "approach": "{what the agent attempted}",
+           "agent": "{agent name}",
+           "errors": ["{error details}"],
+           "rootCause": "{analysis}"
+         }
+         ```
 
    - If `sharedState.discoveredPatterns` has new entries:
-     - Merge into `.claude-harness/agent-memory.json.learnedPatterns`
+     - Merge into `.claude-harness/memory/procedural/patterns.json`
 
    - If `architecturalDecisions` has entries:
-     - Keep in .claude-harness/agent-context.json (these persist across sessions)
+     - Persist to `.claude-harness/memory/episodic/decisions.json`
 
    - Clear `agentResults` array (already persisted to memory)
    - Clear `pendingHandoffs` if all work is complete
    - Set `currentSession` to null
    - Update `lastUpdated` timestamp
 
-   - Write updated `.claude-harness/agent-context.json` and `.claude-harness/agent-memory.json`
-   - Report: "Persisted X agent results to memory"
+   - Write updated files
+   - Report: "Persisted {N} agent results to procedural memory"
