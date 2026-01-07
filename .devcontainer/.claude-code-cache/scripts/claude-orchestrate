@@ -1,0 +1,2874 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Claude Multi-Agent Orchestrator v2.6 (Turing's Maze Edition)
+# Aligned with CLAUDE.md v2.3 protocol
+#
+# Usage:
+#   co "goal"                    # Plan only (read-only, parallel)
+#   co --execute "goal"          # Plan and execute (parallel, non-overlapping scopes)
+#   co -x "goal"                 # Short form
+#   co --resume <checkpoint>     # Resume from checkpoint file
+#   co --status                  # Show status of current orchestration
+#   co --validate <checkpoint>   # Validate checkpoint signal integrity
+#
+# Principles from Turing's Maze (meatfighter.com/turings-maze):
+#   1. RIGID STATE TYPES: Like tile colors (black/gray/red/green), agents have
+#      discrete states: PENDING → RUNNING → COMPLETE|FAILED|BLOCKED
+#   2. THREE-PHASE TRANSITIONS: Each step follows color→direction→move order:
+#      READ (inputs) → TRANSFORM (work) → EMIT (signal)
+#   3. PERSISTENT STATE: Like tiles retaining color after mouse passes,
+#      state persists via atomic writes with sequence numbers
+#   4. DETERMINISTIC CHANNELS: Like black tile paths between components,
+#      signals flow through ordered channels with checksums
+#   5. REPRODUCIBILITY: Same input maze → same output, achieved through
+#      structured JSON output schemas and deterministic parsing
+#   6. FOUR-WAY INTERSECTION HANDLING: When multiple agents depend on the same
+#      signal, deterministic ordering prevents race conditions (v2.3)
+#   7. RIGHT-HAND NAVIGATION: When blocked, try clockwise alternatives (v2.6)
+#   8. EXPRESS-AND-RESET: Atomic consume-then-reset pattern for signals (v2.6)
+#   9. TRANSMISSION GATES: Explicit gate checks before execution (v2.6)
+#  10. DIODE PATTERN: One-way progress constraints prevent infinite loops (v2.6)
+#
+# Version History:
+#   v2.0 - Initial Turing's Maze integration
+#   v2.1 - Sequence numbers, checksums, three-phase execution, JSON schema
+#   v2.2 - Native JSON output, retry logic, --validate command
+#   v2.3 - Correlation IDs, external schema, auto-resume suggestion,
+#          deterministic agent IDs, structured execution trace logging
+#   v2.4 - Autonomous decision-making enforcement (no questions),
+#          feedback loop for iteration after completion
+#   v2.5 - Dev container full autonomy mode (auto-detects container),
+#          --dangerously-skip-permissions in container environments,
+#          enhanced Turing's Maze principles for deterministic execution
+#   v2.6 - Deep Turing's Maze integration: right-hand navigation for stuck
+#          protocol, express-and-reset for signal consumption, transmission
+#          gates for dependency checking, diode patterns for bounded loops
+#   v2.7 - Iteration 0-indexed, multi-line input, proceed with feedback,
+#          session statistics, right-hand nav exposed to sub-agents,
+#          enhanced re-plan with full cold-start power, stats command
+#   v2.8 - Long task list reliability fixes:
+#          - Robust agent parsing with whitespace tolerance and validation
+#          - Task indexing: each agent knows its position (TASK-NNN)
+#          - Task manifest: explicit numbered list before SUB-AGENTS
+#          - Intelligent context truncation to prevent overflow
+#          - Progressive summarization of older iterations
+#          - Parsing validation with mismatch warnings
+
+VERSION="2.8.0"
+
+# ============================================================================
+# CONFIGURATION (v2.7 - Central Configuration Section)
+# ============================================================================
+# All user-configurable options are in this section.
+# Override via environment variables or edit directly.
+# ============================================================================
+
+# --- Environment Detection ---
+# Auto-detect dev container environment for full autonomy mode
+IS_CONTAINER=false
+if [[ "${DOTFILES_CONTAINER:-}" == "true" ]] || [[ -d "/workspaces" ]] || [[ -f "/.dockerenv" ]]; then
+  IS_CONTAINER=true
+fi
+
+# --- Execution Settings ---
+TIMEOUT="${CO_TIMEOUT:-3600}"                    # Timeout per agent in seconds (default: 1 hour)
+MAX_RETRIES="${CO_MAX_RETRIES:-3}"               # Max retry attempts for transient failures
+RETRY_BASE_DELAY="${CO_RETRY_DELAY:-5}"          # Base delay for exponential backoff (seconds)
+
+# --- Output Settings ---
+VERBOSE="${CO_VERBOSE:-false}"                   # Enable verbose logging
+SAVE_SESSION_OUTPUT="${CO_SAVE_OUTPUT:-true}"    # Auto-save session outputs to repo
+SESSION_OUTPUT_DIR="${CO_OUTPUT_DIR:-.claude-sessions}"  # Dir in repo for saved sessions
+SHOW_STATS="${CO_SHOW_STATS:-true}"              # Show end-of-cycle statistics
+
+# --- Agent Settings ---
+AGENT_MODEL="${CO_AGENT_MODEL:-}"                # Override model for sub-agents (empty = default)
+AGENT_TEMPERATURE="${CO_AGENT_TEMP:-}"           # Override temperature for agents
+
+# --- Navigation Settings (Turing's Maze) ---
+NAV_MAX_ATTEMPTS="${CO_NAV_ATTEMPTS:-3}"         # Max attempts before dead-end (right-hand rule)
+EXPOSE_NAV_TO_SUBAGENTS="${CO_EXPOSE_NAV:-true}" # Expose right-hand navigation to sub-agents
+
+# --- Runtime State (do not modify) ---
+EXECUTE_MODE=false
+RESUME_MODE=false
+STATUS_MODE=false
+VALIDATE_MODE=false
+CHECKPOINT_FILE=""
+
+# v2.3: Correlation ID for distributed tracing (set at runtime)
+CORRELATION_ID=""
+TRACE_FILE=""
+
+# --- Colors for output (Turing's Maze has 4 colors, we use 5) ---
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# --- Session Timing & Statistics ---
+SESSION_START_TIME=""
+SESSION_AGENTS_SPAWNED=0
+SESSION_AGENTS_BY_TIER=""  # JSON object tracking agents per tier
+
+# ============================================================================
+# ARGUMENT PARSING
+# ============================================================================
+
+print_usage() {
+  local container_note=""
+  if [[ "$IS_CONTAINER" == "true" ]]; then
+    container_note="
+CONTAINER MODE DETECTED:
+  Full autonomy enabled. All permissions pre-granted.
+  Package installation, file creation, web access - all allowed.
+  Safe: commits blocked on main, no push capability.
+"
+  fi
+
+  cat << EOF
+Claude Multi-Agent Orchestrator v$VERSION
+$container_note
+Usage:
+  $(basename "$0") [OPTIONS] "goal"
+
+Options:
+  -x, --execute          Execute mode (default: plan only)
+  --auto                 Auto-execute in container (implies -x in containers)
+  -r, --resume FILE      Resume from checkpoint file
+  -s, --status           Show status of current orchestration
+  --validate FILE        Validate checkpoint signal integrity before resume
+  -v, --verbose          Verbose output
+  -t, --timeout SECONDS  Timeout per agent (default: 3600)
+  --retries N            Max retry attempts for transient failures (default: 3)
+  -h, --help             Show this help
+
+Examples:
+  co "Add user authentication"           # Plan only
+  co -x "Add user authentication"        # Plan and execute
+  co --auto "Add user auth"              # Auto-execute in container
+  co --validate /tmp/agent.xyz/checkpoint  # Check integrity before resume
+  co --resume /tmp/agent.xyz/checkpoint  # Resume failed run
+
+Container Full Autonomy:
+  When running in a dev container, agents can:
+  - Install packages (npm, pip, apt)
+  - Create/modify any files
+  - Fetch web content and search
+  - Run any bash commands
+  All within sandbox safety (can't push, can't touch main).
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --execute|-x)
+      EXECUTE_MODE=true
+      shift
+      ;;
+    --auto)
+      # Auto-execute mode: enable execution in container environments
+      if [[ "$IS_CONTAINER" == "true" ]]; then
+        EXECUTE_MODE=true
+      fi
+      shift
+      ;;
+    --resume|-r)
+      RESUME_MODE=true
+      CHECKPOINT_FILE="$2"
+      shift 2
+      ;;
+    --status|-s)
+      STATUS_MODE=true
+      shift
+      ;;
+    --validate)
+      VALIDATE_MODE=true
+      CHECKPOINT_FILE="$2"
+      shift 2
+      ;;
+    --verbose|-v)
+      VERBOSE=true
+      shift
+      ;;
+    --timeout|-t)
+      TIMEOUT="$2"
+      shift 2
+      ;;
+    --retries)
+      MAX_RETRIES="$2"
+      shift 2
+      ;;
+    --help|-h)
+      print_usage
+      exit 0
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+# ============================================================================
+# SETUP
+# ============================================================================
+
+GOAL="${*:-}"
+WORK_DIR=$(pwd)
+AGENT_DIR=$(mktemp -d)
+SIGNAL_FILE="$AGENT_DIR/signals"
+LOG_FILE="$AGENT_DIR/orchestrator.log"
+STATE_FILE="$AGENT_DIR/state.json"
+CHECKPOINT_DIR="$AGENT_DIR/checkpoints"
+
+mkdir -p "$CHECKPOINT_DIR"
+touch "$SIGNAL_FILE"
+
+# ============================================================================
+# v2.3: CORRELATION ID & TRACE LOGGING
+# ============================================================================
+
+# Generate deterministic correlation ID from goal + timestamp
+# Like Turing's Maze mouse position, this uniquely identifies an execution
+generate_correlation_id() {
+  local input="$GOAL|$(date +%s)|$$"
+  if command -v md5 &>/dev/null; then
+    echo -n "$input" | md5 -q | head -c 12
+  elif command -v md5sum &>/dev/null; then
+    echo -n "$input" | md5sum | cut -d' ' -f1 | head -c 12
+  else
+    echo -n "$input" | cksum | cut -d' ' -f1
+  fi
+}
+
+# Generate deterministic agent ID from mission + scope
+# Prevents naming collisions when same agent type runs multiple times
+generate_agent_id() {
+  local agent_name="$1"
+  local mission="$2"
+  local scope="$3"
+  local input="$agent_name|$mission|$scope"
+  local hash
+  if command -v md5 &>/dev/null; then
+    hash=$(echo -n "$input" | md5 -q | head -c 6)
+  elif command -v md5sum &>/dev/null; then
+    hash=$(echo -n "$input" | md5sum | cut -d' ' -f1 | head -c 6)
+  else
+    hash=$(echo -n "$input" | cksum | cut -d' ' -f1)
+  fi
+  echo "${agent_name}_${hash}"
+}
+
+# Structured trace logging (JSON Lines format for easy parsing)
+trace() {
+  local event="$1"
+  local agent="${2:-orchestrator}"
+  local data="${3:-}"
+  local timestamp
+  timestamp=$(date -Iseconds)
+
+  # Write to trace file in JSON Lines format
+  if [[ -n "$TRACE_FILE" ]] && [[ -f "$TRACE_FILE" ]]; then
+    # Validate data is valid JSON, default to empty object if not
+    if [[ -z "$data" ]] || ! echo "$data" | jq -e '.' >/dev/null 2>&1; then
+      data='{}'
+    fi
+
+    jq -nc \
+      --arg ts "$timestamp" \
+      --arg cid "$CORRELATION_ID" \
+      --arg event "$event" \
+      --arg agent "$agent" \
+      --argjson data "$data" \
+      '{timestamp: $ts, correlation_id: $cid, event: $event, agent: $agent, data: $data}' \
+      >> "$TRACE_FILE" 2>/dev/null || true
+  fi
+}
+
+# Initialize state (like Turing's Maze tile initialization)
+# Each tile type has discrete states - our agents have: PENDING, RUNNING, COMPLETE, FAILED, BLOCKED
+init_state() {
+  # v2.3: Generate correlation ID for this execution
+  CORRELATION_ID=$(generate_correlation_id)
+  TRACE_FILE="$AGENT_DIR/trace.jsonl"
+  touch "$TRACE_FILE"
+
+  # Initialize sequence file for deterministic signal ordering
+  SEQ_FILE="$AGENT_DIR/.seq"
+  echo "0" > "$SEQ_FILE"
+
+  # Log initialization
+  trace "orchestration_started" "orchestrator" "$(jq -nc --arg goal "$GOAL" --arg mode "$EXECUTE_MODE" '{goal: $goal, mode: $mode}')"
+
+  cat > "$STATE_FILE" << EOF
+{
+  "version": "$VERSION",
+  "correlation_id": "$CORRELATION_ID",
+  "goal": $(echo "$GOAL" | jq -Rs .),
+  "phase": "init",
+  "started": "$(date -Iseconds)",
+  "agents": {},
+  "signals": [],
+  "execution_mode": "$EXECUTE_MODE",
+  "tile_states": {
+    "PENDING": "gray",
+    "RUNNING": "green",
+    "COMPLETE": "black",
+    "FAILED": "red",
+    "BLOCKED": "red"
+  }
+}
+EOF
+}
+
+# ============================================================================
+# LOGGING & OUTPUT (State visible at every step)
+# ============================================================================
+
+log() {
+  local level="$1"
+  local msg="$2"
+  local timestamp
+  timestamp=$(date '+%H:%M:%S')
+
+  # Always write to log file
+  echo "[$timestamp] [$level] $msg" >> "$LOG_FILE"
+
+  # Only show INFO to terminal in verbose mode; OK/WARN/ERROR always show
+  case $level in
+    INFO)
+      if [[ "$VERBOSE" == "true" ]]; then
+        echo -e "${BLUE}[$timestamp]${NC} $msg"
+      fi
+      ;;
+    OK)    echo -e "${GREEN}✓${NC} $msg" ;;
+    WARN)  echo -e "${YELLOW}⚠${NC} $msg" ;;
+    ERROR) echo -e "${RED}✗${NC} $msg" ;;
+    *)     echo "$msg" ;;
+  esac
+}
+
+log_verbose() {
+  if [[ "$VERBOSE" == "true" ]]; then
+    log "INFO" "$1"
+  fi
+}
+
+update_state() {
+  local key="$1"
+  local value="$2"
+  
+  # Use jq to update state atomically
+  local tmp
+  tmp=$(mktemp)
+  jq "$key = $value" "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+}
+
+# ============================================================================
+# SIGNAL SYSTEM (Core Turing's Maze principle)
+# ============================================================================
+
+# Signal format: SEQ|TIMESTAMP|TYPE|AGENT|CHECKSUM|DATA
+# Types: READY, BLOCKED, DATA, FAILED, CHECKPOINT
+#
+# Like Turing's Maze tile paths that prevent signal cross-contamination,
+# signals use sequence numbers and checksums for reliable ordering and
+# verification. Four-way intersections (multiple agents) don't cause
+# signal confusion because each signal is uniquely identified.
+
+SEQ_FILE=""  # Set during init
+
+# Get next sequence number (atomic increment)
+next_seq() {
+  local seq
+  if [[ -f "$SEQ_FILE" ]]; then
+    seq=$(cat "$SEQ_FILE")
+  else
+    seq=0
+  fi
+  seq=$((seq + 1))
+  echo "$seq" > "$SEQ_FILE"
+  echo "$seq"
+}
+
+# Compute checksum for signal integrity (like tile state verification)
+signal_checksum() {
+  local content="$1"
+  if command -v md5 &>/dev/null; then
+    echo -n "$content" | md5 -q
+  elif command -v md5sum &>/dev/null; then
+    echo -n "$content" | md5sum | cut -d' ' -f1
+  else
+    # Fallback: simple hash
+    echo -n "$content" | cksum | cut -d' ' -f1
+  fi
+}
+
+emit_signal() {
+  local type="$1"
+  local agent="$2"
+  local data="${3:-}"
+  local timestamp seq checksum content
+
+  timestamp=$(date '+%H:%M:%S')
+  seq=$(next_seq)
+  content="$seq|$type|$agent|$data"
+  checksum=$(signal_checksum "$content")
+
+  # Atomic write using temp file + rename (like Turing's Maze tile color persistence)
+  local tmp_signal
+  tmp_signal=$(mktemp)
+  cat "$SIGNAL_FILE" > "$tmp_signal" 2>/dev/null || true
+  echo "$seq|$timestamp|$type|$agent|$checksum|$data" >> "$tmp_signal"
+  mv "$tmp_signal" "$SIGNAL_FILE"
+
+  log_verbose "Signal[$seq]: $type:$agent ${data:+($data)} [${checksum:0:8}]"
+
+  # v2.3: Trace signal emission
+  trace "signal_emitted" "$agent" "$(jq -nc --arg type "$type" --arg seq "$seq" --arg data "$data" '{type: $type, seq: $seq, data: $data}')"
+
+  # Update state with sequence info
+  update_state '.signals += [{"seq":'"$seq"',"time":"'"$timestamp"'","type":"'"$type"'","agent":"'"$agent"'","checksum":"'"$checksum"'","data":"'"$data"'"}]'
+}
+
+wait_for_signal() {
+  local signal_pattern="$1"
+  local timeout="${2:-$TIMEOUT}"
+  local start_time
+  start_time=$(date +%s)
+
+  log_verbose "Waiting for signal: $signal_pattern (timeout: ${timeout}s)"
+
+  while true; do
+    # Match on TYPE|AGENT pattern, accounting for new format
+    if grep -E "^[0-9]+\|[^|]+\|$signal_pattern\|" "$SIGNAL_FILE" 2>/dev/null; then
+      return 0
+    fi
+
+    local elapsed=$(($(date +%s) - start_time))
+    if [[ $elapsed -ge $timeout ]]; then
+      log "WARN" "Timeout waiting for signal: $signal_pattern"
+      return 1
+    fi
+
+    sleep 1
+  done
+}
+
+check_signal() {
+  local signal_pattern="$1"
+  grep -qE "^[0-9]+\|[^|]+\|$signal_pattern\|" "$SIGNAL_FILE" 2>/dev/null
+}
+
+get_signal_data() {
+  local type="$1"
+  local agent="$2"
+  # Extract data field (6th field) from matching signal
+  grep -E "^[0-9]+\|[^|]+\|$type\|$agent\|" "$SIGNAL_FILE" 2>/dev/null | tail -1 | cut -d'|' -f6
+}
+
+# Verify signal integrity (detect corruption)
+verify_signal() {
+  local signal_line="$1"
+  local seq type agent checksum data expected_checksum
+
+  seq=$(echo "$signal_line" | cut -d'|' -f1)
+  type=$(echo "$signal_line" | cut -d'|' -f3)
+  agent=$(echo "$signal_line" | cut -d'|' -f4)
+  checksum=$(echo "$signal_line" | cut -d'|' -f5)
+  data=$(echo "$signal_line" | cut -d'|' -f6)
+
+  expected_checksum=$(signal_checksum "$seq|$type|$agent|$data")
+
+  [[ "$checksum" == "$expected_checksum" ]]
+}
+
+# Verify all signals in file (for recovery integrity check)
+verify_all_signals() {
+  local corrupt=0
+  local verified=0
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    if verify_signal "$line"; then
+      ((verified++))
+    else
+      ((corrupt++))
+      log "WARN" "Corrupt signal detected: $line"
+    fi
+  done < "$SIGNAL_FILE"
+
+  if [[ $corrupt -gt 0 ]]; then
+    log "ERROR" "Signal integrity check: $corrupt corrupt, $verified valid"
+    return 1
+  fi
+
+  log_verbose "Signal integrity check: $verified signals verified"
+  return 0
+}
+
+# Get all signals in order (for debugging/reporting)
+list_signals() {
+  if [[ -f "$SIGNAL_FILE" ]]; then
+    sort -t'|' -k1 -n "$SIGNAL_FILE"
+  fi
+}
+
+# ============================================================================
+# RIGHT-HAND NAVIGATION (Turing's Maze v2.6)
+# ============================================================================
+
+# Like Turing's Maze where the mouse follows the right-hand rule for navigation,
+# when blocked, we try alternatives in a deterministic clockwise order.
+# This implements the 3-bit lookup table: [left, front, right] wall presence.
+#
+# Pattern | Action              | Agent Equivalent
+# --------|---------------------|------------------
+# 000     | Plow straight       | Four-way: proceed without stopping
+# 010     | Turn clockwise      | Blocked front, try next approach
+# 101     | Continue straight   | Clear path, proceed
+# 111     | Reverse             | Dead end, backtrack to checkpoint
+#
+# The key insight: at four-way intersections (multiple valid paths),
+# PLOW THROUGH - don't stop to ask which way.
+
+# Try approaches in clockwise order (A → B → C → best)
+# Returns: chosen approach name and reason
+right_hand_navigate() {
+  local context="$1"
+  local approach_a="$2"
+  local approach_b="$3"
+  local approach_c="$4"
+
+  local attempts_file="$AGENT_DIR/.navigation_attempts"
+  local chosen=""
+  local reason=""
+
+  # Track attempts to prevent infinite loops (diode pattern)
+  echo "$(date +%s)|$context" >> "$attempts_file" 2>/dev/null || true
+  local attempt_count
+  attempt_count=$(grep -c "|$context$" "$attempts_file" 2>/dev/null || echo "0")
+
+  if [[ $attempt_count -gt 3 ]]; then
+    # Dead end (111 pattern) - reverse/escalate
+    log "WARN" "Navigation: Dead end detected for '$context' after 3 attempts"
+    echo "ESCALATE|Dead end: all approaches exhausted"
+    return 1
+  fi
+
+  # Evaluate approaches in clockwise order (right-hand rule)
+  # The first feasible approach wins
+  if [[ -n "$approach_a" ]] && ! grep -q "FAILED:$approach_a" "$attempts_file" 2>/dev/null; then
+    chosen="A"
+    reason="First feasible approach (right-hand rule)"
+  elif [[ -n "$approach_b" ]] && ! grep -q "FAILED:$approach_b" "$attempts_file" 2>/dev/null; then
+    chosen="B"
+    reason="Clockwise alternative (A blocked)"
+  elif [[ -n "$approach_c" ]] && ! grep -q "FAILED:$approach_c" "$attempts_file" 2>/dev/null; then
+    chosen="C"
+    reason="Final clockwise option (A,B blocked)"
+  else
+    # All approaches tried - reverse
+    echo "REVERSE|All approaches attempted, backtracking"
+    return 1
+  fi
+
+  echo "$chosen|$reason"
+  return 0
+}
+
+# Mark an approach as failed (for diode pattern - no revisiting)
+mark_approach_failed() {
+  local approach="$1"
+  echo "FAILED:$approach" >> "$AGENT_DIR/.navigation_attempts" 2>/dev/null || true
+}
+
+# ============================================================================
+# TRANSMISSION GATES (Turing's Maze v2.6)
+# ============================================================================
+
+# Like Turing's Maze transmission gates that control signal flow,
+# these gates check preconditions before allowing agent execution.
+# Gate states: RED (blocked) or GREEN (open).
+
+# Check if a transmission gate is open
+gate_check() {
+  local gate_name="$1"
+  local gate_file="$AGENT_DIR/.gates/$gate_name"
+
+  mkdir -p "$AGENT_DIR/.gates"
+
+  if [[ -f "$gate_file" ]]; then
+    local state
+    state=$(cat "$gate_file")
+    [[ "$state" == "GREEN" ]]
+  else
+    # Gate doesn't exist - default to RED (closed)
+    return 1
+  fi
+}
+
+# Open a transmission gate
+gate_open() {
+  local gate_name="$1"
+  mkdir -p "$AGENT_DIR/.gates"
+  echo "GREEN" > "$AGENT_DIR/.gates/$gate_name"
+  log_verbose "Gate opened: $gate_name"
+  trace "gate_opened" "orchestrator" "$(jq -nc --arg gate "$gate_name" '{gate: $gate}')"
+}
+
+# Close a transmission gate (reset to RED)
+gate_close() {
+  local gate_name="$1"
+  mkdir -p "$AGENT_DIR/.gates"
+  echo "RED" > "$AGENT_DIR/.gates/$gate_name"
+  log_verbose "Gate closed: $gate_name"
+  trace "gate_closed" "orchestrator" "$(jq -nc --arg gate "$gate_name" '{gate: $gate}')"
+}
+
+# ============================================================================
+# EXPRESS-AND-RESET PATTERN (Turing's Maze v2.6)
+# ============================================================================
+
+# Like Turing's Maze logic gates that follow express-and-reset:
+# 1. INPUT: Consume input (toggle red → green)
+# 2. EVALUATE: Process based on stored state
+# 3. RESET: Clean up for reuse (green → red)
+#
+# This ensures signals are atomically consumed and state is clean for reuse.
+
+# Atomically consume a signal (express-and-reset pattern)
+# Returns the signal data and marks it as consumed
+consume_signal() {
+  local type="$1"
+  local agent="$2"
+  local consumed_file="$AGENT_DIR/.consumed_signals"
+
+  # Check if already consumed (diode pattern - no re-consumption)
+  local signal_key="$type:$agent"
+  if grep -q "^$signal_key$" "$consumed_file" 2>/dev/null; then
+    log_verbose "Signal already consumed: $signal_key"
+    return 1
+  fi
+
+  # Find the signal
+  local signal_data
+  signal_data=$(get_signal_data "$type" "$agent")
+
+  if [[ -z "$signal_data" ]]; then
+    return 1
+  fi
+
+  # Mark as consumed (express-and-reset: this is the RESET phase)
+  echo "$signal_key" >> "$consumed_file"
+
+  # Return the data (this is the EXPRESS phase)
+  echo "$signal_data"
+  return 0
+}
+
+# Reset all consumed signals (for checkpoint recovery)
+reset_consumed_signals() {
+  rm -f "$AGENT_DIR/.consumed_signals" 2>/dev/null || true
+  log_verbose "Consumed signals reset"
+}
+
+# ============================================================================
+# RETRY LOGIC (Exponential Backoff for Transient Failures)
+# ============================================================================
+
+# Like Turing's Maze where the mouse can retry a path if blocked,
+# we retry transient failures with exponential backoff to handle
+# network issues, rate limits, and temporary API unavailability.
+# Uses diode pattern: retry count is bounded to prevent infinite loops.
+
+# Check if error is transient (retryable)
+is_transient_error() {
+  local output="$1"
+  # Check for common transient error patterns
+  echo "$output" | grep -qiE "timeout|rate.?limit|connection|temporary|503|502|429|EAGAIN|ECONNRESET" && return 0
+  return 1
+}
+
+# Execute with retry logic
+execute_with_retry() {
+  local cmd="$1"
+  local output_file="$2"
+  local agent_name="${3:-unknown}"
+  local attempt=1
+  local delay=$RETRY_BASE_DELAY
+  local exit_code
+
+  while [[ $attempt -le $MAX_RETRIES ]]; do
+    log_verbose "Agent $agent_name: attempt $attempt/$MAX_RETRIES"
+
+    # Execute command (< /dev/null prevents stdin blocking)
+    if timeout "$TIMEOUT" bash -c "$cmd" < /dev/null > "$output_file" 2>&1; then
+      return 0
+    fi
+    exit_code=$?
+
+    # Check if it's a transient error worth retrying
+    if [[ $attempt -lt $MAX_RETRIES ]] && is_transient_error "$(cat "$output_file")"; then
+      log "WARN" "Agent $agent_name: transient failure (attempt $attempt/$MAX_RETRIES), retrying in ${delay}s..."
+      sleep "$delay"
+      # Exponential backoff: 5s, 10s, 20s, ...
+      delay=$((delay * 2))
+      ((attempt++))
+    else
+      # Non-transient error or max retries reached
+      if [[ $attempt -ge $MAX_RETRIES ]]; then
+        log "ERROR" "Agent $agent_name: max retries ($MAX_RETRIES) exceeded"
+      fi
+      return $exit_code
+    fi
+  done
+
+  return 1
+}
+
+# ============================================================================
+# CHECKPOINT & RECOVERY
+# ============================================================================
+
+create_checkpoint() {
+  local phase="$1"
+  local checkpoint_file="$CHECKPOINT_DIR/checkpoint-$phase-$(date +%s).json"
+
+  # Get current sequence number for reproducibility
+  local current_seq
+  current_seq=$(cat "$SEQ_FILE" 2>/dev/null || echo "0")
+
+  # v2.3: Include correlation ID and trace file path
+  cat > "$checkpoint_file" << EOF
+{
+  "checkpoint_time": "$(date -Iseconds)",
+  "phase": "$phase",
+  "work_dir": "$WORK_DIR",
+  "agent_dir": "$AGENT_DIR",
+  "goal": $(echo "$GOAL" | jq -Rs .),
+  "state": $(cat "$STATE_FILE"),
+  "signals": $(cat "$SIGNAL_FILE" | jq -Rs .),
+  "sequence_number": $current_seq,
+  "correlation_id": "$CORRELATION_ID",
+  "trace_file": "$TRACE_FILE",
+  "resume_command": "co --resume $checkpoint_file"
+}
+EOF
+
+  # v2.3: Trace checkpoint creation
+  trace "checkpoint_created" "orchestrator" "$(jq -nc --arg phase "$phase" --arg seq "$current_seq" '{phase: $phase, seq: $seq}')"
+
+  log "INFO" "Checkpoint created: $checkpoint_file (seq: $current_seq)"
+  echo "$checkpoint_file"
+}
+
+# v2.3: Suggest resume command when failures detected
+suggest_resume() {
+  local checkpoint_file="$1"
+  local failure_reason="${2:-unknown}"
+
+  echo ""
+  echo -e "${YELLOW}════════════════════════════════════════════════════════════════${NC}"
+  echo -e "${YELLOW}  FAILURE DETECTED - AUTO-RESUME AVAILABLE${NC}"
+  echo -e "${YELLOW}════════════════════════════════════════════════════════════════${NC}"
+  echo ""
+  echo "Correlation ID: $CORRELATION_ID"
+  echo "Failure reason: $failure_reason"
+  echo ""
+  echo "To validate checkpoint integrity:"
+  echo -e "  ${GREEN}co --validate $checkpoint_file${NC}"
+  echo ""
+  echo "To resume from checkpoint:"
+  echo -e "  ${GREEN}co --resume $checkpoint_file${NC}"
+  echo ""
+  echo "Trace log for debugging:"
+  echo -e "  ${BLUE}cat $TRACE_FILE | jq .${NC}"
+  echo ""
+}
+
+resume_from_checkpoint() {
+  local checkpoint="$1"
+
+  if [[ ! -f "$checkpoint" ]]; then
+    log "ERROR" "Checkpoint file not found: $checkpoint"
+    exit 1
+  fi
+
+  log "INFO" "Resuming from checkpoint: $checkpoint"
+
+  # Restore state
+  WORK_DIR=$(jq -r '.work_dir' "$checkpoint")
+  GOAL=$(jq -r '.goal' "$checkpoint")
+  AGENT_DIR=$(jq -r '.agent_dir' "$checkpoint")
+  local phase
+  phase=$(jq -r '.phase' "$checkpoint")
+
+  # v2.3: Restore correlation ID and trace file
+  CORRELATION_ID=$(jq -r '.correlation_id // empty' "$checkpoint" 2>/dev/null || true)
+  if [[ -z "$CORRELATION_ID" ]]; then
+    # Generate new correlation ID for pre-v2.3 checkpoints
+    CORRELATION_ID=$(generate_correlation_id)
+    log "INFO" "Generated new correlation ID: $CORRELATION_ID (pre-v2.3 checkpoint)"
+  fi
+
+  TRACE_FILE=$(jq -r '.trace_file // empty' "$checkpoint" 2>/dev/null || true)
+  if [[ -z "$TRACE_FILE" || ! -f "$TRACE_FILE" ]]; then
+    TRACE_FILE="$AGENT_DIR/trace.jsonl"
+    touch "$TRACE_FILE"
+  fi
+
+  # Initialize SEQ_FILE for signal ordering continuity (deterministic recovery)
+  SEQ_FILE="$AGENT_DIR/.seq"
+  local seq_to_restore
+  # Prefer explicit sequence_number from checkpoint, fallback to computing from signals
+  seq_to_restore=$(jq -r '.sequence_number // empty' "$checkpoint" 2>/dev/null || true)
+  if [[ -z "$seq_to_restore" ]]; then
+    seq_to_restore=$(jq -r '.state.signals | map(.seq) | max // 0' "$checkpoint" 2>/dev/null || echo "0")
+  fi
+  echo "$seq_to_restore" > "$SEQ_FILE"
+  log "INFO" "Restored sequence: $seq_to_restore"
+
+  # Restore signals
+  jq -r '.signals' "$checkpoint" > "$SIGNAL_FILE"
+
+  # v2.3: Trace resume event
+  trace "orchestration_resumed" "orchestrator" "$(jq -nc --arg phase "$phase" --arg checkpoint "$checkpoint" '{phase: $phase, checkpoint: $checkpoint}')"
+
+  log "INFO" "Restored: phase=$phase, goal=$GOAL"
+  log "INFO" "Correlation ID: $CORRELATION_ID"
+  log "INFO" "Agent dir: $AGENT_DIR"
+  log "INFO" "Resuming from phase: $phase"
+
+  # Return phase for orchestrator to continue from
+  echo "$phase"
+}
+
+# ============================================================================
+# STRUCTURED OUTPUT SCHEMA (Turing's Maze: Rigid Tile Types)
+# ============================================================================
+
+# Like Turing's Maze tiles (black/gray/red/green) that have precise behaviors,
+# agent outputs follow a strict JSON schema. This eliminates parsing ambiguity
+# that causes non-deterministic behavior.
+
+# JSON Schema for agent output - used with claude --json-schema for native enforcement
+# This is the single source of truth for agent output format
+AGENT_OUTPUT_SCHEMA='{
+  "type": "object",
+  "required": ["agent", "status", "changed", "verified", "signal"],
+  "properties": {
+    "agent": {"type": "string", "description": "Agent name identifier"},
+    "status": {"type": "string", "enum": ["COMPLETE", "FAILED", "BLOCKED"], "description": "Final execution status"},
+    "changed": {
+      "type": "array",
+      "description": "Files that were modified",
+      "items": {
+        "type": "object",
+        "required": ["file", "action"],
+        "properties": {
+          "file": {"type": "string"},
+          "action": {"type": "string", "enum": ["modified", "created", "deleted"]},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "added": {
+      "type": "array",
+      "description": "New files created",
+      "items": {
+        "type": "object",
+        "required": ["file"],
+        "properties": {
+          "file": {"type": "string"},
+          "purpose": {"type": "string"}
+        }
+      }
+    },
+    "verified": {
+      "type": "array",
+      "description": "Verification checks performed",
+      "items": {
+        "type": "object",
+        "required": ["check", "passed"],
+        "properties": {
+          "check": {"type": "string"},
+          "evidence": {"type": "string"},
+          "passed": {"type": "boolean"}
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "description": "Decisions made during execution",
+      "items": {
+        "type": "object",
+        "properties": {
+          "decision": {"type": "string"},
+          "rationale": {"type": "string"}
+        }
+      }
+    },
+    "signal": {"type": "string", "description": "Signal to emit (e.g., READY:agent_name)"},
+    "produced": {"type": "array", "items": {"type": "string"}, "description": "Artifacts produced for other agents"},
+    "blockers": {"type": "array", "items": {"type": "string"}, "description": "Blocking issues if FAILED or BLOCKED"},
+    "notes": {"type": "string", "description": "Additional notes for coordinator"}
+  }
+}'
+
+# Escape schema for command line use
+get_escaped_schema() {
+  echo "$AGENT_OUTPUT_SCHEMA" | jq -c '.'
+}
+
+# Validate agent output against schema
+validate_agent_output() {
+  local output_file="$1"
+  local agent_name="$2"
+
+  # Extract JSON block from output (between ```json and ```)
+  local json_output
+  json_output=$(sed -n '/```json/,/```/p' "$output_file" | sed '1d;$d' | tr -d '\n')
+
+  if [[ -z "$json_output" ]]; then
+    # Try extracting raw JSON object
+    json_output=$(grep -o '{[^}]*"agent"[^}]*}' "$output_file" | head -1 || true)
+  fi
+
+  if [[ -z "$json_output" ]]; then
+    log "WARN" "Agent $agent_name: no JSON output found, falling back to text parsing"
+    return 1
+  fi
+
+  # Validate JSON is parseable
+  if ! echo "$json_output" | jq -e '.' >/dev/null 2>&1; then
+    log "WARN" "Agent $agent_name: invalid JSON output"
+    return 1
+  fi
+
+  # Check required fields
+  local status
+  status=$(echo "$json_output" | jq -r '.status // empty')
+  if [[ -z "$status" ]]; then
+    log "WARN" "Agent $agent_name: missing status field"
+    return 1
+  fi
+
+  # Store validated JSON for later use
+  echo "$json_output" > "$AGENT_DIR/$agent_name.json"
+  return 0
+}
+
+# Parse agent output - prefer JSON, fallback to text
+parse_agent_output() {
+  local output_file="$1"
+  local agent_name="$2"
+
+  if [[ -f "$AGENT_DIR/$agent_name.json" ]]; then
+    # Use validated JSON
+    cat "$AGENT_DIR/$agent_name.json"
+  else
+    # Fallback: create JSON from text parsing (less reliable)
+    local status
+    status=$(grep -E "^STATUS:" "$output_file" | head -1 | sed 's/STATUS:[[:space:]]*//' || echo "UNKNOWN")
+
+    jq -n \
+      --arg agent "$agent_name" \
+      --arg status "$status" \
+      '{agent: $agent, status: $status, changed: [], verified: [], signal: "UNKNOWN"}'
+  fi
+}
+
+# ============================================================================
+# AGENT PARSING (Deterministic extraction with validation)
+# ============================================================================
+
+# v2.8: Robust agent parsing with whitespace tolerance and validation
+parse_agents() {
+  local discovery_output="$1"
+
+  # Extract agent names with tolerance for:
+  # - Trailing whitespace
+  # - Windows line endings (\r)
+  # - Extra spaces after colon
+  # Match: ---AGENT:name or ---AGENT: name (with optional trailing whitespace)
+  echo "$discovery_output" | tr -d '\r' | sed -n 's/^---AGENT:[[:space:]]*\([a-zA-Z0-9_-]*\)[[:space:]]*$/\1/p' | grep -v '^$'
+}
+
+# v2.8: Parse the task manifest to get expected agent count
+parse_task_manifest() {
+  local discovery_output="$1"
+  
+  # Look for TASK_MANIFEST section with task count
+  local manifest_section
+  manifest_section=$(echo "$discovery_output" | sed -n '/^TASK_MANIFEST:/,/^[A-Z_]*:/p' | head -20)
+  
+  if [[ -n "$manifest_section" ]]; then
+    # Count TASK-NNN entries in manifest
+    echo "$manifest_section" | grep -cE '^\s*TASK-[0-9]+:' || echo "0"
+  else
+    echo "0"
+  fi
+}
+
+# v2.8: Validate that all expected agents were parsed
+validate_agent_parsing() {
+  local discovery_output="$1"
+  local parsed_agents="$2"
+  
+  local parsed_count expected_count
+  parsed_count=$(echo "$parsed_agents" | grep -c . || echo "0")
+  
+  # Check manifest for expected count
+  expected_count=$(parse_task_manifest "$discovery_output")
+  
+  # If no manifest, count ---AGENT: lines directly (with tolerance)
+  if [[ "$expected_count" == "0" ]]; then
+    expected_count=$(echo "$discovery_output" | tr -d '\r' | grep -cE '^---AGENT:[[:space:]]*[a-zA-Z0-9_-]+' || echo "0")
+  fi
+  
+  if [[ "$parsed_count" -ne "$expected_count" ]] && [[ "$expected_count" -gt 0 ]]; then
+    log "WARN" "Agent parsing mismatch: parsed $parsed_count, expected $expected_count"
+    log "WARN" "Parsed agents: $(echo $parsed_agents | tr '\n' ', ')"
+    
+    # Try to identify unparsed agents
+    local all_agent_lines
+    all_agent_lines=$(echo "$discovery_output" | tr -d '\r' | grep -E '^---AGENT:' || true)
+    log "WARN" "Raw agent lines found:"
+    echo "$all_agent_lines" | while read -r line; do
+      log "WARN" "  '$line'"
+    done
+    
+    return 1
+  fi
+  
+  if [[ "$parsed_count" -eq 0 ]]; then
+    log "ERROR" "No agents parsed from discovery output"
+    return 1
+  fi
+  
+  log "INFO" "Agent parsing validated: $parsed_count agents"
+  return 0
+}
+
+parse_agent_field() {
+  local agent_block="$1"
+  local field="$2"
+  local default="$3"
+  
+  local value
+  # v2.8: More tolerant field parsing - handle varying whitespace
+  value=$(echo "$agent_block" | tr -d '\r' | sed -n "s/^${field}:[[:space:]]*//p" | head -1 | sed 's/[[:space:]]*$//')
+  echo "${value:-$default}"
+}
+
+parse_agent_block() {
+  local discovery_output="$1"
+  local agent_name="$2"
+  
+  # v2.8: More tolerant block extraction
+  # Handle: ---AGENT:name or ---AGENT: name (with optional whitespace)
+  local block
+  block=$(echo "$discovery_output" | tr -d '\r' | sed -n "/^---AGENT:[[:space:]]*${agent_name}[[:space:]]*$/,/^---[[:space:]]*$/p" | sed '$d')
+  
+  if [[ -z "$block" ]]; then
+    log "WARN" "Could not parse block for agent: $agent_name"
+    # Try alternate pattern with looser matching
+    block=$(echo "$discovery_output" | tr -d '\r' | grep -A 50 "^---AGENT:[[:space:]]*${agent_name}" | sed -n '1,/^---/p' | sed '$d')
+  fi
+  
+  echo "$block"
+}
+
+parse_interface_field() {
+  local agent_block="$1"
+  local field="$2"
+  
+  # Handle multi-line INTERFACE block
+  echo "$agent_block" | sed -n "/^  $field:/,/^  [A-Z]/p" | sed '1s/^  '"$field"': *//;$d'
+}
+
+parse_dependencies() {
+  local agent_block="$1"
+  
+  local depends
+  depends=$(parse_agent_field "$agent_block" "DEPENDS_ON" "none")
+  
+  if [[ "$depends" == "none" || "$depends" == "\"none\"" ]]; then
+    echo ""
+    return
+  fi
+  
+  # Parse comma-separated or signal-format dependencies
+  # Handle: "READY:backend" or "backend" or "backend, frontend"
+  echo "$depends" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^READY://'
+}
+
+# ============================================================================
+# AGENT EXECUTION (Three-Phase Turing's Maze Model)
+# ============================================================================
+
+# Like Turing's Maze state transitions (color → direction → move),
+# each agent executes in three deterministic phases:
+#   1. READ: Consume inputs, validate preconditions
+#   2. TRANSFORM: Execute work, modify files
+#   3. EMIT: Signal completion with structured output
+
+run_agent() {
+  local agent_name="$1"
+  local agent_block="$2"
+  local task_index="${3:-0}"      # v2.8: Task index (1-based)
+  local total_tasks="${4:-1}"     # v2.8: Total task count
+  local task_manifest="${5:-}"    # v2.8: Full task manifest for context
+
+  # Parse all fields with defaults
+  local mission scope cannot_touch deliverable verify
+  local interface_expects interface_produces interface_signals depends_on
+
+  mission=$(parse_agent_field "$agent_block" "MISSION" "Complete assigned work")
+  scope=$(parse_agent_field "$agent_block" "SCOPE" "As needed")
+  cannot_touch=$(parse_agent_field "$agent_block" "CANNOT_TOUCH" "None specified")
+  deliverable=$(parse_agent_field "$agent_block" "DELIVERABLE" "Working implementation")
+  verify=$(parse_agent_field "$agent_block" "VERIFY" "Tests pass")
+  depends_on=$(parse_dependencies "$agent_block")
+
+  # Parse structured interface if present
+  interface_expects=$(parse_interface_field "$agent_block" "EXPECTS")
+  interface_produces=$(parse_interface_field "$agent_block" "PRODUCES")
+  interface_signals=$(parse_interface_field "$agent_block" "SIGNALS")
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 1: READ (Like Turing's Maze: check tile color before acting)
+  # ═══════════════════════════════════════════════════════════════════════════
+  log "INFO" "Agent $agent_name: PHASE 1 - READ (checking preconditions)"
+  update_state ".agents.\"$agent_name\".status" '"pending"'
+  update_state ".agents.\"$agent_name\".phase" '"read"'
+  update_state ".agents.\"$agent_name\".started" "\"$(date -Iseconds)\""
+
+  # TRANSMISSION GATE CHECK (v2.6)
+  # Like Turing's Maze gates that control signal flow to shared buses
+  local agent_gate="agent_$agent_name"
+  if gate_check "$agent_gate"; then
+    log "WARN" "Agent $agent_name: gate already open (possible re-entry)"
+    # Diode pattern: don't re-execute if already processed
+    if check_signal "READY|$agent_name"; then
+      log "INFO" "Agent $agent_name: already completed (diode pattern)"
+      return 0
+    fi
+  fi
+  gate_open "$agent_gate"
+
+  # Wait for dependencies using EXPRESS-AND-RESET pattern (v2.6)
+  # Each dependency signal is consumed exactly once
+  if [[ -n "$depends_on" ]]; then
+    log "INFO" "Agent $agent_name waiting for dependencies: $depends_on"
+
+    for dep in $depends_on; do
+      # Check dependency gate
+      local dep_gate="agent_$dep"
+      if ! gate_check "$dep_gate"; then
+        log_verbose "Agent $agent_name: waiting for gate $dep_gate to open"
+      fi
+
+      if ! wait_for_signal "READY|$dep"; then
+        log "ERROR" "Agent $agent_name: dependency $dep timed out"
+        emit_signal "BLOCKED" "$agent_name" "dependency_timeout:$dep"
+        update_state ".agents.\"$agent_name\".status" '"blocked"'
+        gate_close "$agent_gate"  # Reset gate on failure
+        return 1
+      fi
+
+      # EXPRESS-AND-RESET: Consume the signal (marks as consumed)
+      local dep_data
+      dep_data=$(consume_signal "READY" "$dep" || true)
+      log_verbose "Agent $agent_name: dependency $dep satisfied (consumed: ${dep_data:-none})"
+    done
+  fi
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 2: TRANSFORM (Like Turing's Maze: change tile color)
+  # ═══════════════════════════════════════════════════════════════════════════
+  log "INFO" "Agent $agent_name: PHASE 2 - TRANSFORM (executing work)"
+  update_state ".agents.\"$agent_name\".status" '"running"'
+  update_state ".agents.\"$agent_name\".phase" '"transform"'
+
+  # Build agent prompt with STRUCTURED JSON OUTPUT requirement
+  # v2.8: Include task positioning for context
+  local task_position_header=""
+  if [[ "$total_tasks" -gt 1 ]]; then
+    task_position_header="
+═══════════════════════════════════════════════════════════════════════════════
+TASK POSITION: $task_index of $total_tasks
+═══════════════════════════════════════════════════════════════════════════════
+You are working on task $task_index in a sequence of $total_tasks total tasks.
+Stay focused on YOUR task only. Do not attempt work assigned to other agents.
+
+TASK MANIFEST (all tasks in this orchestration):
+$task_manifest
+═══════════════════════════════════════════════════════════════════════════════
+"
+  fi
+
+  local agent_prompt
+  agent_prompt="You are SUB-AGENT: $agent_name
+$task_position_header
+GOAL: $GOAL
+STATUS: Starting | Dependencies satisfied | Executing mission
+CONTEXT: Fresh context | split: parent-managed | Task $task_index/$total_tasks
+STATE: agent_name=$agent_name, scope=$scope, task_index=$task_index
+BLOCKERS: none
+
+---
+
+YOUR MISSION: $mission
+
+SCOPE (ONLY touch these files/dirs):
+$scope
+
+CANNOT TOUCH (violation = immediate failure):
+$cannot_touch
+
+INTERFACE CONTRACT:
+  EXPECTS: ${interface_expects:-None specified}
+  PRODUCES: ${interface_produces:-None specified}
+  SIGNALS: ${interface_signals:-READY:$agent_name on completion}
+
+DELIVERABLE: $deliverable
+
+VERIFICATION REQUIRED:
+$verify
+
+---
+
+EXECUTION MODEL (Three-Phase Turing's Maze):
+1. READ: Understand inputs, validate preconditions exist
+2. TRANSFORM: Execute work, make file changes
+3. EMIT: Output structured result
+
+EXECUTION RULES:
+1. Stay STRICTLY within SCOPE. Any file outside = failure.
+2. Do NOT ask questions. Decide and document.
+3. Use defaults from CLAUDE.md for any ambiguous decisions.
+4. If stuck: use RIGHT-HAND NAVIGATION (see below).
+5. Must verify before claiming complete.
+
+RIGHT-HAND NAVIGATION (Turing's Maze):
+When blocked, evaluate 3 approaches in clockwise order:
+  - Approach A: [describe] → feasibility?
+  - Approach B: [describe] → feasibility?
+  - Approach C: [describe] → feasibility?
+Pick FIRST feasible approach. Document choice in decisions array.
+Pattern 000 (all clear): plow through, don't stop
+Pattern 010 (front blocked): turn clockwise to next approach
+Pattern 111 (dead end): FAIL with blockers array explaining why all 3 failed
+
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL: OUTPUT FORMAT (MUST be valid JSON for deterministic parsing)
+═══════════════════════════════════════════════════════════════════════════════
+
+After completing your work, output EXACTLY this JSON structure (no other format):
+
+\`\`\`json
+{
+  \"agent\": \"$agent_name\",
+  \"status\": \"COMPLETE\",
+  \"changed\": [
+    {\"file\": \"path/to/file\", \"action\": \"modified|created|deleted\", \"reason\": \"why\"}
+  ],
+  \"added\": [
+    {\"file\": \"path/to/new/file\", \"purpose\": \"what it does\"}
+  ],
+  \"verified\": [
+    {\"check\": \"test name\", \"evidence\": \"actual output\", \"passed\": true}
+  ],
+  \"decisions\": [
+    {\"decision\": \"what you decided\", \"rationale\": \"why\"}
+  ],
+  \"signal\": \"READY:$agent_name\",
+  \"produced\": [\"list\", \"of\", \"artifacts\"],
+  \"blockers\": [],
+  \"notes\": \"anything coordinator needs to know\"
+}
+\`\`\`
+
+Status must be one of: COMPLETE, FAILED, BLOCKED
+If FAILED or BLOCKED, populate blockers array with reasons.
+
+Begin execution now."
+
+  # Execute agent
+  cd "$WORK_DIR"
+  local output_file="$AGENT_DIR/$agent_name.md"
+  local json_output_file="$AGENT_DIR/$agent_name.json"
+  local exit_code=0
+
+  log "INFO" "Agent $agent_name: executing claude"
+
+  # Build command with native JSON output if in plan mode (--print supports it)
+  local claude_cmd_full
+  local use_native_json=false
+  if [[ "$EXECUTE_MODE" == "false" ]]; then
+    # Plan mode: use --output-format json + --json-schema for deterministic output
+    local escaped_schema
+    escaped_schema=$(get_escaped_schema)
+    claude_cmd_full="claude --print --output-format json --json-schema '$escaped_schema' \"$agent_prompt\""
+    use_native_json=true
+    log_verbose "Using native JSON output with schema validation"
+  else
+    # Execute mode: can't use --output-format with interactive mode
+    claude_cmd_full="$CLAUDE_CMD \"$agent_prompt\""
+  fi
+
+  # Execute with retry logic for transient failures
+  if execute_with_retry "$claude_cmd_full" "$output_file" "$agent_name"; then
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PHASE 3: EMIT (Like Turing's Maze: move forward after state change)
+    # ═══════════════════════════════════════════════════════════════════════════
+    log "INFO" "Agent $agent_name: PHASE 3 - EMIT (parsing output, signaling)"
+    update_state ".agents.\"$agent_name\".phase" '"emit"'
+
+    # Handle native JSON output (most deterministic path)
+    local json_validated=false
+    if [[ "$use_native_json" == "true" ]]; then
+      # Native JSON output - extract result from claude's JSON response
+      if jq -e '.result' "$output_file" >/dev/null 2>&1; then
+        jq -r '.result' "$output_file" > "$json_output_file"
+        json_validated=true
+        log_verbose "Agent $agent_name: native JSON output extracted"
+      elif jq -e '.' "$output_file" >/dev/null 2>&1; then
+        # Direct JSON output (schema-validated)
+        cp "$output_file" "$json_output_file"
+        json_validated=true
+        log_verbose "Agent $agent_name: direct JSON output validated"
+      fi
+    fi
+
+    # Fallback: Try to validate and parse JSON from text output
+    if [[ "$json_validated" != "true" ]]; then
+      json_validated=$(validate_agent_output "$output_file" "$agent_name" && echo "true" || echo "false")
+    fi
+
+    if [[ "$json_validated" == "true" ]] && [[ -f "$json_output_file" ]]; then
+      # JSON parsing - deterministic
+      local json_output status
+      json_output=$(cat "$json_output_file")
+      status=$(echo "$json_output" | jq -r '.status')
+
+      case "$status" in
+        "COMPLETE")
+          emit_signal "READY" "$agent_name"
+          update_state ".agents.\"$agent_name\".status" '"complete"'
+          log "OK" "Agent $agent_name: COMPLETE (JSON validated)"
+
+          # Extract produced artifacts from JSON
+          local produced
+          produced=$(echo "$json_output" | jq -r '.produced // [] | join(", ")' || true)
+          if [[ -n "$produced" ]]; then
+            emit_signal "DATA" "$agent_name" "$produced"
+          fi
+          ;;
+        "BLOCKED")
+          local blockers
+          blockers=$(echo "$json_output" | jq -r '.blockers // [] | join(", ")' || echo "unknown")
+          emit_signal "BLOCKED" "$agent_name" "$blockers"
+          update_state ".agents.\"$agent_name\".status" '"blocked"'
+          log "WARN" "Agent $agent_name: BLOCKED - $blockers"
+          exit_code=1
+          ;;
+        "FAILED")
+          local blockers
+          blockers=$(echo "$json_output" | jq -r '.blockers // [] | join(", ")' || echo "unknown")
+          emit_signal "FAILED" "$agent_name" "$blockers"
+          update_state ".agents.\"$agent_name\".status" '"failed"'
+          log "ERROR" "Agent $agent_name: FAILED - $blockers"
+          exit_code=1
+          ;;
+        *)
+          emit_signal "FAILED" "$agent_name" "invalid_status:$status"
+          update_state ".agents.\"$agent_name\".status" '"failed"'
+          log "ERROR" "Agent $agent_name: invalid status '$status'"
+          exit_code=1
+          ;;
+      esac
+    else
+      # Fallback: text parsing (non-deterministic path - log warning)
+      log "WARN" "Agent $agent_name: falling back to text parsing (less reliable)"
+
+      if grep -qE '"status":\s*"COMPLETE"|STATUS:\s*COMPLETE' "$output_file"; then
+        emit_signal "READY" "$agent_name"
+        update_state ".agents.\"$agent_name\".status" '"complete"'
+        log "OK" "Agent $agent_name: COMPLETE (text fallback)"
+
+        # Extract and emit any DATA signals
+        local produced
+        produced=$(grep -A1 "PRODUCED:" "$output_file" | tail -1 | sed 's/^[[:space:]]*//' || true)
+        if [[ -n "$produced" && "$produced" != "PRODUCED:" ]]; then
+          emit_signal "DATA" "$agent_name" "$produced"
+        fi
+      elif grep -qE '"status":\s*"BLOCKED"|STATUS:\s*BLOCKED' "$output_file"; then
+        local reason
+        reason=$(grep -E "BLOCKERS:|blockers" "$output_file" | head -1 || echo "unknown")
+        emit_signal "BLOCKED" "$agent_name" "$reason"
+        update_state ".agents.\"$agent_name\".status" '"blocked"'
+        log "WARN" "Agent $agent_name: BLOCKED - $reason"
+        exit_code=1
+      else
+        emit_signal "FAILED" "$agent_name" "no_parseable_status"
+        update_state ".agents.\"$agent_name\".status" '"failed"'
+        log "ERROR" "Agent $agent_name: no parseable status in output"
+        exit_code=1
+      fi
+    fi
+  else
+    emit_signal "FAILED" "$agent_name" "execution_error_or_timeout"
+    update_state ".agents.\"$agent_name\".status" '"failed"'
+    update_state ".agents.\"$agent_name\".phase" '"failed"'
+    log "ERROR" "Agent $agent_name: execution failed or timed out"
+    exit_code=1
+  fi
+
+  update_state ".agents.\"$agent_name\".finished" "\"$(date -Iseconds)\""
+  return $exit_code
+}
+
+# ============================================================================
+# ORCHESTRATION PHASES
+# ============================================================================
+
+phase_discovery() {
+  log "INFO" "=== PHASE 1: DISCOVERY ==="
+  update_state '.phase' '"discovery"'
+
+  # Build container autonomy section if in container
+  local container_section=""
+  if [[ "$IS_CONTAINER" == "true" ]]; then
+    container_section="
+---
+
+CONTAINER FULL AUTONOMY MODE ACTIVE
+
+You are running in a dev container with FULL PERMISSIONS. You can and should:
+- Install packages: npm install, pip install, apt-get install - DO IT
+- Create any files: configs, source code, tests - NO PERMISSION NEEDED
+- Modify any code: the container is sandboxed - JUST EDIT
+- Fetch web content: documentation, APIs, research - ACCESS FREELY
+- Run any commands: builds, tests, linters - EXECUTE WITHOUT ASKING
+- Commit to session branch: changes are isolated - COMMIT FREELY
+
+Safety guarantees:
+- Cannot commit to main/master (pre-commit hook blocks)
+- Cannot push to remote (no SSH keys in container)
+- Human reviews all changes via ai-session-accept/discard
+
+DO NOT ASK PERMISSION. Just do the work.
+
+---
+"
+  fi
+
+  local discovery_prompt="GOAL: $GOAL
+STATUS: Discovery | Analyzing codebase | Determining approach
+CONTEXT: ~5% | split: evaluating
+STATE: work_dir=$WORK_DIR, container_mode=$IS_CONTAINER
+BLOCKERS: none
+$container_section
+---
+
+You are the COORDINATOR agent. Analyze this goal and determine execution strategy.
+
+CRITICAL BEHAVIORAL RULES (MUST FOLLOW):
+1. NEVER ask questions or present options to the user
+2. NEVER output 'Which approach would you prefer?' or similar
+3. When encountering blockers (missing deps, config issues, etc.): DECIDE the best fix and state what you will do
+4. If multiple solutions exist: Pick the simplest/safest one, document your choice, proceed
+5. Use the STUCK PROTOCOL: try 3 approaches mentally, pick best, execute
+
+STUCK PROTOCOL (apply to ANY blocker):
+- Approach A: [describe] → evaluate feasibility
+- Approach B: [describe] → evaluate feasibility
+- Approach C: [describe] → evaluate feasibility
+- DECISION: Pick best, explain why, EXECUTE (don't ask)
+
+SIZING RULES:
+- XS (1 file, obvious): Do it directly
+- S (≤5 files, clear path): Do it directly
+- M (6-15 files, multi-decision): Evaluate split
+- L+ (>15 files, cross-cutting): MUST split
+
+SPLIT TRIGGERS (any = must split):
+- Files > 10
+- Systems > 1 (frontend + backend, etc.)
+- Parallelizable chunks exist
+- Estimated work > 50k tokens
+
+IF XS/S: Execute directly, verify, report done. DO NOT ask for permission or present options.
+
+IF M+ requiring split, output EXACTLY this format:
+
+\`\`\`
+SPLIT REQUIRED
+
+DISCOVERY SUMMARY:
+[What you learned about the codebase structure and goal requirements]
+
+ARCHITECTURE DECISION:
+[How you're decomposing the work and why]
+
+EXECUTION: PARALLEL | SEQUENTIAL
+
+TASK_MANIFEST:
+TASK-001: [agent_name] - [one-line summary]
+TASK-002: [agent_name] - [one-line summary]
+[...continue for ALL tasks...]
+TOTAL_TASKS: [exact number]
+
+SUB-AGENTS:
+
+---AGENT:name1
+TASK_ID: TASK-001
+MISSION: [One sentence with success criteria]
+SCOPE: [Exact files/dirs - e.g., backend/, api/*.py]
+CANNOT_TOUCH: [All other agents' scopes]
+DEPENDS_ON: [none | READY:other_agent]
+INTERFACE:
+  EXPECTS: [What this agent needs from others]
+  PRODUCES: [What this agent creates for others]
+  SIGNALS: [READY:name1]
+DELIVERABLE: [Specific verifiable output]
+VERIFY: [Exact verification steps]
+---
+
+---AGENT:name2
+TASK_ID: TASK-002
+MISSION: [One sentence with success criteria]
+SCOPE: [Exact files/dirs]
+CANNOT_TOUCH: [All other agents' scopes]
+DEPENDS_ON: [none | READY:name1]
+INTERFACE:
+  EXPECTS: [Input requirements]
+  PRODUCES: [Output artifacts]
+  SIGNALS: [READY:name2]
+DELIVERABLE: [Specific output]
+VERIFY: [Verification steps]
+---
+
+INTEGRATION:
+[Steps coordinator takes after all agents complete]
+
+SIGNAL_FLOW:
+[Dependency graph: name1 -> name2 -> integration]
+
+FINAL_VERIFY:
+[End-to-end verification steps]
+\`\`\`
+
+CRITICAL RULES:
+1. Scopes MUST be mutually exclusive
+2. CANNOT_TOUCH must include ALL other agents' scopes
+3. Every agent must have VERIFY steps
+4. Use DEPENDS_ON for sequential requirements within parallel execution
+5. TASK_MANIFEST must list ALL agents with sequential TASK-NNN IDs
+6. Each ---AGENT block must include matching TASK_ID field
+
+ANTI-PATTERNS (NEVER DO THESE):
+❌ 'Which approach would you prefer?'
+❌ 'Options to resolve:' followed by numbered choices
+❌ 'Would you like me to...'
+❌ Stopping execution to ask for input
+❌ Presenting alternatives without picking one
+❌ 'The X is failing because Y' without immediately stating the fix
+
+CORRECT PATTERN:
+✅ 'BLOCKER: X is failing because Y. DECISION: Using approach A (HTTP client instead of native bindings) because it requires no additional dependencies and works cross-platform. EXECUTING...'
+
+Analyze and respond now. Remember: DECIDE, don't ask."
+
+  # Stream output to both file and terminal (user sees progress)
+  # Use stderr for status message so it doesn't get captured
+  # Note: < /dev/null prevents stdin blocking in non-interactive contexts
+  echo -e "${BLUE}Analyzing...${NC}" >&2
+  claude --print "$discovery_prompt" < /dev/null 2>&1 | tee "$AGENT_DIR/discovery.md" >&2
+
+  # Return whether split is needed (this goes to stdout for capture)
+  if grep -q "SPLIT REQUIRED" "$AGENT_DIR/discovery.md" 2>/dev/null; then
+    echo "split"
+  else
+    echo "direct"
+  fi
+}
+
+phase_spawn() {
+  log "INFO" "=== PHASE 2: SPAWNING SUB-AGENTS ==="
+  update_state '.phase' '"spawn"'
+  
+  local discovery_output
+  discovery_output=$(cat "$AGENT_DIR/discovery.md")
+  
+  # Parse agents
+  local agents
+  agents=$(parse_agents "$discovery_output")
+  
+  if [[ -z "$agents" ]]; then
+    log "ERROR" "Split indicated but no agents parsed"
+    cat "$AGENT_DIR/discovery.md"
+    exit 1
+  fi
+  
+  # v2.8: Validate agent parsing
+  if ! validate_agent_parsing "$discovery_output" "$agents"; then
+    log "WARN" "Agent parsing validation failed - proceeding with parsed agents"
+  fi
+  
+  # v2.8: Count total tasks and build manifest
+  local total_tasks
+  total_tasks=$(echo "$agents" | grep -c . || echo "0")
+  
+  # v2.8: Build task manifest for context
+  local task_manifest=""
+  local task_idx=1
+  for agent_name in $agents; do
+    local agent_block
+    agent_block=$(parse_agent_block "$discovery_output" "$agent_name")
+    local mission
+    mission=$(parse_agent_field "$agent_block" "MISSION" "No mission specified")
+    local scope
+    scope=$(parse_agent_field "$agent_block" "SCOPE" "No scope specified")
+    task_manifest="${task_manifest}TASK-$(printf '%03d' $task_idx): $agent_name
+  Mission: $mission
+  Scope: $scope
+"
+    ((task_idx++))
+  done
+  
+  # Save manifest for reference
+  echo "$task_manifest" > "$AGENT_DIR/task_manifest.txt"
+  log "INFO" "Task manifest created with $total_tasks tasks"
+  
+  # Check execution mode
+  local sequential=false
+  if echo "$discovery_output" | grep -q "EXECUTION: SEQUENTIAL"; then
+    sequential=true
+    log "INFO" "Execution mode: SEQUENTIAL"
+  else
+    log "INFO" "Execution mode: PARALLEL"
+  fi
+  
+  log "INFO" "Agents to spawn ($total_tasks total): $(echo $agents | tr '\n' ' ')"
+  
+  # Create checkpoint before spawning
+  create_checkpoint "pre-spawn"
+  
+  if [[ "$sequential" == "true" ]]; then
+    # Sequential execution with task indexing
+    local task_index=1
+    for agent_name in $agents; do
+      local agent_block
+      agent_block=$(parse_agent_block "$discovery_output" "$agent_name")
+
+      log "INFO" "Running agent: $agent_name (task $task_index of $total_tasks)"
+      if ! run_agent "$agent_name" "$agent_block" "$task_index" "$total_tasks" "$task_manifest"; then
+        log "ERROR" "Agent $agent_name failed, stopping sequential execution"
+        local checkpoint_file
+        checkpoint_file=$(create_checkpoint "failed-at-$agent_name")
+        # v2.3: Show auto-resume suggestion
+        suggest_resume "$checkpoint_file" "Agent $agent_name failed during sequential execution"
+        return 1
+      fi
+      ((task_index++))
+    done
+  else
+    # Parallel execution with dependency handling and task indexing
+    local pids=()
+    local agent_names=()
+    local task_index=1
+    
+    for agent_name in $agents; do
+      local agent_block
+      agent_block=$(parse_agent_block "$discovery_output" "$agent_name")
+      
+      log "INFO" "Spawning agent: $agent_name (task $task_index of $total_tasks)"
+      run_agent "$agent_name" "$agent_block" "$task_index" "$total_tasks" "$task_manifest" &
+      pids+=($!)
+      agent_names+=("$agent_name")
+      ((task_index++))
+    done
+    
+    log "INFO" "Waiting for ${#pids[@]} agents..."
+    
+    local failed=0
+    for i in "${!pids[@]}"; do
+      if ! wait "${pids[$i]}"; then
+        log "WARN" "Agent ${agent_names[$i]} (PID ${pids[$i]}) failed"
+        ((failed++)) || true
+      fi
+    done
+    
+    if [[ $failed -gt 0 ]]; then
+      log "WARN" "$failed agent(s) failed"
+      local checkpoint_file
+      checkpoint_file=$(create_checkpoint "post-spawn-with-failures")
+      # v2.3: Show auto-resume suggestion
+      suggest_resume "$checkpoint_file" "$failed agent(s) failed during parallel execution"
+    fi
+  fi
+
+  # Create checkpoint after spawn
+  create_checkpoint "post-spawn"
+
+  # v2.3: Trace spawn completion
+  trace "spawn_completed" "orchestrator" "$(jq -nc --arg agents "$(echo $agents | tr '\n' ',')" --arg total "$total_tasks" '{agents: $agents, total_tasks: $total}')"
+
+  log "OK" "=== ALL AGENTS FINISHED ==="
+}
+
+phase_integration() {
+  log "INFO" "=== PHASE 3: INTEGRATION ==="
+  update_state '.phase' '"integration"'
+  
+  local discovery_output
+  discovery_output=$(cat "$AGENT_DIR/discovery.md")
+  
+  # Collect agent reports
+  local agent_reports=""
+  local agents
+  agents=$(parse_agents "$discovery_output")
+  
+  local all_complete=true
+  for agent_name in $agents; do
+    if [[ -f "$AGENT_DIR/$agent_name.md" ]]; then
+      local status
+      status=$(grep "STATUS:" "$AGENT_DIR/$agent_name.md" | head -1 || echo "UNKNOWN")
+      
+      agent_reports="$agent_reports
+
+=== AGENT: $agent_name ===
+STATUS: $status
+$(cat "$AGENT_DIR/$agent_name.md")
+"
+      if ! echo "$status" | grep -q "COMPLETE"; then
+        all_complete=false
+      fi
+    else
+      agent_reports="$agent_reports
+
+=== AGENT: $agent_name ===
+STATUS: NO OUTPUT (agent may have crashed)
+"
+      all_complete=false
+    fi
+  done
+  
+  # Extract integration and verification steps
+  local integration
+  integration=$(echo "$discovery_output" | sed -n '/^INTEGRATION:/,/^SIGNAL_FLOW:\|^FINAL_VERIFY:/p' | sed '1d;$d')
+  
+  local final_verify
+  final_verify=$(echo "$discovery_output" | sed -n '/^FINAL_VERIFY:/,$p' | sed '1d')
+  
+  # Build integration prompt
+  local integration_prompt="GOAL: $GOAL
+STATUS: Integration | Agents complete | Verifying and finalizing
+CONTEXT: Integration phase | split: complete
+STATE: all_agents_complete=$all_complete
+BLOCKERS: $(if [[ "$all_complete" == "false" ]]; then echo "some_agents_failed"; else echo "none"; fi)
+
+---
+
+You are the COORDINATOR completing integration.
+
+ORIGINAL GOAL: $GOAL
+
+SUB-AGENT REPORTS:
+$agent_reports
+
+SIGNAL LOG:
+$(cat "$SIGNAL_FILE")
+
+INTEGRATION STEPS:
+$integration
+
+FINAL VERIFICATION:
+$final_verify
+
+---
+
+TASKS:
+1. Review all agent outputs
+2. Perform integration steps
+3. Handle any failed agents (fix or document)
+4. Run final verification
+5. Output completion report
+
+OUTPUT FORMAT:
+
+\`\`\`
+GOAL: $GOAL
+STATUS: COMPLETE | PARTIAL | FAILED
+
+INTEGRATION_ACTIONS:
+- [action taken]
+
+AGENT_SUMMARY:
+- [agent]: [status] - [key outcome]
+
+VERIFIED:
+- [check]: [evidence]
+
+ISSUES:
+- [any problems found]
+
+FOLLOW_UP:
+- [any recommended next steps]
+\`\`\`
+
+Execute integration now."
+
+  $CLAUDE_CMD "$integration_prompt" < /dev/null 2>&1 | tee "$AGENT_DIR/integration.md"
+  
+  # Final checkpoint
+  create_checkpoint "complete"
+  
+  log "OK" "=== ORCHESTRATION COMPLETE ==="
+}
+
+phase_direct() {
+  log "INFO" "=== DIRECT EXECUTION (no split needed) ==="
+  update_state '.phase' '"direct"'
+
+  if [[ "$EXECUTE_MODE" == "true" ]]; then
+    local direct_prompt="GOAL: $GOAL
+STATUS: Executing | Direct mode | No split needed
+CONTEXT: Fresh | split: no
+STATE: execution_mode=direct
+BLOCKERS: none
+
+Work autonomously. Follow CLAUDE.md protocol:
+1. NEVER ask questions - decide and document your decisions
+2. Use default decisions for ambiguity
+3. When blocked: evaluate 3 approaches, pick best, execute
+4. Verify everything before claiming done
+5. Output completion report with evidence
+
+ANTI-PATTERNS (NEVER DO):
+❌ 'Which approach would you prefer?'
+❌ 'Options:' followed by choices for user
+❌ Stopping to ask for confirmation
+❌ 'Would you like me to...'
+
+CORRECT PATTERN:
+✅ 'BLOCKER: X. DECISION: Using Y because Z. EXECUTING...'
+
+Go."
+
+    $CLAUDE_CMD "$direct_prompt" < /dev/null 2>&1 | tee "$AGENT_DIR/direct.md"
+  else
+    # Plan-only mode: discovery output was already streamed to terminal
+    # Nothing more to do here
+    :
+  fi
+}
+
+show_status() {
+  # Find most recent agent dir
+  local latest
+  latest=$(ls -td /tmp/tmp.* 2>/dev/null | head -1 || true)
+
+  if [[ -z "$latest" || ! -f "$latest/state.json" ]]; then
+    echo "No active orchestration found"
+    exit 1
+  fi
+
+  echo "=== Orchestration Status ==="
+  echo "Directory: $latest"
+  echo ""
+  echo "State:"
+  jq '.' "$latest/state.json"
+  echo ""
+  echo "Signals:"
+  cat "$latest/signals" 2>/dev/null || echo "(none)"
+  echo ""
+  echo "Agent outputs:"
+  ls -la "$latest"/*.md 2>/dev/null || echo "(none yet)"
+}
+
+# Validate checkpoint integrity before resume
+validate_checkpoint() {
+  local checkpoint="$1"
+
+  if [[ ! -f "$checkpoint" ]]; then
+    echo -e "${RED}ERROR: Checkpoint file not found: $checkpoint${NC}"
+    exit 1
+  fi
+
+  echo "=== Checkpoint Validation ==="
+  echo "File: $checkpoint"
+  echo ""
+
+  # Check JSON validity
+  echo -n "JSON validity: "
+  if jq -e '.' "$checkpoint" >/dev/null 2>&1; then
+    echo -e "${GREEN}PASS${NC}"
+  else
+    echo -e "${RED}FAIL - Invalid JSON${NC}"
+    exit 1
+  fi
+
+  # Check required fields
+  echo -n "Required fields: "
+  local missing=""
+  for field in checkpoint_time phase work_dir agent_dir goal state signals; do
+    if ! jq -e ".$field" "$checkpoint" >/dev/null 2>&1; then
+      missing="$missing $field"
+    fi
+  done
+  if [[ -z "$missing" ]]; then
+    echo -e "${GREEN}PASS${NC}"
+  else
+    echo -e "${RED}FAIL - Missing:$missing${NC}"
+    exit 1
+  fi
+
+  # Check work_dir exists
+  local work_dir
+  work_dir=$(jq -r '.work_dir' "$checkpoint")
+  echo -n "Work directory ($work_dir): "
+  if [[ -d "$work_dir" ]]; then
+    echo -e "${GREEN}EXISTS${NC}"
+  else
+    echo -e "${YELLOW}MISSING (may need manual intervention)${NC}"
+  fi
+
+  # Check agent_dir exists
+  local agent_dir
+  agent_dir=$(jq -r '.agent_dir' "$checkpoint")
+  echo -n "Agent directory ($agent_dir): "
+  if [[ -d "$agent_dir" ]]; then
+    echo -e "${GREEN}EXISTS${NC}"
+  else
+    echo -e "${YELLOW}MISSING (will be recreated)${NC}"
+  fi
+
+  # Validate signals if present
+  echo ""
+  echo "=== Signal Integrity ==="
+  local signals_raw
+  signals_raw=$(jq -r '.signals' "$checkpoint")
+
+  if [[ "$signals_raw" == "null" || -z "$signals_raw" ]]; then
+    echo "No signals to validate"
+  else
+    # Create temp file for signal validation
+    local tmp_signals
+    tmp_signals=$(mktemp)
+    echo "$signals_raw" > "$tmp_signals"
+    SIGNAL_FILE="$tmp_signals"
+
+    local corrupt=0
+    local verified=0
+    local total=0
+
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      ((total++))
+      if verify_signal "$line"; then
+        ((verified++))
+      else
+        ((corrupt++))
+        echo -e "${RED}Corrupt: $line${NC}"
+      fi
+    done < "$tmp_signals"
+
+    rm -f "$tmp_signals"
+
+    echo "Total signals: $total"
+    echo -e "Verified: ${GREEN}$verified${NC}"
+    if [[ $corrupt -gt 0 ]]; then
+      echo -e "Corrupt: ${RED}$corrupt${NC}"
+      echo ""
+      echo -e "${RED}VALIDATION FAILED - Do not resume from this checkpoint${NC}"
+      exit 1
+    fi
+  fi
+
+  # Summary
+  echo ""
+  echo "=== Summary ==="
+  echo "Phase: $(jq -r '.phase' "$checkpoint")"
+  echo "Goal: $(jq -r '.goal' "$checkpoint" | head -c 80)..."
+  echo "Checkpoint time: $(jq -r '.checkpoint_time' "$checkpoint")"
+  echo "Sequence number: $(jq -r '.sequence_number // "not recorded"' "$checkpoint")"
+  echo ""
+  echo -e "${GREEN}VALIDATION PASSED - Safe to resume${NC}"
+}
+
+# ============================================================================
+# SESSION OUTPUT SAVE (v2.7)
+# ============================================================================
+
+# Save session outputs to repo for persistence and review
+save_session_output() {
+  local session_name="${1:-}"
+
+  if [[ "$SAVE_SESSION_OUTPUT" != "true" ]]; then
+    log_verbose "Session output saving disabled"
+    return 0
+  fi
+
+  # Create session output directory if it doesn't exist
+  local output_dir="$WORK_DIR/$SESSION_OUTPUT_DIR"
+  mkdir -p "$output_dir"
+
+  # Generate session name if not provided
+  if [[ -z "$session_name" ]]; then
+    session_name="session-$(date +%Y%m%d-%H%M%S)-${CORRELATION_ID:-unknown}"
+  fi
+
+  local session_file="$output_dir/$session_name.md"
+
+  # Build comprehensive session report
+  {
+    echo "# Claude Orchestrator Session Report"
+    echo ""
+    echo "**Goal:** $GOAL"
+    echo "**Correlation ID:** $CORRELATION_ID"
+    echo "**Started:** $(jq -r '.started // "unknown"' "$STATE_FILE" 2>/dev/null)"
+    echo "**Completed:** $(date -Iseconds)"
+    echo "**Mode:** $([ "$EXECUTE_MODE" == "true" ] && echo "Execute" || echo "Plan-only")"
+    echo ""
+    echo "---"
+    echo ""
+
+    # Include discovery/plan
+    if [[ -f "$AGENT_DIR/discovery.md" ]]; then
+      echo "## Discovery / Plan"
+      echo ""
+      cat "$AGENT_DIR/discovery.md"
+      echo ""
+      echo "---"
+      echo ""
+    fi
+
+    # Include execution output
+    if [[ -f "$AGENT_DIR/execution.md" ]]; then
+      echo "## Execution Output"
+      echo ""
+      cat "$AGENT_DIR/execution.md"
+      echo ""
+      echo "---"
+      echo ""
+    fi
+
+    # Include direct execution if applicable
+    if [[ -f "$AGENT_DIR/direct.md" ]]; then
+      echo "## Direct Execution Output"
+      echo ""
+      cat "$AGENT_DIR/direct.md"
+      echo ""
+      echo "---"
+      echo ""
+    fi
+
+    # Include all iterations
+    for iter_file in "$AGENT_DIR"/iteration-*.md; do
+      if [[ -f "$iter_file" ]]; then
+        local iter_num
+        iter_num=$(basename "$iter_file" .md | sed 's/iteration-//')
+        echo "## Iteration $iter_num"
+        echo ""
+        cat "$iter_file"
+        echo ""
+        echo "---"
+        echo ""
+      fi
+    done
+
+    # Include integration if exists
+    if [[ -f "$AGENT_DIR/integration.md" ]]; then
+      echo "## Integration"
+      echo ""
+      cat "$AGENT_DIR/integration.md"
+      echo ""
+      echo "---"
+      echo ""
+    fi
+
+    # Include signal log
+    echo "## Signal Log"
+    echo ""
+    echo '```'
+    if [[ -f "$SIGNAL_FILE" ]]; then
+      cat "$SIGNAL_FILE"
+    else
+      echo "(no signals)"
+    fi
+    echo '```'
+    echo ""
+
+    # Include state summary
+    echo "## Final State"
+    echo ""
+    echo '```json'
+    if [[ -f "$STATE_FILE" ]]; then
+      jq '.' "$STATE_FILE" 2>/dev/null || cat "$STATE_FILE"
+    else
+      echo "{}"
+    fi
+    echo '```'
+
+  } > "$session_file"
+
+  log "OK" "Session output saved: $session_file"
+  echo "$session_file"
+}
+
+# ============================================================================
+# SESSION STATISTICS (v2.7)
+# ============================================================================
+
+# Show concise session statistics
+# This is scripted to minimize context consumption
+show_session_stats() {
+  if [[ "$SHOW_STATS" != "true" ]]; then
+    return 0
+  fi
+
+  local end_time
+  end_time=$(date +%s)
+  local start_time="${SESSION_START_TIME:-$end_time}"
+  local duration=$((end_time - start_time))
+  local minutes=$((duration / 60))
+  local seconds=$((duration % 60))
+
+  # Count agents from state file
+  local agent_count=0
+  local agents_complete=0
+  local agents_failed=0
+  local agents_blocked=0
+  if [[ -f "$STATE_FILE" ]]; then
+    agent_count=$(jq '.agents | length' "$STATE_FILE" 2>/dev/null || echo "0")
+    agents_complete=$(jq '[.agents | to_entries[] | select(.value.status == "complete")] | length' "$STATE_FILE" 2>/dev/null || echo "0")
+    agents_failed=$(jq '[.agents | to_entries[] | select(.value.status == "failed")] | length' "$STATE_FILE" 2>/dev/null || echo "0")
+    agents_blocked=$(jq '[.agents | to_entries[] | select(.value.status == "blocked")] | length' "$STATE_FILE" 2>/dev/null || echo "0")
+  fi
+
+  # Count signals
+  local signal_count=0
+  if [[ -f "$SIGNAL_FILE" ]]; then
+    signal_count=$(wc -l < "$SIGNAL_FILE" | tr -d ' ')
+  fi
+
+  # Count iterations
+  local iteration_count=0
+  shopt -s nullglob
+  for f in "$AGENT_DIR"/iteration-*.md; do
+    if [[ -f "$f" ]]; then
+      ((iteration_count++))
+    fi
+  done
+  shopt -u nullglob
+
+  # Phase from state
+  local current_phase="unknown"
+  if [[ -f "$STATE_FILE" ]]; then
+    current_phase=$(jq -r '.phase // "unknown"' "$STATE_FILE" 2>/dev/null)
+  fi
+
+  echo ""
+  echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+  echo -e "${BLUE}  SESSION STATISTICS${NC}"
+  echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+  printf "  %-20s %s\n" "Duration:" "${minutes}m ${seconds}s"
+  printf "  %-20s %s\n" "Phase:" "$current_phase"
+  printf "  %-20s %s\n" "Correlation ID:" "${CORRELATION_ID:-none}"
+  echo ""
+  printf "  %-20s %s\n" "Agents spawned:" "$agent_count"
+  if [[ $agent_count -gt 0 ]]; then
+    printf "    %-18s %s\n" "Complete:" "$agents_complete"
+    printf "    %-18s %s\n" "Failed:" "$agents_failed"
+    printf "    %-18s %s\n" "Blocked:" "$agents_blocked"
+  fi
+  printf "  %-20s %s\n" "Iterations:" "$iteration_count"
+  printf "  %-20s %s\n" "Signals:" "$signal_count"
+  echo ""
+
+  # List agents by name if any exist
+  if [[ $agent_count -gt 0 ]] && [[ -f "$STATE_FILE" ]]; then
+    echo "  Agents:"
+    jq -r '.agents | to_entries[] | "    \(.key): \(.value.status // "unknown")"' "$STATE_FILE" 2>/dev/null || true
+    echo ""
+  fi
+
+  echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+}
+
+# Record session start time
+record_session_start() {
+  SESSION_START_TIME=$(date +%s)
+}
+
+# ============================================================================
+# CLEANUP
+# ============================================================================
+
+cleanup() {
+  if [[ -d "$AGENT_DIR" ]]; then
+    log "INFO" "Agent workspace: $AGENT_DIR"
+    log "INFO" "Logs: $LOG_FILE"
+    log "INFO" "State: $STATE_FILE"
+    log "INFO" "Signals: $SIGNAL_FILE"
+  fi
+}
+trap cleanup EXIT
+
+# ============================================================================
+# MAIN
+# ============================================================================
+
+main() {
+  # Handle special modes
+  if [[ "$STATUS_MODE" == "true" ]]; then
+    show_status
+    exit 0
+  fi
+
+  if [[ "$VALIDATE_MODE" == "true" ]]; then
+    validate_checkpoint "$CHECKPOINT_FILE"
+    exit 0
+  fi
+
+  if [[ "$RESUME_MODE" == "true" ]]; then
+    local resume_phase
+    resume_phase=$(resume_from_checkpoint "$CHECKPOINT_FILE")
+    
+    case "$resume_phase" in
+      "pre-spawn"|"discovery")
+        phase_spawn
+        phase_integration
+        ;;
+      "post-spawn"*)
+        phase_integration
+        ;;
+      *)
+        log "ERROR" "Unknown checkpoint phase: $resume_phase"
+        exit 1
+        ;;
+    esac
+    exit 0
+  fi
+  
+  # Validate input
+  if [[ -z "$GOAL" ]]; then
+    print_usage
+    exit 1
+  fi
+  
+  # Set Claude command based on mode
+  # In container environments, ALWAYS use full permissions for autonomy
+  if [[ "$IS_CONTAINER" == "true" ]]; then
+    log "INFO" "=== CONTAINER DETECTED: Full autonomy mode enabled ==="
+    if [[ "$EXECUTE_MODE" == "true" ]]; then
+      log "INFO" "=== EXECUTE MODE (container) ==="
+      CLAUDE_CMD="claude --dangerously-skip-permissions"
+    else
+      log "INFO" "=== PLAN MODE (container, read-only) ==="
+      CLAUDE_CMD="claude --print"
+    fi
+  else
+    if [[ "$EXECUTE_MODE" == "true" ]]; then
+      log "INFO" "=== EXECUTE MODE ==="
+      CLAUDE_CMD="claude --dangerously-skip-permissions"
+    else
+      log "INFO" "=== PLAN MODE (read-only) ==="
+      CLAUDE_CMD="claude --print"
+    fi
+  fi
+  
+  # Initialize
+  init_state
+  record_session_start
+  log_verbose "Goal: $GOAL"
+  log_verbose "Work directory: $WORK_DIR"
+  log_verbose "Agent workspace: $AGENT_DIR"
+  
+  # Run discovery
+  local execution_type
+  execution_type=$(phase_discovery)
+  
+  # Execute based on discovery result
+  if [[ "$execution_type" == "split" ]]; then
+    phase_spawn
+    phase_integration
+  else
+    phase_direct
+  fi
+  
+  # v2.3: Final trace
+  trace "orchestration_completed" "orchestrator" "$(jq -nc --arg phase "$(jq -r '.phase' "$STATE_FILE")" '{final_phase: $phase}')"
+
+  log "OK" "=== COMPLETE ==="
+  log "INFO" "Full logs: $AGENT_DIR"
+  log "INFO" "Correlation ID: $CORRELATION_ID"
+  log "INFO" "Trace: $TRACE_FILE"
+
+  # v2.4: Feedback loop for iteration
+  feedback_loop
+}
+
+# ============================================================================
+# FEEDBACK LOOP (v2.4)
+# ============================================================================
+
+feedback_loop() {
+  local iteration=0
+
+  while true; do
+    echo ""
+    echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}  Iteration $iteration complete - Provide feedback or exit${NC}"
+    echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo "Commands:"
+    echo "  proceed / go / -x         - Approve plan and execute with permissions"
+    echo "  proceed <feedback>        - Execute with additional feedback/instructions"
+    echo "  plan <feedback>           - Re-plan with feedback (full discovery powers)"
+    echo "  save [name]               - Save session output to repo"
+    echo "  stats                     - Show session statistics"
+    echo "  <feedback text>           - Iterate with your feedback"
+    echo "  (Multi-line input: enter text, then empty line or '.' to finish)"
+    echo "  <Enter> / Ctrl+C          - Exit"
+    echo ""
+    echo -n "> "
+
+    # Read feedback with multi-line support
+    # First line determines mode, subsequent lines until empty or '.' are appended
+    local feedback=""
+    local line=""
+
+    if ! read -r line 2>/dev/null; then
+      # Non-interactive or EOF
+      log "INFO" "Non-interactive mode, skipping feedback loop"
+      # Auto-save on exit and show stats
+      show_session_stats
+      save_session_output
+      break
+    fi
+
+    # Empty first line = exit
+    if [[ -z "$line" ]]; then
+      log "INFO" "No feedback provided, exiting"
+      # Auto-save on exit and show stats
+      show_session_stats
+      save_session_output
+      break
+    fi
+
+    feedback="$line"
+
+    # Check if there's more input available (multi-line mode)
+    # Only enter multi-line mode if the line doesn't look like a single-word command
+    if [[ ! "$line" =~ ^(-x|--execute|proceed|execute|go|save|stats)$ ]] && [[ ! "$line" =~ ^(plan|save)[[:space:]] ]]; then
+      # Check if input is from a terminal (interactive mode)
+      if [[ -t 0 ]]; then
+        # Interactive: prompt for more lines
+        while true; do
+          # Use a shorter timeout for interactive multi-line input
+          if read -t 2 -r line 2>/dev/null; then
+            # Empty line or single dot terminates multi-line input
+            if [[ -z "$line" || "$line" == "." ]]; then
+              break
+            fi
+            feedback="$feedback"$'\n'"$line"
+          else
+            # Timeout reached, assume input complete
+            break
+          fi
+        done
+      else
+        # Non-interactive (piped input): read all available lines
+        while read -t 0.1 -r line 2>/dev/null; do
+          if [[ -z "$line" || "$line" == "." ]]; then
+            break
+          fi
+          feedback="$feedback"$'\n'"$line"
+        done
+      fi
+    fi
+
+    # Check for execution approval command (with optional feedback)
+    # Matches: proceed, go, -x, execute, OR proceed <feedback>
+    local proceed_feedback=""
+    if [[ "$feedback" =~ ^(proceed|go|-x|--execute|execute)[[:space:]]+(.*) ]]; then
+      proceed_feedback="${BASH_REMATCH[2]}"
+      log "INFO" "Execution approved with feedback, switching to execute mode"
+    elif [[ "$feedback" =~ ^-x$|^--execute$|^proceed$|^execute$|^go$ ]]; then
+      log "INFO" "Execution approved, switching to execute mode"
+    else
+      proceed_feedback=""  # Not a proceed command, will fall through
+    fi
+
+    if [[ "$feedback" =~ ^(proceed|go|-x|--execute|execute) ]] && [[ ! "$feedback" =~ ^plan[[:space:]] ]]; then
+      EXECUTE_MODE=true
+      CLAUDE_CMD="claude --dangerously-skip-permissions"
+
+      # Build additional instructions section if feedback provided
+      local additional_instructions=""
+      if [[ -n "$proceed_feedback" ]]; then
+        additional_instructions="
+---
+
+ADDITIONAL USER INSTRUCTIONS (apply these during execution):
+$proceed_feedback
+
+---
+"
+      fi
+
+      # Re-run with execute permissions using the plan from discovery
+      if [[ -f "$AGENT_DIR/discovery.md" ]]; then
+        local execute_prompt="GOAL: $GOAL
+STATUS: Executing | Plan approved | Proceeding with implementation
+CONTEXT: Plan phase complete | split: no
+STATE: execution_approved=true, plan_available=true, additional_feedback=$([ -n "$proceed_feedback" ] && echo "yes" || echo "no")
+BLOCKERS: none
+
+---
+
+APPROVED PLAN (from discovery phase):
+$(cat "$AGENT_DIR/discovery.md")
+$additional_instructions
+The user has approved this plan. Execute it now.
+
+CRITICAL BEHAVIORAL RULES (MUST FOLLOW):
+1. Follow the plan above - it has already been reviewed
+2. NEVER ask questions - the plan is approved
+3. When encountering blockers: DECIDE the best fix and execute
+4. Make ALL the changes described in the plan
+5. Verify changes work before reporting done
+
+STUCK PROTOCOL (apply to ANY blocker):
+- Approach A: [describe] → evaluate feasibility
+- Approach B: [describe] → evaluate feasibility
+- Approach C: [describe] → evaluate feasibility
+- DECISION: Pick best, explain why, EXECUTE (don't ask)
+
+CRITICAL OUTPUT REQUIREMENTS:
+1. STATE each action BEFORE you do it
+2. SHOW commands and their output
+3. REPORT results explicitly - what succeeded, what failed
+4. If something couldn't be done, EXPLAIN why with STUCK PROTOCOL
+5. Never silently skip steps
+
+ANTI-PATTERNS (NEVER DO):
+❌ 'Which approach would you prefer?'
+❌ Stopping to ask for confirmation
+❌ Silently skipping parts of the plan
+❌ Claiming success without showing evidence
+
+CORRECT PATTERN:
+✅ 'ACTION: [what]... COMMAND: [cmd]... OUTPUT: [result]... RESULT: Success/Failed'
+
+Execute the approved plan now. Be explicit about every action."
+
+        $CLAUDE_CMD "$execute_prompt" < /dev/null 2>&1 | tee "$AGENT_DIR/execution.md"
+        log "OK" "=== EXECUTION COMPLETE ==="
+        ((iteration++))  # Increment so next feedback has execution context
+        continue
+      fi
+    fi
+
+    # Check for re-plan command
+    if [[ "$feedback" =~ ^plan[[:space:]]+(.*) ]] || [[ "$feedback" =~ ^-p[[:space:]]+(.*) ]]; then
+      local plan_feedback="${BASH_REMATCH[1]}"
+      log "INFO" "Re-planning with feedback"
+      ((iteration++))
+
+      # Build comprehensive context from all previous work
+      local prev_context=""
+      if [[ -f "$AGENT_DIR/discovery.md" ]]; then
+        prev_context="=== PREVIOUS PLAN ===
+$(cat "$AGENT_DIR/discovery.md")"
+      fi
+
+      # Include execution results if available
+      if [[ -f "$AGENT_DIR/execution.md" ]]; then
+        prev_context="$prev_context
+
+=== EXECUTION RESULTS ===
+$(cat "$AGENT_DIR/execution.md")"
+      fi
+
+      # Include all iterations
+      for prev_iter in "$AGENT_DIR"/iteration-*.md; do
+        if [[ -f "$prev_iter" ]]; then
+          local iter_num
+          iter_num=$(basename "$prev_iter" .md | sed 's/iteration-//')
+          prev_context="$prev_context
+
+=== ITERATION $iter_num OUTPUT ===
+$(cat "$prev_iter")"
+        fi
+      done
+
+      # Build container autonomy section if in container
+      local container_section=""
+      if [[ "$IS_CONTAINER" == "true" ]]; then
+        container_section="
+---
+
+CONTAINER FULL AUTONOMY MODE ACTIVE
+
+You are running in a dev container with FULL PERMISSIONS. You can and should:
+- Install packages: npm install, pip install, apt-get install - DO IT
+- Create any files: configs, source code, tests - NO PERMISSION NEEDED
+- Modify any code: the container is sandboxed - JUST EDIT
+- Fetch web content: documentation, APIs, research - ACCESS FREELY
+- Run any commands: builds, tests, linters - EXECUTE WITHOUT ASKING
+- Commit to session branch: changes are isolated - COMMIT FREELY
+
+Safety guarantees:
+- Cannot commit to main/master (pre-commit hook blocks)
+- Cannot push to remote (no SSH keys in container)
+- Human reviews all changes via ai-session-accept/discard
+
+DO NOT ASK PERMISSION. Just do the work.
+
+---
+"
+      fi
+
+      local replan_prompt="GOAL: $GOAL
+STATUS: Re-planning | User requested new analysis | Iteration $iteration
+CONTEXT: ~5% | split: evaluating
+STATE: work_dir=$WORK_DIR, replan=true, container_mode=$IS_CONTAINER
+BLOCKERS: none
+$container_section
+---
+
+You are the COORDINATOR agent. The user has requested a NEW PLAN based on feedback.
+This is a RE-PLAN with full discovery powers - analyze the codebase fresh if needed.
+
+PREVIOUS CONTEXT:
+$prev_context
+
+USER FEEDBACK FOR RE-PLANNING:
+$plan_feedback
+
+---
+
+CRITICAL BEHAVIORAL RULES (MUST FOLLOW):
+1. NEVER ask questions or present options to the user
+2. NEVER output 'Which approach would you prefer?' or similar
+3. When encountering blockers (missing deps, config issues, etc.): DECIDE the best fix and state what you will do
+4. If multiple solutions exist: Pick the simplest/safest one, document your choice, proceed
+5. Use the STUCK PROTOCOL: try 3 approaches mentally, pick best, execute
+
+STUCK PROTOCOL (apply to ANY blocker):
+- Approach A: [describe] → evaluate feasibility
+- Approach B: [describe] → evaluate feasibility
+- Approach C: [describe] → evaluate feasibility
+- DECISION: Pick best, explain why, EXECUTE (don't ask)
+
+SIZING RULES:
+- XS (1 file, obvious): Do it directly
+- S (≤5 files, clear path): Do it directly
+- M (6-15 files, multi-decision): Evaluate split
+- L+ (>15 files, cross-cutting): MUST split
+
+SPLIT TRIGGERS (any = must split):
+- Files > 10
+- Systems > 1 (frontend + backend, etc.)
+- Parallelizable chunks exist
+- Estimated work > 50k tokens
+
+IF XS/S: Execute directly, verify, report done. DO NOT ask for permission or present options.
+
+IF M+ requiring split, output EXACTLY this format:
+
+\`\`\`
+SPLIT REQUIRED
+
+DISCOVERY SUMMARY:
+[What you learned about the codebase structure and goal requirements]
+
+ARCHITECTURE DECISION:
+[How you're decomposing the work and why]
+
+EXECUTION: PARALLEL | SEQUENTIAL
+
+TASK_MANIFEST:
+TASK-001: [agent_name] - [one-line summary]
+TASK-002: [agent_name] - [one-line summary]
+[...continue for ALL tasks...]
+TOTAL_TASKS: [exact number]
+
+SUB-AGENTS:
+
+---AGENT:name1
+TASK_ID: TASK-001
+MISSION: [One sentence with success criteria]
+SCOPE: [Exact files/dirs - e.g., backend/, api/*.py]
+CANNOT_TOUCH: [All other agents' scopes]
+DEPENDS_ON: [none | READY:other_agent]
+INTERFACE:
+  EXPECTS: [What this agent needs from others]
+  PRODUCES: [What this agent creates for others]
+  SIGNALS: [READY:name1]
+DELIVERABLE: [Specific verifiable output]
+VERIFY: [Exact verification steps]
+---
+
+---AGENT:name2
+TASK_ID: TASK-002
+MISSION: [One sentence with success criteria]
+SCOPE: [Exact files/dirs]
+CANNOT_TOUCH: [All other agents' scopes]
+DEPENDS_ON: [none | READY:name1]
+INTERFACE:
+  EXPECTS: [Input requirements]
+  PRODUCES: [Output artifacts]
+  SIGNALS: [READY:name2]
+DELIVERABLE: [Specific output]
+VERIFY: [Verification steps]
+---
+
+INTEGRATION:
+[Steps coordinator takes after all agents complete]
+
+SIGNAL_FLOW:
+[Dependency graph: name1 -> name2 -> integration]
+
+FINAL_VERIFY:
+[End-to-end verification steps]
+\`\`\`
+
+CRITICAL RULES:
+1. Scopes MUST be mutually exclusive
+2. CANNOT_TOUCH must include ALL other agents' scopes
+3. Every agent must have VERIFY steps
+4. Use DEPENDS_ON for sequential requirements within parallel execution
+5. TASK_MANIFEST must list ALL agents with sequential TASK-NNN IDs
+6. Each ---AGENT block must include matching TASK_ID field
+
+ANTI-PATTERNS (NEVER DO THESE):
+❌ 'Which approach would you prefer?'
+❌ 'Options to resolve:' followed by numbered choices
+❌ 'Would you like me to...'
+❌ Stopping execution to ask for input
+❌ Presenting alternatives without picking one
+❌ 'The X is failing because Y' without immediately stating the fix
+
+CORRECT PATTERN:
+✅ 'BLOCKER: X is failing because Y. DECISION: Using approach A because [reason]. EXECUTING...'
+
+Analyze the feedback, re-examine the codebase as needed, and output your revised plan. Remember: DECIDE, don't ask."
+
+      claude --print "$replan_prompt" < /dev/null 2>&1 | tee "$AGENT_DIR/discovery.md"
+      log "OK" "=== RE-PLAN COMPLETE ==="
+      continue
+    fi
+
+    # Check for save command
+    if [[ "$feedback" =~ ^save([[:space:]]+(.*))?$ ]]; then
+      local save_name="${BASH_REMATCH[2]}"
+      save_session_output "$save_name"
+      continue
+    fi
+
+    # Check for stats command
+    if [[ "$feedback" == "stats" ]]; then
+      show_session_stats
+      continue
+    fi
+
+    log "INFO" "Processing feedback: $feedback"
+    ((iteration++))
+
+    # v2.8: Build context with intelligent truncation to prevent context overflow
+    local context_summary=""
+    local max_context_chars=50000  # Approximate limit for context summary
+
+    # Helper function to truncate with summary
+    truncate_with_summary() {
+      local content="$1"
+      local max_chars="${2:-10000}"
+      local label="${3:-content}"
+      
+      local char_count=${#content}
+      if [[ $char_count -gt $max_chars ]]; then
+        # Take first and last portions, add summary in middle
+        local half=$((max_chars / 2 - 100))
+        local first_part="${content:0:$half}"
+        local last_part="${content: -$half}"
+        echo "${first_part}
+
+... [TRUNCATED: ${label} was ${char_count} chars, showing first/last ${half} chars each] ...
+
+${last_part}"
+      else
+        echo "$content"
+      fi
+    }
+
+    # Include discovery (the original plan) - truncate if huge
+    if [[ -f "$AGENT_DIR/discovery.md" ]]; then
+      local discovery_content
+      discovery_content=$(cat "$AGENT_DIR/discovery.md")
+      context_summary="$context_summary
+
+=== ORIGINAL PLAN (discovery) ===
+$(truncate_with_summary "$discovery_content" 15000 "discovery plan")
+"
+    fi
+
+    # Include execution output if it exists - truncate if huge
+    if [[ -f "$AGENT_DIR/execution.md" ]]; then
+      local exec_content
+      exec_content=$(cat "$AGENT_DIR/execution.md")
+      context_summary="$context_summary
+
+=== EXECUTION OUTPUT ===
+$(truncate_with_summary "$exec_content" 10000 "execution output")
+"
+    elif [[ -f "$AGENT_DIR/direct.md" ]]; then
+      local direct_content
+      direct_content=$(cat "$AGENT_DIR/direct.md")
+      context_summary="$context_summary
+
+=== DIRECT EXECUTION OUTPUT ===
+$(truncate_with_summary "$direct_content" 10000 "direct execution")
+"
+    fi
+
+    # Include integration if it exists
+    if [[ -f "$AGENT_DIR/integration.md" ]]; then
+      local integ_content
+      integ_content=$(cat "$AGENT_DIR/integration.md")
+      context_summary="$context_summary
+
+=== INTEGRATION OUTPUT ===
+$(truncate_with_summary "$integ_content" 8000 "integration output")
+"
+    fi
+
+    # v2.8: Include previous iterations with progressive summarization
+    # Recent iterations get more space, older ones get less
+    local iter_files=()
+    for prev_iter in "$AGENT_DIR"/iteration-*.md; do
+      if [[ -f "$prev_iter" ]]; then
+        iter_files+=("$prev_iter")
+      fi
+    done
+    
+    local num_iters=${#iter_files[@]}
+    if [[ $num_iters -gt 0 ]]; then
+      context_summary="$context_summary
+
+=== PREVIOUS ITERATIONS ($num_iters total) ===
+"
+      local iter_idx=0
+      for prev_iter in "${iter_files[@]}"; do
+        local iter_num
+        iter_num=$(basename "$prev_iter" .md | sed 's/iteration-//')
+        local iter_content
+        iter_content=$(cat "$prev_iter")
+        
+        # More recent iterations get more space
+        local remaining=$((num_iters - iter_idx))
+        local max_per_iter
+        if [[ $remaining -le 2 ]]; then
+          max_per_iter=8000  # Last 2 iterations: full context
+        elif [[ $remaining -le 4 ]]; then
+          max_per_iter=4000  # Iterations 3-4 from end: medium
+        else
+          max_per_iter=1500  # Older iterations: summary only
+        fi
+        
+        context_summary="$context_summary
+--- ITERATION $iter_num ---
+$(truncate_with_summary "$iter_content" $max_per_iter "iteration $iter_num")
+"
+        ((iter_idx++))
+      done
+    fi
+
+    # Check total context size and warn if still too large
+    local total_context_size=${#context_summary}
+    if [[ $total_context_size -gt $max_context_chars ]]; then
+      log "WARN" "Context summary is large (${total_context_size} chars) - may affect quality"
+    fi
+
+    # Build iteration prompt
+    local iteration_prompt="GOAL: $GOAL
+STATUS: Iterating | Feedback received | Iteration $iteration
+CONTEXT: Continuing from previous work | split: no
+STATE: iteration=$iteration, feedback_received=true
+BLOCKERS: none
+
+---
+
+ORIGINAL GOAL: $GOAL
+
+PREVIOUS WORK SUMMARY:
+$context_summary
+
+USER FEEDBACK FOR ITERATION:
+$feedback
+
+---
+
+You are continuing work on this goal based on user feedback.
+
+CRITICAL BEHAVIORAL RULES (MUST FOLLOW):
+1. NEVER ask questions or present options to the user
+2. When encountering blockers: DECIDE the best fix and state what you will do
+3. If multiple solutions exist: Pick the simplest/safest one, document your choice, proceed
+4. Address the feedback directly and COMPLETELY - every part of it
+5. Build on previous work, don't start from scratch
+
+STUCK PROTOCOL (apply to ANY blocker):
+- Approach A: [describe] → evaluate feasibility
+- Approach B: [describe] → evaluate feasibility
+- Approach C: [describe] → evaluate feasibility
+- DECISION: Pick best, explain why, EXECUTE (don't ask)
+
+CRITICAL OUTPUT REQUIREMENTS:
+1. STATE what you are doing BEFORE you do it
+2. SHOW the commands you run and their output
+3. REPORT results explicitly - what succeeded, what failed
+4. If something in the feedback wasn't addressed, EXPLAIN why
+5. If blocked, show the STUCK PROTOCOL evaluation
+6. Verify changes work before claiming done
+
+ANTI-PATTERNS (NEVER DO):
+❌ 'Which approach would you prefer?'
+❌ 'Options:' followed by choices
+❌ Stopping to ask for confirmation
+❌ 'Would you like me to...'
+❌ Silently skipping parts of the user's request
+❌ Claiming success without showing evidence
+❌ 'The X is failing because Y' without immediately stating the fix
+
+CORRECT PATTERN:
+✅ 'BLOCKER: X is failing because Y. DECISION: Using approach A because [reason]. EXECUTING...'
+✅ 'ACTION: Running [command]... OUTPUT: [result]... RESULT: Success/Failed'
+
+Address the feedback now. Be explicit about every action taken."
+
+    # Execute iteration
+    if [[ "$EXECUTE_MODE" == "true" ]]; then
+      $CLAUDE_CMD "$iteration_prompt" < /dev/null 2>&1 | tee "$AGENT_DIR/iteration-$iteration.md"
+    else
+      claude --print "$iteration_prompt" < /dev/null 2>&1 | tee "$AGENT_DIR/iteration-$iteration.md"
+    fi
+
+    # Trace iteration
+    trace "iteration_completed" "orchestrator" "$(jq -nc --arg iter "$iteration" --arg feedback "$feedback" '{iteration: $iter, feedback: $feedback}')"
+
+    log "OK" "=== ITERATION $iteration COMPLETE ==="
+  done
+}
+
+# Run main
+main

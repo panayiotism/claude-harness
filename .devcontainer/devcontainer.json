@@ -1,0 +1,20 @@
+{
+  "name": "claude-harness (Claude Code)",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "initializeCommand": "/bin/bash -c 'rm -rf \"/Users/nick/github/claude-harness/.devcontainer/.claude-code-cache\" && mkdir -p \"/Users/nick/github/claude-harness/.devcontainer/.claude-code-cache/scripts\" \"/Users/nick/github/claude-harness/.devcontainer/.claude-code-cache/claude\" && cp \"/Users/nick/github/dotfiles/scripts/claude-orchestrate\" \"/Users/nick/github/claude-harness/.devcontainer/.claude-code-cache/scripts/\" 2>/dev/null || true && cp \"/Users/nick/github/dotfiles/claude/CLAUDE.md\" \"/Users/nick/github/claude-harness/.devcontainer/.claude-code-cache/claude/\" 2>/dev/null || true'",
+  "postCreateCommand": "mkdir -p ~/.claude && printf '%s' '{\"permissions\":{\"allow\":[\"Bash\",\"Edit(*)\",\"Write(*)\",\"Read(*)\",\"Grep(*)\",\"Glob(*)\",\"WebFetch(domain:*)\",\"mcp__*\"]}}' > ~/.claude/settings.local.json && git config --global user.name 'Nick Orchestration' && git config --global user.email 'nickbakerwashere@gmail.com' && cp /etc/claude/CLAUDE.md ~/.claude/ 2>/dev/null || true && cd /workspaces/claude-harness && git config --local ai.sandbox true && git config --local core.hooksPath /tmp/container-git-hooks && (grep -q '^\\.ai-session$' .gitignore 2>/dev/null || echo '.ai-session' >> .gitignore)",
+  "postStartCommand": "mkdir -p /tmp/container-git-hooks && echo '#!/bin/bash\nbranch=$(git rev-parse --abbrev-ref HEAD)\nif [[ \"$branch\" == \"main\" || \"$branch\" == \"master\" ]]; then\n  echo \"ERROR: Direct commits to $branch blocked in sandbox mode.\"\n  exit 1\nfi' > /tmp/container-git-hooks/pre-commit && chmod +x /tmp/container-git-hooks/pre-commit && cd /workspaces/claude-harness && if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [ \"$branch\" = \"main\" ] || [ \"$branch\" = \"master\" ]; then session=\"ai/session-$(date +%Y%m%d-%H%M%S)\"; git checkout -b \"$session\"; echo \"BRANCH=$session\" > .ai-session; echo \"STARTED_FROM=$branch\" >> .ai-session; echo \"BASE_COMMIT=$(git rev-parse HEAD)\" >> .ai-session; echo \"STARTED_AT=$(date -Iseconds)\" >> .ai-session; echo \"Created session branch: $session\"; fi; fi",
+  "containerEnv": {
+    "DOTFILES_CONTAINER": "true"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "shutdownAction": "none"
+}

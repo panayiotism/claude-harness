@@ -1,0 +1,343 @@
+{
+  "featureId": "feature-007",
+  "featureName": "Mandelbrot Set Integration for Enhanced Orchestration",
+  "planVersion": 1,
+  "createdAt": "2026-01-07T15:20:00.000Z",
+  "plan": {
+    "architecture": {
+      "approach": "Hybrid augmentation - Mandelbrot algorithms enhance existing Turing's Maze orchestration",
+      "philosophy": "Turing's Maze provides deterministic execution layer, Mandelbrot provides adaptive planning layer",
+      "preservation": "Existing 7-phase orchestration structure preserved, Mandelbrot functions added as parallel analysis"
+    },
+    "steps": [
+      {
+        "step": 1,
+        "phase": "Infrastructure",
+        "description": "Add Mandelbrot state variables and data structures",
+        "details": [
+          "Add global variables after Phase 1 section: DIVERGENCE_THRESHOLD=100, CONVERGENCE_THRESHOLD=95, ESCAPE_RADIUS=4, FRACTAL_MAX_DEPTH=3",
+          "Add associative arrays: declare -A AGENT_METRICS, declare -A AGENT_RESTART_HISTORY",
+          "Add tracking arrays: declare -a ITERATION_OUTPUTS",
+          "Add fractal parameters: FRACTAL_DEPTH (inherited from parent), FRACTAL_ESCAPE_THRESHOLD"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "low",
+        "dependencies": []
+      },
+      {
+        "step": 2,
+        "phase": "Core Functions - Escape-Time",
+        "description": "Implement escape-time trajectory tracking for agent supervision",
+        "details": [
+          "Add check_agent_trajectory() function: computes divergence_score from output change rate",
+          "Returns BOUNDED | ESCAPING | CONVERGED based on score thresholds",
+          "Tracks AGENT_METRICS[$agent_id:output_hash], AGENT_METRICS[$agent_id:divergence_score], AGENT_METRICS[$agent_id:change_rate]",
+          "Implements smoothed iteration count analog: score increases on low change, decreases on progress"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "medium",
+        "dependencies": [1]
+      },
+      {
+        "step": 3,
+        "phase": "Core Functions - Fractal Decomposition",
+        "description": "Implement fractal task complexity measurement and decomposition decision logic",
+        "details": [
+          "Add measure_task_complexity(): analyzes file count, system count, decision points",
+          "Add should_decompose(): compares complexity to adjusted threshold (tightens with depth)",
+          "Add spawn_fractal_agent(): recursively spawns sub-orchestrator with FRACTAL_DEPTH+1",
+          "Implements self-similar pattern: same orchestration applies at all scales"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "medium",
+        "dependencies": [1]
+      },
+      {
+        "step": 4,
+        "phase": "Core Functions - Convergence Detection",
+        "description": "Implement fixed-point convergence and oscillation detection for feedback loops",
+        "details": [
+          "Add compute_similarity(): hash-based semantic similarity between outputs (0-100%)",
+          "Add detect_iteration_cycle(): Floyd's tortoise-and-hare adapted for output sequences",
+          "Returns CONTINUE | CONVERGED:iteration_N | OSCILLATING",
+          "Tracks ITERATION_OUTPUTS array for cycle detection within sliding window"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "medium",
+        "dependencies": [1]
+      },
+      {
+        "step": 5,
+        "phase": "Core Functions - Scope Connectivity",
+        "description": "Implement bounded region analysis for scope overlap and parallelization safety",
+        "details": [
+          "Add analyze_scope_connectivity(): parses agent scopes into file/directory sets",
+          "Builds connectivity graph by detecting directory overlaps",
+          "Returns DISCONNECTED (parallel safe) or CONNECTED with overlap details",
+          "Enables Julia set analog: connected scopes need coordination, disconnected can parallelize"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "high",
+        "dependencies": [1]
+      },
+      {
+        "step": 6,
+        "phase": "Core Functions - Supervision",
+        "description": "Implement supervision tree with restart limits based on max_iteration principle",
+        "details": [
+          "Add get_restart_count(): counts restarts within RESTART_WINDOW_SECONDS (default 300s)",
+          "Add record_restart(): tracks restart timestamps per agent in AGENT_RESTART_HISTORY",
+          "Add handle_agent_failure(): decides RESTART | RESTART_WITH_PERTURBATION | ESCALATE",
+          "Implements max_restarts check: escalates when MAX_RESTARTS_PER_AGENT (default 3) exceeded"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "medium",
+        "dependencies": [1]
+      },
+      {
+        "step": 7,
+        "phase": "Integration - Phase 1 Task Analysis",
+        "description": "Integrate complexity measurement into task analysis phase",
+        "details": [
+          "After task analysis (step 3), call measure_task_complexity()",
+          "Use should_decompose() to recommend split vs atomic approach",
+          "If DECOMPOSE recommended, suggest fractal sub-orchestrators",
+          "Log complexity score and decomposition decision to trace"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "low",
+        "dependencies": [3]
+      },
+      {
+        "step": 8,
+        "phase": "Integration - Phase 3 Agent Spawning",
+        "description": "Integrate scope connectivity analysis into agent spawning",
+        "details": [
+          "Before spawning agents (step 7), extract all agent scopes",
+          "Call analyze_scope_connectivity() on scope set",
+          "If DISCONNECTED: spawn all in parallel (current behavior)",
+          "If CONNECTED: identify connected components, serialize within components",
+          "Log connectivity analysis results"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "high",
+        "dependencies": [5]
+      },
+      {
+        "step": 9,
+        "phase": "Integration - Agent Supervision Loop",
+        "description": "Add trajectory tracking to agent execution monitoring",
+        "details": [
+          "During agent execution wait loops, periodically call check_agent_trajectory()",
+          "If ESCAPING detected: abort agent early, call handle_agent_failure() with DIVERGENCE type",
+          "If CONVERGED detected: accept result, mark success",
+          "Log trajectory classifications and divergence scores to trace"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "medium",
+        "dependencies": [2, 6]
+      },
+      {
+        "step": 10,
+        "phase": "Integration - Phase 6 Verification Loop",
+        "description": "Add convergence detection to iterative feedback loop",
+        "details": [
+          "In verification loop (after step 192), call detect_iteration_cycle() with aggregated output",
+          "If CONVERGED: offer to terminate loop with success summary",
+          "If OSCILLATING: detect A→B→A pattern, offer perturbation or termination",
+          "Track iteration quality trajectory, warn if diverging",
+          "Append to ITERATION_OUTPUTS for cycle detection"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "medium",
+        "dependencies": [4]
+      },
+      {
+        "step": 11,
+        "phase": "Signals & CLI",
+        "description": "Add new signal types and CLI options for Mandelbrot features",
+        "details": [
+          "Extend signal documentation with: ESCAPING, CONVERGED, OSCILLATING, ESCALATE, DECOMPOSED",
+          "Add CLI options: --fractal-depth N, --escape-threshold N, --convergence-threshold N",
+          "Update print_usage() with new options",
+          "Add argument parsing for new flags",
+          "Update help text with Mandelbrot feature descriptions"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "low",
+        "dependencies": []
+      },
+      {
+        "step": 12,
+        "phase": "Persistence & Recovery",
+        "description": "Extend checkpoint format to include Mandelbrot state",
+        "details": [
+          "Serialize AGENT_METRICS, AGENT_RESTART_HISTORY, ITERATION_OUTPUTS to checkpoint",
+          "Add FRACTAL_DEPTH, divergence scores to checkpoint metadata",
+          "Restore Mandelbrot state on --resume",
+          "Include trajectory metrics in trace.jsonl output"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "medium",
+        "dependencies": [2, 4, 6]
+      },
+      {
+        "step": 13,
+        "phase": "Documentation",
+        "description": "Update documentation with Mandelbrot integration architecture",
+        "details": [
+          "Update CLAUDE.md with hybrid Turing's Maze + Mandelbrot model explanation",
+          "Document when each Mandelbrot algorithm activates",
+          "Explain mathematical basis in inline comments",
+          "Add examples of divergence detection, fractal decomposition in action",
+          "Update architectural decisions in memory/semantic/architecture.json"
+        ],
+        "files": ["CLAUDE.md", ".claude-harness/memory/semantic/architecture.json"],
+        "estimatedComplexity": "low",
+        "dependencies": []
+      },
+      {
+        "step": 14,
+        "phase": "Testing & Validation",
+        "description": "Create verification commands and test scenarios",
+        "details": [
+          "Verify all 5 custom verification commands in feature-list.json",
+          "Test: Simple task without Mandelbrot intervention (backward compat)",
+          "Test: Complex task triggers fractal decomposition",
+          "Test: Stagnating agent triggers ESCAPING detection",
+          "Test: Feedback loop detects convergence and terminates",
+          "Test: Scope overlap detected, serialization enforced"
+        ],
+        "files": ["commands/orchestrate.md"],
+        "estimatedComplexity": "medium",
+        "dependencies": [2, 3, 4, 5, 9, 10]
+      }
+    ],
+    "estimatedFiles": [
+      "commands/orchestrate.md",
+      "CLAUDE.md",
+      ".claude-harness/memory/semantic/architecture.json",
+      ".claude-harness/memory/procedural/patterns.json"
+    ],
+    "impactAnalysis": {
+      "impactScore": "high",
+      "reasoning": "Modifies core orchestration logic (commands/orchestrate.md), but uses augmentation approach to preserve backward compatibility",
+      "affectedSystems": [
+        "Multi-agent orchestration",
+        "Agent supervision",
+        "Task decomposition",
+        "Feedback loops",
+        "Checkpointing"
+      ],
+      "breakingChanges": false,
+      "mitigations": [
+        "Mandelbrot functions run in parallel to existing logic (non-blocking)",
+        "New CLI flags optional, defaults preserve existing behavior",
+        "Escape-time detection augments timeout, doesn't replace it",
+        "Fractal decomposition is recommendation, user still controls split",
+        "All new signals are additions, existing signals unchanged"
+      ]
+    },
+    "risks": [
+      {
+        "risk": "Complex refactor of 276-line orchestrate.md could introduce regressions",
+        "likelihood": "medium",
+        "impact": "high",
+        "mitigation": "Augmentation approach keeps existing phases intact, adds new functions separately"
+      },
+      {
+        "risk": "Divergence detection false positives could abort legitimate long-running agents",
+        "likelihood": "low",
+        "impact": "medium",
+        "mitigation": "Conservative DIVERGENCE_THRESHOLD=100, smooth scoring prevents single-iteration spikes"
+      },
+      {
+        "risk": "Scope connectivity analysis might miss subtle file dependencies",
+        "likelihood": "medium",
+        "impact": "low",
+        "mitigation": "Conservative approach: overlaps trigger serialization (safe side), user can override"
+      },
+      {
+        "risk": "Fractal recursion could create deep call stacks with FRACTAL_MAX_DEPTH misconfigured",
+        "likelihood": "low",
+        "impact": "medium",
+        "mitigation": "Hard limit FRACTAL_MAX_DEPTH=3 (default), depth tracking prevents infinite recursion"
+      }
+    ],
+    "testingStrategy": {
+      "approach": "Progressive validation with synthetic scenarios",
+      "phases": [
+        {
+          "phase": "Unit",
+          "tests": [
+            "check_agent_trajectory() with stagnant, progressing, diverging outputs",
+            "measure_task_complexity() with varying task descriptions",
+            "detect_iteration_cycle() with convergent, oscillating, diverging sequences",
+            "analyze_scope_connectivity() with disjoint, overlapping, nested scopes"
+          ]
+        },
+        {
+          "phase": "Integration",
+          "tests": [
+            "Simple orchestration without Mandelbrot intervention (backward compat)",
+            "Complex orchestration triggers fractal decomposition recommendation",
+            "Agent divergence triggers early abort and restart logic",
+            "Feedback loop convergence auto-terminates"
+          ]
+        },
+        {
+          "phase": "Regression",
+          "tests": [
+            "Existing orchestrate commands work identically",
+            "No new dependencies introduced",
+            "Checkpoints restore correctly with Mandelbrot state",
+            "Trace output valid JSON with new metrics"
+          ]
+        }
+      ]
+    },
+    "successCriteria": [
+      "All 10 verification criteria in feature-list.json pass",
+      "Existing orchestrate functionality unchanged (backward compatibility)",
+      "New Mandelbrot functions callable and functional",
+      "CLI options --fractal-depth, --escape-threshold, --convergence-threshold work",
+      "Trajectory metrics appear in trace.jsonl",
+      "Checkpoints preserve and restore Mandelbrot state",
+      "Documentation clearly explains hybrid architecture",
+      "No shellcheck errors (if available)",
+      "Custom verification commands (5 greps) all succeed"
+    ]
+  },
+  "pastLearnings": {
+    "relevantSuccesses": [
+      {
+        "from": "feature-005",
+        "lesson": "Never trust self-assessment - always run actual verification commands",
+        "application": "Step 14 includes actual execution tests, not just code inspection"
+      },
+      {
+        "from": "feature-005",
+        "lesson": "Loop state must persist across context windows",
+        "application": "Step 12 ensures AGENT_METRICS, ITERATION_OUTPUTS serialized to checkpoint"
+      },
+      {
+        "from": "feature-004",
+        "lesson": "Consider upgrade path when making breaking changes",
+        "application": "Augmentation approach preserves backward compatibility, no breaking changes"
+      }
+    ],
+    "avoidApproaches": []
+  },
+  "recommendation": {
+    "nextAction": "implement",
+    "reasoning": "Plan is comprehensive, risks identified and mitigated, augmentation approach minimizes regression risk",
+    "command": "/claude-harness:implement feature-007",
+    "alternatives": [
+      {
+        "action": "orchestrate",
+        "reasoning": "Multi-agent team for parallel implementation of 5 Mandelbrot concepts",
+        "command": "/claude-harness:orchestrate feature-007"
+      }
+    ]
+  }
+}

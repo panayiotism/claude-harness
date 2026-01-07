@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "lastUpdated": "2026-01-06T10:50:23Z",
-  "currentSession": null,
+  "lastUpdated": "2026-01-07T15:15:00Z",
+  "currentSession": "feature-007",
   "projectContext": {
     "name": "claude-harness",
     "techStack": ["Shell/Bash", "Markdown", "JSON"],
@@ -19,6 +19,11 @@
       "decision": "Verification is MANDATORY - never trust self-assessment",
       "madeBy": "feature-005",
       "timestamp": "2025-12-31T12:00:00.000Z"
+    },
+    {
+      "decision": "Mandelbrot set algorithms augment Turing's Maze: escape-time for supervision, fractal for decomposition, convergence for loops",
+      "madeBy": "feature-007",
+      "timestamp": "2026-01-07T15:15:00.000Z"
     }
   ],
   "activeConstraints": [],
@@ -43,6 +48,9 @@
         "commands/check-approach.md",
         "commands/plan-feature.md",
         "commands/generate-tests.md"
+      ],
+      "docs": [
+        "mandelbrot-refactor-prompt.md"
       ]
     }
   },

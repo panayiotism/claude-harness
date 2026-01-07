@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "category": "code",
+      "pattern": "Phase 0 migration pattern: check for legacy files before creating new ones",
+      "discoveredAt": "2025-12-31T12:00:00.000Z"
+    },
+    {
+      "category": "code",
+      "pattern": "Verification loop: Build → Tests → Lint → Typecheck (ALL must pass)",
+      "discoveredAt": "2025-12-31T12:00:00.000Z"
+    },
+    {
+      "category": "naming",
+      "pattern": "commandFiles: commands/{name}.md (no harness- prefix)",
+      "discoveredAt": "2025-12-31T12:00:00.000Z"
+    },
+    {
+      "category": "naming",
+      "pattern": "stateFiles: .claude-harness/{name}.json",
+      "discoveredAt": "2025-12-31T12:00:00.000Z"
+    },
+    {
+      "category": "project",
+      "pattern": "setup.sh uses inline content, not template files",
+      "discoveredAt": "2025-12-31T12:00:00.000Z"
+    },
+    {
+      "category": "project",
+      "pattern": "Migration must be in both /setup and /start for robustness",
+      "discoveredAt": "2025-12-31T12:00:00.000Z"
+    },
+    {
+      "category": "project",
+      "pattern": "Skill definitions (commands/*.md) MUST match setup.sh for file creation",
+      "discoveredAt": "2025-12-31T12:00:00.000Z"
+    }
+  ]
+}
