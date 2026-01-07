@@ -1,5 +1,16 @@
 {
   "version": 1,
-  "features": [],
+  "features": [
+    {
+      "id": "feature-007",
+      "name": "Mandelbrot Set Integration for Enhanced Orchestration",
+      "description": "Integrate Mandelbrot set algorithms for escape-time supervision, fractal task decomposition, convergence detection, and bounded region analysis to improve orchestration efficiency and reliability",
+      "status": "passing",
+      "phase": "planned",
+      "createdAt": "2026-01-07T15:15:00.000Z",
+      "plannedAt": "2026-01-07T15:20:00.000Z",
+      "planFile": ".claude-harness/features/feature-007-plan.json"
+    }
+  ],
   "fixes": []
 }

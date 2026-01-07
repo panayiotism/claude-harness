@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "projectType": "claude-code-plugin",
+  "techStack": {
+    "primary": ["Shell/Bash", "Markdown", "JSON"],
+    "testingFramework": null,
+    "buildCommand": null,
+    "testCommand": null
+  },
+  "structure": {
+    "entryPoints": [
+      "setup.sh",
+      ".claude-harness/init.sh"
+    ],
+    "components": [],
+    "api": [],
+    "tests": [],
+    "configs": [
+      ".claude-plugin/plugin.json"
+    ],
+    "commands": [
+      "commands/start.md",
+      "commands/feature.md",
+      "commands/checkpoint.md",
+      "commands/orchestrate.md",
+      "commands/merge-all.md",
+      "commands/setup.md",
+      "commands/implement.md",
+      "commands/fix.md",
+      "commands/check-approach.md",
+      "commands/plan-feature.md",
+      "commands/generate-tests.md"
+    ]
+  },
+  "patterns": {
+    "loopArchitecture": "/implement for single-agent, /orchestrate for multi-agent"
+  },
+  "discoveredAt": "2026-01-07T00:00:00.000Z",
+  "lastUpdated": "2026-01-07T00:00:00.000Z"
+}

@@ -1,4 +1,60 @@
 {
   "version": 1,
-  "features": []
+  "features": [
+    {
+      "id": "feature-007",
+      "name": "Mandelbrot Set Integration for Enhanced Orchestration",
+      "description": "Integrate Mandelbrot set algorithms for escape-time supervision, fractal task decomposition, convergence detection, and bounded region analysis to improve orchestration efficiency and reliability. Implements: (1) Escape-time trajectory tracking to detect diverging agents before timeout, (2) Fractal self-similar decomposition for multi-scale task breakdown, (3) Fixed-point convergence detection for feedback loop termination, (4) Bounded region analysis for scope connectivity and parallelization safety, (5) Supervision tree with restart limits based on max_iteration principle.",
+      "priority": 1,
+      "passes": true,
+      "verification": [
+        "Escape-time supervision: Agents tracked with divergence scores, early abort on trajectory escape",
+        "Fractal decomposition: Task complexity measurement determines atomic vs recursive handling",
+        "Convergence detection: Feedback loops detect fixed-point convergence and oscillation patterns",
+        "Scope connectivity: analyze_scope_connectivity() determines parallel vs sequential execution",
+        "Restart limits: Supervision respects MAX_RESTARTS_PER_AGENT (Mandelbrot max_iteration analog)",
+        "New CLI options: --fractal-depth, --escape-threshold, --convergence-threshold functional",
+        "Backward compatibility: Existing orchestrate commands work identically",
+        "New signals: ESCAPING, CONVERGED, OSCILLATING, ESCALATE, DECOMPOSED emitted correctly",
+        "Trajectory metrics: trace.jsonl includes divergence_score, change_rate, complexity measurements",
+        "Checkpoints preserve: AGENT_METRICS, ITERATION_OUTPUTS, fractal state for recovery"
+      ],
+      "verificationCommands": {
+        "build": null,
+        "tests": null,
+        "lint": "shellcheck commands/orchestrate.md 2>/dev/null || echo 'shellcheck not available'",
+        "typecheck": null,
+        "custom": [
+          "grep -q 'check_agent_trajectory' commands/orchestrate.md",
+          "grep -q 'measure_task_complexity' commands/orchestrate.md",
+          "grep -q 'detect_iteration_cycle' commands/orchestrate.md",
+          "grep -q 'analyze_scope_connectivity' commands/orchestrate.md",
+          "grep -q 'DIVERGENCE_THRESHOLD' commands/orchestrate.md"
+        ]
+      },
+      "maxAttempts": 10,
+      "relatedFiles": [
+        "commands/orchestrate.md",
+        "mandelbrot-refactor-prompt.md",
+        "CLAUDE.md",
+        ".claude-harness/memory/procedural/patterns.json",
+        ".claude-harness/memory/semantic/architecture.json"
+      ],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-007"
+      },
+      "createdAt": "2026-01-07T15:15:00.000Z",
+      "phase": "planned",
+      "plannedAt": "2026-01-07T15:20:00.000Z",
+      "plan": {
+        "steps": 14,
+        "impactScore": "high",
+        "approach": "Hybrid augmentation - Mandelbrot algorithms enhance existing Turing's Maze orchestration",
+        "estimatedComplexity": "high",
+        "planFile": ".claude-harness/features/feature-007-plan.json"
+      }
+    }
+  ]
 }

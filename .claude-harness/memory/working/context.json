@@ -1,0 +1,83 @@
+{
+  "version": 3,
+  "computedAt": "2026-01-07T15:05:00.000Z",
+  "sessionId": "session-20260107-150500",
+  "activeFeature": null,
+  "relevantMemory": {
+    "recentDecisions": [
+      {
+        "decision": "Memory context compilation happens in /start Phase 1 before local status",
+        "feature": null,
+        "timestamp": "2026-01-06T11:25:00.000Z",
+        "rationale": "Ensures context is available for session startup"
+      },
+      {
+        "decision": "/implement checks procedural memory BEFORE attempting (Phase 0.5)",
+        "feature": null,
+        "timestamp": "2026-01-06T11:25:00.000Z",
+        "rationale": "Prevents repeating failed approaches"
+      },
+      {
+        "decision": "Success/failure recording happens immediately after verification",
+        "feature": null,
+        "timestamp": "2026-01-06T11:25:00.000Z",
+        "rationale": "Captures outcomes while context is fresh"
+      },
+      {
+        "decision": "All memory paths use v3.0 structure (.claude-harness/memory/...)",
+        "feature": null,
+        "timestamp": "2026-01-06T11:25:00.000Z",
+        "rationale": "Standardized memory architecture"
+      },
+      {
+        "decision": "Memory entries always include feature ID for cross-feature queries",
+        "feature": null,
+        "timestamp": "2026-01-06T11:25:00.000Z",
+        "rationale": "Enables tracking and attribution"
+      },
+      {
+        "decision": "Orchestrator uses loop-state.json for verification loop; agents use agent-context.json",
+        "feature": "feature-005",
+        "timestamp": "2025-12-31T12:00:00.000Z",
+        "rationale": "Separation of concerns"
+      },
+      {
+        "decision": "Verification is MANDATORY - never trust self-assessment",
+        "feature": "feature-005",
+        "timestamp": "2025-12-31T12:00:00.000Z",
+        "rationale": "Ensures code quality"
+      }
+    ],
+    "projectPatterns": [
+      {
+        "feature": "feature-004",
+        "approach": "Directory restructure with auto-migration",
+        "agents": ["documentation-engineer", "code-reviewer"],
+        "lessons": [
+          "Test setup.sh in the harness repo itself to catch inception issues",
+          "Consider upgrade path when making breaking changes",
+          "Delete unused code (templates) rather than trying to sync it"
+        ],
+        "timestamp": "2025-12-31T12:00:00.000Z"
+      },
+      {
+        "feature": "feature-005",
+        "approach": "Agentic loops with mandatory verification",
+        "agents": [],
+        "lessons": [
+          "Never trust self-assessment - always run actual verification commands",
+          "Loop state must persist across context windows",
+          "Both setup.sh AND commands/setup.md must be updated together"
+        ],
+        "timestamp": "2025-12-31T12:00:00.000Z"
+      }
+    ],
+    "avoidApproaches": []
+  },
+  "currentTask": null,
+  "compilationLog": [
+    "Loaded 0 failures",
+    "Loaded 2 successful approaches",
+    "Loaded 7 recent decisions"
+  ]
+}

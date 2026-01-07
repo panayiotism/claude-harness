@@ -7,6 +7,35 @@ Orchestrate specialized agents to implement a feature or task:
 
 Arguments: $ARGUMENTS
 
+## Mandelbrot-Enhanced Orchestration Parameters
+
+This orchestrator uses Mandelbrot set algorithms to enhance agent supervision, task decomposition, and convergence detection:
+
+**Configuration Parameters (from CLI or defaults):**
+```
+# Accept via arguments like: --fractal-depth 5 --escape-threshold 150
+# If not provided, use these defaults:
+DIVERGENCE_THRESHOLD=100     # Score threshold for agent divergence detection (--escape-threshold)
+CONVERGENCE_THRESHOLD=95     # Similarity % for convergence detection (--convergence-threshold)
+ESCAPE_RADIUS=4              # Complexity threshold for atomic vs recursive
+FRACTAL_MAX_DEPTH=3          # Maximum task decomposition depth (--fractal-depth)
+MAX_RESTARTS_PER_AGENT=3     # Restart limit per agent (Mandelbrot max_iteration analog)
+RESTART_WINDOW_SECONDS=300   # Time window for restart counting
+```
+
+**CLI Options:**
+- `--fractal-depth N`: Set maximum decomposition depth (default: 3)
+- `--escape-threshold N`: Set divergence score limit (default: 100)
+- `--convergence-threshold N`: Set similarity % for convergence (default: 95)
+
+Parse these from $ARGUMENTS before processing feature ID.
+
+**State Tracking (maintain during orchestration):**
+- `AGENT_METRICS`: Track per-agent output_hash, divergence_score, change_rate
+- `AGENT_RESTART_HISTORY`: Track restart timestamps per agent
+- `ITERATION_OUTPUTS`: Track verification loop outputs for cycle detection
+- `FRACTAL_DEPTH`: Current decomposition depth (inherited from parent orchestrator)
+
 ## Phase 1: Task Analysis
 
 1. Identify the target:
@@ -24,9 +53,27 @@ Arguments: $ARGUMENTS
    - Check for security-sensitive operations (auth, tokens, encryption)
    - Estimate complexity and required agents
 
+### Phase 1.5: Mandelbrot Complexity Analysis
+
+4. **Measure Task Complexity** (measure_task_complexity - fractal decomposition decision):
+   - Count file modifications required (from feature.relatedFiles or discovery)
+   - Count systems involved (frontend=1, backend=1, database=1, etc.)
+   - Count decision points (keywords: "decide", "choose", "option", "alternative")
+   - **Complexity Score** = file_count + (system_count × 2) + decision_count
+
+5. **Decomposition Decision** (should_decompose check):
+   - Calculate adjusted threshold: `ESCAPE_RADIUS × (FRACTAL_MAX_DEPTH - FRACTAL_DEPTH + 1) / FRACTAL_MAX_DEPTH`
+   - If complexity_score > adjusted_threshold AND FRACTAL_DEPTH < FRACTAL_MAX_DEPTH:
+     - **Recommendation**: DECOMPOSE via fractal sub-orchestrator
+     - Suggest splitting task into sub-features with clearer boundaries
+     - Each sub-task spawns new orchestrator with FRACTAL_DEPTH + 1
+   - Else:
+     - **Recommendation**: ATOMIC - proceed with current orchestration
+   - Log complexity score and decision to trace
+
 ## Phase 2: Agent Selection
 
-4. Map task requirements to specialized agents using this matrix:
+6. Map task requirements to specialized agents using this matrix:
 
    **Implementation Agents:**
    | Domain | Primary Agent (subagent_type) | Triggers |
@@ -55,7 +102,7 @@ Arguments: $ARGUMENTS
    | Docs | documentation-engineer | README, API docs updates |
    | DevOps | devops-engineer | CI/CD, Docker, deployment |
 
-5. Build execution plan with dependency ordering:
+7. Build execution plan with dependency ordering:
    - **Group 1 (Analysis)**: research-analyst if exploration needed
    - **Group 2 (Implementation)**: Domain-specific agents (can run in parallel if independent files)
    - **Group 3 (Quality)**: code-reviewer, security-auditor, qa-expert
@@ -63,7 +110,23 @@ Arguments: $ARGUMENTS
 
 ## Phase 3: Agent Spawning
 
-6. Update `.claude-harness/agent-context.json` before spawning:
+### Phase 3.1: Scope Connectivity Analysis (Bounded Region Detection)
+
+8. **Analyze Scope Connectivity** (analyze_scope_connectivity) before parallel spawning:
+   - Extract all agent scopes from execution plan
+   - For each agent pair, check for scope overlap:
+     - Parse scopes into file sets and directory sets
+     - Detect directory overlaps: shared directories = potential conflicts
+     - Detect file overlaps: same files = definite conflicts
+   - Build connectivity graph:
+     - **DISCONNECTED**: No overlaps → full parallelization safe
+     - **CONNECTED**: Overlaps detected → coordination required
+   - **Parallelization Strategy**:
+     - If DISCONNECTED: Spawn all Group 2 agents in parallel
+     - If CONNECTED: Identify connected components, serialize within components
+     - Log connectivity analysis results (Julia set connectivity analog)
+
+9. Update `.claude-harness/agent-context.json` before spawning:
    ```json
    {
      "currentSession": {
@@ -76,7 +139,7 @@ Arguments: $ARGUMENTS
    }
    ```
 
-7. For each agent in the execution plan, use the Task tool:
+10. For each agent in the execution plan, use the Task tool:
 
    **Prompt Template for Each Agent:**
    ```
@@ -115,15 +178,33 @@ Arguments: $ARGUMENTS
    - Context for the next agent
    ```
 
-8. Execute agents in dependency order:
+11. Execute agents in dependency order:
    - For Group 1: Run sequentially, wait for results
-   - For Group 2: Run in PARALLEL using multiple Task tool calls in single message if files are independent
+   - For Group 2: Run in PARALLEL using multiple Task tool calls in single message if scope analysis allows
    - For Group 3: Run after implementation complete
    - For Group 4: Run last
 
+### Phase 3.2: Escape-Time Agent Supervision
+
+12. **Track Agent Trajectory** during execution (check_agent_trajectory - divergence detection):
+    - For each spawned agent, monitor progress periodically
+    - After agent completes, analyze output:
+      - Compute output_hash (MD5 or similar)
+      - If previous output exists, calculate change_rate (% difference)
+      - Update divergence_score:
+        - If change_rate < 5%: score += 25 (accelerating toward escape)
+        - If change_rate < 20%: score += 5 (slow progress)
+        - Else: score -= 15 (good progress, pull back)
+    - **Trajectory Classification**:
+      - If divergence_score >= DIVERGENCE_THRESHOLD: **ESCAPING** → abort early, trigger restart logic
+      - If change_rate < 2% AND divergence_score < 20: **CONVERGED** → accept result
+      - Else: **BOUNDED** → continue normally
+    - Store AGENT_METRICS for each agent (output_hash, divergence_score, change_rate)
+    - Log trajectory classification to trace
+
 ## Phase 4: Coordination & Handoffs
 
-9. After each agent completes:
+13. After each agent completes:
    - Parse the agent's result
    - Update `.claude-harness/agent-context.json`:
      ```json
@@ -143,7 +224,21 @@ Arguments: $ARGUMENTS
    - If agent discovered patterns, add to `sharedState.discoveredPatterns`
    - If agent made architectural decisions, add to `architecturalDecisions`
 
-10. Handle failures:
+14. **Handle Failures with Supervision Tree** (restart limits):
+    - Count restarts for this agent within RESTART_WINDOW_SECONDS
+    - If restart_count >= MAX_RESTARTS_PER_AGENT:
+      - **ESCALATE**: Max restarts exceeded (Mandelbrot max_iteration analog)
+      - Emit ESCALATE signal, log to trace
+      - Report failure and continue with other agents
+    - Else, determine restart strategy based on failure type:
+      - **TIMEOUT**: May converge on retry → RESTART
+      - **DIVERGENCE** (from trajectory tracking): Retry with perturbation → RESTART_WITH_PERTURBATION
+      - **ERROR**: Transient error → RESTART
+      - **FATAL**: Cannot recover → ESCALATE
+    - Record restart timestamp in AGENT_RESTART_HISTORY
+    - Log restart decision to trace
+
+15. Handle failures (legacy behavior):
     - If status is "failed":
       - Check if transient (timeout, etc.) - retry up to 3 times
       - If persistent, try secondary agent from same category
@@ -153,7 +248,7 @@ Arguments: $ARGUMENTS
       - Continue with non-blocked work
       - Report blockers at end
 
-11. Manage handoffs between sequential agents:
+16. Manage handoffs between sequential agents:
     - Add to `pendingHandoffs`:
       ```json
       {
@@ -167,13 +262,13 @@ Arguments: $ARGUMENTS
 
 ## Phase 5: Result Aggregation
 
-12. After all agents complete, aggregate results:
+17. After all agents complete, aggregate results:
     - Collect all file changes across agents
     - Compile all review findings
     - List all architectural decisions made
     - Identify any remaining issues
 
-13. Update shared memory files:
+18. Update shared memory files:
     - `.claude-harness/agent-context.json`:
       - Set orchestrationPhase to "completed"
       - Clear activeAgents
@@ -184,14 +279,31 @@ Arguments: $ARGUMENTS
       - Update agentPerformance metrics
       - Add discovered patterns to learnedPatterns
 
-14. Update feature tracking:
+19. Update feature tracking:
     - If working on a tracked feature, update .claude-harness/feature-list.json:
       - Add new files to relatedFiles
       - Update verification status if applicable
 
 ## Phase 6: Verification Loop (MANDATORY)
 
-15. Run verification commands (from feature's `verificationCommands`):
+### Phase 6.1: Convergence Detection (Fixed-Point Analysis)
+
+20. **Detect Iteration Convergence** (detect_iteration_cycle - feedback loop termination):
+    - After each verification iteration, compute output similarity:
+      - Hash the aggregated output (all agent results + verification status)
+      - Compare with previous iterations in ITERATION_OUTPUTS (sliding window of 3-5)
+      - Calculate similarity percentage (shared lines / total lines × 100)
+    - **Cycle Detection** (Floyd's tortoise-and-hare adapted):
+      - If similarity >= CONVERGENCE_THRESHOLD with any recent iteration:
+        - **CONVERGED**: Fixed point reached → offer to terminate with success
+      - If oscillating pattern detected (A → B → A):
+        - **OSCILLATING**: Suggest perturbation or termination
+      - Else:
+        - **CONTINUE**: Proceed with next iteration
+    - Append current output to ITERATION_OUTPUTS for next comparison
+    - Log convergence analysis to trace
+
+21. Run verification commands (from feature's `verificationCommands`):
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │  VERIFICATION PHASE                                             │
@@ -203,7 +315,7 @@ Arguments: $ARGUMENTS
     └─────────────────────────────────────────────────────────────────┘
     ```
 
-16. Handle verification results:
+22. Handle verification results:
     - **If ALL pass**: Continue to Phase 7 (Reporting)
     - **If ANY fail**:
       - Parse error messages to identify failing component
@@ -212,14 +324,43 @@ Arguments: $ARGUMENTS
       - Repeat verification
       - Track attempts in loop state (max 10 by default)
 
-17. If verification keeps failing after multiple agent re-runs:
+23. If verification keeps failing after multiple agent re-runs:
     - Escalate: Report which verification step fails persistently
     - Provide error summary and agent history
     - Recommend: Manual intervention or `/claude-harness:implement` for focused loop
 
+## Mandelbrot Signal Types
+
+This orchestrator emits enhanced signals for Mandelbrot-based supervision:
+
+**Standard Signals:**
+- `READY:<agent>` - Agent completed successfully
+- `FAILED:<agent>` - Agent failed
+- `BLOCKED:<agent>` - Agent blocked on dependency
+- `DATA:<agent>:<path>` - Agent produced artifact
+
+**Mandelbrot Enhancement Signals:**
+- `ESCAPING:<agent>` - Agent trajectory diverging (divergence_score >= threshold)
+- `CONVERGED:<agent>` - Agent reached fixed point (change_rate < 2%)
+- `OSCILLATING:<agent>` - Verification loop cycling between states
+- `ESCALATE:<agent>` - Failure escalated (max restarts exceeded)
+- `DECOMPOSED:<feature>` - Task split via fractal decomposition
+
 ## Phase 7: Reporting
 
-18. Report orchestration summary:
+24. **Persist Mandelbrot State** (checkpoint for recovery):
+    - Save to checkpoint file or trace:
+      - AGENT_METRICS (output_hash, divergence_score, change_rate per agent)
+      - AGENT_RESTART_HISTORY (restart timestamps)
+      - ITERATION_OUTPUTS (verification loop outputs)
+      - FRACTAL_DEPTH (current decomposition level)
+    - Include trajectory metrics in trace.jsonl:
+      - `{"type": "trajectory", "agent": "...", "divergence_score": N, "change_rate": N, "classification": "BOUNDED|ESCAPING|CONVERGED"}`
+      - `{"type": "complexity", "score": N, "decision": "ATOMIC|DECOMPOSE"}`
+      - `{"type": "connectivity", "result": "DISCONNECTED|CONNECTED", "connections": [...]}`
+      - `{"type": "convergence", "iteration": N, "similarity": N, "status": "CONTINUE|CONVERGED|OSCILLATING"}`
+
+25. Report orchestration summary:
     ```
     ## Orchestration Complete
 
@@ -262,7 +403,7 @@ Arguments: $ARGUMENTS
     - Run `/claude-harness:orchestrate {next-feature}` for next task
     ```
 
-19. Update feature status if verification passed:
+26. Update feature status if verification passed:
     - Set `passes: true` in `.claude-harness/feature-list.json`
     - Create git checkpoint with verification results
 

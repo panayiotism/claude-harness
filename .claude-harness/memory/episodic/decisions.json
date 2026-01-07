@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "maxEntries": 50,
+  "entries": [
+    {
+      "decision": "Memory context compilation happens in /start Phase 1 before local status",
+      "feature": null,
+      "timestamp": "2026-01-06T11:25:00.000Z",
+      "rationale": "Ensures context is available for session startup"
+    },
+    {
+      "decision": "/implement checks procedural memory BEFORE attempting (Phase 0.5)",
+      "feature": null,
+      "timestamp": "2026-01-06T11:25:00.000Z",
+      "rationale": "Prevents repeating failed approaches"
+    },
+    {
+      "decision": "Success/failure recording happens immediately after verification",
+      "feature": null,
+      "timestamp": "2026-01-06T11:25:00.000Z",
+      "rationale": "Captures outcomes while context is fresh"
+    },
+    {
+      "decision": "All memory paths use v3.0 structure (.claude-harness/memory/...)",
+      "feature": null,
+      "timestamp": "2026-01-06T11:25:00.000Z",
+      "rationale": "Standardized memory architecture"
+    },
+    {
+      "decision": "Memory entries always include feature ID for cross-feature queries",
+      "feature": null,
+      "timestamp": "2026-01-06T11:25:00.000Z",
+      "rationale": "Enables tracking and attribution"
+    },
+    {
+      "decision": "Orchestrator uses loop-state.json for verification loop; agents use agent-context.json",
+      "feature": "feature-005",
+      "timestamp": "2025-12-31T12:00:00.000Z",
+      "rationale": "Separation of concerns"
+    },
+    {
+      "decision": "Verification is MANDATORY - never trust self-assessment",
+      "feature": "feature-005",
+      "timestamp": "2025-12-31T12:00:00.000Z",
+      "rationale": "Ensures code quality"
+    }
+  ]
+}
