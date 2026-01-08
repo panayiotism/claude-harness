@@ -10,13 +10,13 @@ Arguments: $ARGUMENTS
 ## Phase 1: Task Analysis
 
 1. Identify the target:
-   - If $ARGUMENTS matches a feature ID (e.g., "feature-001"), read from .claude-harness/feature-list.json
+   - If $ARGUMENTS matches a feature ID (e.g., "feature-001"), read from .claude-harness/features/active.json
    - Otherwise, treat $ARGUMENTS as a task description
 
 2. Read orchestration context:
    - Read `.claude-harness/agent-context.json` for current state (create if missing with initial structure)
    - Read `.claude-harness/agent-memory.json` for learned patterns (create if missing)
-   - Read `.claude-harness/feature-list.json` if working on a tracked feature
+   - Read `.claude-harness/features/active.json` if working on a tracked feature
 
 3. Analyze the task:
    - Identify file types that will be modified (.tsx, .ts, .py, etc.)
@@ -185,7 +185,7 @@ Arguments: $ARGUMENTS
       - Add discovered patterns to learnedPatterns
 
 14. Update feature tracking:
-    - If working on a tracked feature, update .claude-harness/feature-list.json:
+    - If working on a tracked feature, update .claude-harness/features/active.json:
       - Add new files to relatedFiles
       - Update verification status if applicable
 
@@ -263,7 +263,7 @@ Arguments: $ARGUMENTS
     ```
 
 19. Update feature status if verification passed:
-    - Set `passes: true` in `.claude-harness/feature-list.json`
+    - Set `passes: true` in `.claude-harness/features/active.json`
     - Create git checkpoint with verification results
 
 ## Error Recovery

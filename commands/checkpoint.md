@@ -15,7 +15,7 @@ Create a checkpoint of the current session:
 ## Phase 1.5: Capture Working Context
 
 1.5. Update `.claude-harness/working-context.json` with current working state:
-   - Read `.claude-harness/feature-list.json` to identify active feature (first with passes=false)
+   - Read `.claude-harness/features/active.json` (or legacy `feature-list.json`) to identify active feature (first with passes=false)
    - Set `activeFeature` to the feature ID and `summary` to feature name
    - Populate `workingFiles` from:
      - Feature's `relatedFiles` array
