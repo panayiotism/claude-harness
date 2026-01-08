@@ -14,8 +14,8 @@ Arguments: $ARGUMENTS
    - Otherwise, treat $ARGUMENTS as a task description
 
 2. Read orchestration context:
-   - Read `.claude-harness/agent-context.json` for current state (create if missing with initial structure)
-   - Read `.claude-harness/agent-memory.json` for learned patterns (create if missing)
+   - Read `.claude-harness/agents/context.json` for current state (create if missing with initial structure)
+   - Read `.claude-harness/memory/procedural/patterns.json` for learned patterns (create if missing)
    - Read `.claude-harness/features/active.json` if working on a tracked feature
 
 3. Analyze the task:
@@ -63,7 +63,7 @@ Arguments: $ARGUMENTS
 
 ## Phase 3: Agent Spawning
 
-6. Update `.claude-harness/agent-context.json` before spawning:
+6. Update `.claude-harness/agents/context.json` before spawning:
    ```json
    {
      "currentSession": {
@@ -99,7 +99,7 @@ Arguments: $ARGUMENTS
    {from agent-context.json agentResults - relevant ones}
 
    ## Learned Patterns (from previous sessions)
-   {from agent-memory.json learnedPatterns}
+   {from memory/procedural/patterns.json learnedPatterns}
 
    ## Your Task
    {specific task for this agent}
@@ -125,7 +125,7 @@ Arguments: $ARGUMENTS
 
 9. After each agent completes:
    - Parse the agent's result
-   - Update `.claude-harness/agent-context.json`:
+   - Update `.claude-harness/agents/context.json`:
      ```json
      {
        "agentResults": [{
@@ -174,15 +174,15 @@ Arguments: $ARGUMENTS
     - Identify any remaining issues
 
 13. Update shared memory files:
-    - `.claude-harness/agent-context.json`:
+    - `.claude-harness/agents/context.json`:
       - Set orchestrationPhase to "completed"
       - Clear activeAgents
       - Keep agentResults for reference
-    - `.claude-harness/agent-memory.json`:
-      - Add successful approaches to successfulApproaches
-      - Record any failed approaches to failedApproaches
-      - Update agentPerformance metrics
-      - Add discovered patterns to learnedPatterns
+    - `.claude-harness/memory/procedural/`:
+      - Add successful approaches to `patterns.json` successfulApproaches
+      - Record any failed approaches to `failures.json`
+      - Update agentPerformance metrics in `patterns.json`
+      - Add discovered patterns to `patterns.json` learnedPatterns
 
 14. Update feature tracking:
     - If working on a tracked feature, update .claude-harness/features/active.json:
@@ -269,8 +269,8 @@ Arguments: $ARGUMENTS
 ## Error Recovery
 
 If orchestration is interrupted:
-- `.claude-harness/agent-context.json` preserves state
-- `.claude-harness/loop-state.json` tracks verification attempts
+- `.claude-harness/agents/context.json` preserves state
+- `.claude-harness/loops/state.json` tracks verification attempts
 - Run `/claude-harness:orchestrate` again to resume from pendingHandoffs
 - Run `/claude-harness:implement {feature-id}` for focused single-agent loop
 - Use `/claude-harness:start` to see orchestration state and recommendations
