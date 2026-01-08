@@ -1,23 +1,30 @@
 {
   "version": 1,
-  "lastUpdated": "2026-01-06T11:25:00.000Z",
-  "activeFeature": null,
-  "summary": null,
-  "workingFiles": {},
+  "lastUpdated": "2026-01-06T19:30:00Z",
+  "activeFeature": "feature-007",
+  "summary": "Self-Improving Skills (/reflect command)",
+  "workingFiles": {
+    "commands/reflect.md": "new - main command for extracting user corrections",
+    "setup.sh": "modified - creates memory/learned/ dir and rules.json",
+    "commands/start.md": "modified - Phase 1.6 displays learned rules",
+    "commands/checkpoint.md": "modified - Phase 1.10 auto-reflect",
+    "hooks/session-start.sh": "modified - shows rules count in status",
+    "README.md": "modified - command docs and changelog",
+    ".claude-plugin/plugin.json": "modified - version 3.3.0"
+  },
   "decisions": [
-    "Memory context compilation happens in /start Phase 1 before local status",
-    "/implement checks procedural memory BEFORE attempting (Phase 0.5)",
-    "Success/failure recording happens immediately after verification",
-    "All memory paths use v3.0 structure (.claude-harness/memory/...)",
-    "Memory entries always include feature ID for cross-feature queries"
+    "Store rules in JSON only (memory/learned/rules.json) - not CLAUDE.md",
+    "Manual /reflect command + optional auto-reflect at checkpoint",
+    "Extract only user corrections, not inferred patterns",
+    "Rules display at session start via Phase 1.6 in /start"
   ],
   "codebaseUnderstanding": {
-    "memoryLayers": "working (session), episodic (decisions), semantic (architecture), procedural (patterns)",
-    "currentVersion": "v3.2.0 (pending PR)"
+    "memoryLayers": "working, episodic, semantic, procedural, learned",
+    "currentVersion": "v3.3.0"
   },
   "nextSteps": [
-    "Push feature-006 branch",
-    "Create PR for Memory System Utilization",
-    "Review and merge PR"
+    "Commit and push changes",
+    "Create PR for feature-007",
+    "Merge and release v3.3.0"
   ]
 }

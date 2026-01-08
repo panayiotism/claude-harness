@@ -33,16 +33,19 @@ cd your-project && claude
 # 7. IMPLEMENT - Agentic loop runs until ALL tests pass
 /claude-harness:implement feature-001    # Retries up to 10x, learns from failures
 
-# 8. CHECKPOINT - Commit, push, create PR, persist to memory
+# 8. REFLECT (optional) - Extract rules from your corrections
+/claude-harness:reflect                  # Saves rules to memory/learned/
+
+# 9. CHECKPOINT - Commit, push, create PR, persist to memory
 /claude-harness:checkpoint               # Saves successful approach to memory
 
-# 9. FOR COMPLEX FEATURES - Spawn multi-agent team instead of /implement
+# 10. FOR COMPLEX FEATURES - Spawn multi-agent team instead of /implement
 /claude-harness:orchestrate feature-001  # Coordinates react-specialist, backend-developer, etc.
 
-# 10. FIX BUGS IN COMPLETED FEATURES
+# 11. FIX BUGS IN COMPLETED FEATURES
 /claude-harness:fix feature-001 "Token expiry not handled"  # Creates linked bug fix
 
-# 11. MERGE & RELEASE - When all PRs ready
+# 12. MERGE & RELEASE - When all PRs ready
 /claude-harness:merge-all                # Merges PRs, closes issues, archives features
 ```
 
@@ -56,6 +59,9 @@ cd your-project && claude
 /implement       → Loop: implement → verify → if fail: record + retry
                    On success: saves approach to procedural/successes.json
                    On failure: saves to procedural/failures.json (prevents repeat)
+/reflect         → Analyzes conversation for user corrections
+                   Extracts rules, saves to learned/rules.json
+                   Rules display at next /start (self-improving)
 /fix             → Creates bug fix linked to original feature
                    Same agentic loop, shares memory context with original
                    Commits with fix: prefix (PATCH version bump)
@@ -70,7 +76,8 @@ cd your-project && claude
 ├── working/     → Rebuilt each session (fresh, relevant context)
 ├── episodic/    → Rolling window of 50 recent decisions
 ├── semantic/    → Persistent project architecture & patterns
-└── procedural/  → Append-only success/failure logs (never repeat mistakes)
+├── procedural/  → Append-only success/failure logs (never repeat mistakes)
+└── learned/     → Rules from user corrections (self-improving)
 ```
 
 ## Session Start Hook
@@ -303,7 +310,7 @@ Successful Patterns to Use:
 
 | Command | Purpose |
 |---------|---------|
-| `/claude-harness:setup` | Initialize harness with v3.1 structure |
+| `/claude-harness:setup` | Initialize harness with v3.2 structure |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
 | `/claude-harness:feature <desc>` | Add feature (test-driven) |
 | `/claude-harness:fix <feature-id> "<desc>"` | Create bug fix linked to original feature |
@@ -312,6 +319,7 @@ Successful Patterns to Use:
 | `/claude-harness:check-approach <desc>` | Check if approach matches past failures |
 | `/claude-harness:implement <id>` | Agentic loop until tests pass (Phase 2) |
 | `/claude-harness:orchestrate <id>` | Spawn multi-agent team |
+| `/claude-harness:reflect` | Extract rules from user corrections |
 | `/claude-harness:checkpoint` | Commit + persist memory + create/update PR |
 | `/claude-harness:merge-all` | Merge PRs, close issues, archive features |
 
@@ -328,10 +336,12 @@ Successful Patterns to Use:
 │   │   ├── architecture.json     # Project structure
 │   │   ├── entities.json         # Key components
 │   │   └── constraints.json      # Rules & conventions
-│   └── procedural/
-│       ├── failures.json         # Append-only failure log
-│       ├── successes.json        # Append-only success log
-│       └── patterns.json         # Learned patterns
+│   ├── procedural/
+│   │   ├── failures.json         # Append-only failure log
+│   │   ├── successes.json        # Append-only success log
+│   │   └── patterns.json         # Learned patterns
+│   └── learned/
+│       └── rules.json            # Rules from user corrections
 ├── impact/
 │   ├── dependency-graph.json     # File dependencies
 │   └── change-log.json           # Recent changes

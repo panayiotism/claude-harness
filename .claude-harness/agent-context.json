@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-01-06T10:50:23Z",
+  "lastUpdated": "2026-01-06T19:18:08Z",
   "currentSession": null,
   "projectContext": {
     "name": "claude-harness",
@@ -42,7 +42,8 @@
         "commands/fix.md",
         "commands/check-approach.md",
         "commands/plan-feature.md",
-        "commands/generate-tests.md"
+        "commands/generate-tests.md",
+        "commands/reflect.md"
       ]
     }
   },

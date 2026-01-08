@@ -1,4 +1,43 @@
 {
   "version": 1,
-  "features": []
+  "features": [
+    {
+      "id": "feature-007",
+      "name": "Self-Improving Skills (/reflect command)",
+      "description": "Extract learnings from user corrections and persist as reusable rules that display at session start. Based on Developers Digest video concept.",
+      "priority": 1,
+      "passes": false,
+      "verification": [
+        "/setup creates memory/learned/rules.json",
+        "/reflect extracts corrections and presents for approval",
+        "/reflect --auto auto-saves high-confidence rules",
+        "/start displays learned rules at session start",
+        "/checkpoint optionally runs auto-reflect",
+        "Rules persist across sessions",
+        "SessionStart hook shows rules count"
+      ],
+      "verificationCommands": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": []
+      },
+      "maxAttempts": 10,
+      "relatedFiles": [
+        "setup.sh",
+        "commands/reflect.md",
+        "commands/start.md",
+        "commands/checkpoint.md",
+        "hooks/session-start.sh",
+        "README.md"
+      ],
+      "github": {
+        "issueNumber": 13,
+        "prNumber": null,
+        "branch": "feature/feature-007"
+      },
+      "createdAt": "2026-01-06T19:18:08Z"
+    }
+  ]
 }

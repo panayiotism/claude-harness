@@ -323,6 +323,7 @@ mkdir -p .claude-harness/memory/working
 mkdir -p .claude-harness/memory/episodic
 mkdir -p .claude-harness/memory/semantic
 mkdir -p .claude-harness/memory/procedural
+mkdir -p .claude-harness/memory/learned
 mkdir -p .claude-harness/impact
 mkdir -p .claude-harness/features/tests
 mkdir -p .claude-harness/agents
@@ -372,6 +373,7 @@ See: \`.claude-harness/memory/working/context.json\` and \`.claude-harness/featu
 - \`memory/episodic/\` - Recent decisions (rolling window)
 - \`memory/semantic/\` - Project knowledge (persistent)
 - \`memory/procedural/\` - Success/failure patterns (append-only)
+- \`memory/learned/\` - Rules from user corrections (append-only)
 "
 
 # ============================================================================
@@ -466,6 +468,22 @@ create_file ".claude-harness/memory/procedural/patterns.json" '{
     "namingConventions": {},
     "projectSpecificRules": []
   }
+}'
+
+# ============================================================================
+# 5.5. MEMORY LAYER: Learned Rules (from user corrections)
+# ============================================================================
+
+create_file ".claude-harness/memory/learned/rules.json" '{
+  "version": 3,
+  "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+  "metadata": {
+    "totalRules": 0,
+    "projectSpecific": 0,
+    "general": 0,
+    "lastReflection": null
+  },
+  "rules": []
 }'
 
 # ============================================================================
@@ -595,6 +613,12 @@ create_file ".claude-harness/config.json" '{
   "testDriven": {
     "enabled": true,
     "generateTestsBeforeImplementation": true
+  },
+  "reflection": {
+    "enabled": true,
+    "autoReflectOnCheckpoint": false,
+    "autoApproveHighConfidence": true,
+    "minConfidenceForAuto": "high"
   }
 }'
 

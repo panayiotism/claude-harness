@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v3.1
+# Claude Harness SessionStart Hook v3.2
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with memory layer awareness and context compilation
 
@@ -61,6 +61,12 @@ if [ -d "$HARNESS_DIR/memory" ]; then
     fi
     if [ -f "$HARNESS_DIR/memory/procedural/successes.json" ]; then
         SUCCESSES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/procedural/successes.json" 2>/dev/null || echo "0")
+    fi
+
+    # Learned rules (from user corrections)
+    RULES_COUNT=0
+    if [ -f "$HARNESS_DIR/memory/learned/rules.json" ]; then
+        RULES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/learned/rules.json" 2>/dev/null || echo "0")
     fi
 
     # Features from new location
@@ -168,7 +174,7 @@ fi
 # Build memory status line (v3 only)
 MEMORY_LINE=""
 if [ "$IS_V3" = true ]; then
-    MEMORY_LINE="Memory: $EPISODIC_COUNT decisions | $FAILURES_COUNT failures | $SUCCESSES_COUNT successes"
+    MEMORY_LINE="Memory: $EPISODIC_COUNT decisions | $FAILURES_COUNT failures | $RULES_COUNT rules"
 fi
 
 # Build the box output (65 chars wide inner content)
@@ -231,6 +237,7 @@ elif [ "$IS_V3" = true ]; then
 │  /claude-harness:check-approach Validate approach vs failures   │
 │  /claude-harness:implement      Start agentic loop              │
 │  /claude-harness:orchestrate    Spawn multi-agent team          │
+│  /claude-harness:reflect        Learn from user corrections     │
 │  /claude-harness:checkpoint     Commit + persist memory         │
 │  /claude-harness:merge-all      Merge PRs + archive features    │
 └─────────────────────────────────────────────────────────────────┘"
@@ -274,6 +281,7 @@ if [ "$IS_V3" = true ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n=== MEMORY ARCHITECTURE v3.0 ==="
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEpisodic Memory: $EPISODIC_COUNT decisions recorded"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nProcedural Memory: $FAILURES_COUNT failures, $SUCCESSES_COUNT successes"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nLearned Rules: $RULES_COUNT rules from user corrections"
 
     if [ -n "$WORKING_COMPUTED" ]; then
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Last compiled $WORKING_COMPUTED"
@@ -326,7 +334,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.1 WORKFLOW ===\n1. /start - Compile fresh context from memory layers\n2. /feature - Add feature (generates tests first)\n3. /plan-feature - Plan implementation\n4. /implement - Execute until tests pass\n5. /checkpoint - Persist to memory + commit\n6. /fix - Create bug fix for completed feature"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.2 WORKFLOW ===\n1. /start - Compile fresh context from memory layers\n2. /feature - Add feature (generates tests first)\n3. /plan-feature - Plan implementation\n4. /implement - Execute until tests pass\n5. /reflect - Extract rules from user corrections\n6. /checkpoint - Persist to memory + commit\n7. /fix - Create bug fix for completed feature"
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi

@@ -101,6 +101,41 @@ Create a checkpoint of the current session:
    - Write updated file
    - Report: "Updated procedural patterns"
 
+## Phase 1.10: Auto-Reflect on User Corrections (Optional)
+
+1.10. **Check if auto-reflect is enabled**:
+   - Read `.claude-harness/config.json`
+   - Check `reflection.enabled` is true
+   - Check `reflection.autoReflectOnCheckpoint` setting
+   - If disabled (default), skip to Phase 2
+
+1.11. **Run reflection with auto mode** (if enabled):
+   - Execute the reflection logic from `/reflect` command with `--auto` flag:
+     - Scan conversation for user correction patterns (same as reflect Phase 1)
+     - Filter for high-confidence corrections only
+     - Skip interactive approval (auto mode)
+   - For corrections with confidence >= `minConfidenceForAuto`:
+     - Auto-approve and save to `memory/learned/rules.json`
+   - For lower confidence corrections:
+     - Add to queue for manual review (don't save)
+
+1.12. **Report auto-reflect results** (if rules extracted):
+   ```
+   ┌─────────────────────────────────────────────────────────────────┐
+   │  📚 AUTO-REFLECTION                                             │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  High-confidence rules auto-saved: {N}                          │
+   │  • {rule title}                                                 │
+   │  • {rule title}                                                 │
+   │                                                                 │
+   │  Lower-confidence (manual review needed): {N}                   │
+   │  Run /claude-harness:reflect to review these                    │
+   └─────────────────────────────────────────────────────────────────┘
+   ```
+
+1.13. **If no corrections detected**:
+   - Continue silently to Phase 2 (no noise if nothing found)
+
 ## Phase 2: Build & Test
 
 2. Run build/test commands appropriate for the project
