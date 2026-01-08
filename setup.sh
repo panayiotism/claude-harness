@@ -1487,7 +1487,7 @@ Run `/checkpoint` after to commit changes.
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.3.1")
+PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.3.2")
 echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
 echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 

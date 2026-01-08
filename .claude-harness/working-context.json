@@ -9,11 +9,12 @@
     "Manual /reflect command + optional auto-reflect at checkpoint",
     "Extract only user corrections, not inferred patterns",
     "Rules display at session start via Phase 1.6 in /start",
-    "All commands use features/active.json (not legacy feature-list.json)"
+    "All commands use features/active.json (not legacy feature-list.json)",
+    "All command docs reference correct v3.0+ paths (agents/context.json, memory/procedural/, loops/state.json)"
   ],
   "codebaseUnderstanding": {
     "memoryLayers": "working, episodic, semantic, procedural, learned",
-    "currentVersion": "v3.3.1"
+    "currentVersion": "v3.3.2"
   },
   "nextSteps": [
     "Test /reflect command in a real project",
