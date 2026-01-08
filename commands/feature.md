@@ -3,7 +3,7 @@ description: Add a new feature - creates GitHub issue + branch (if MCP configure
 argumentsPrompt: Feature description
 ---
 
-Add a new feature to .claude-harness/feature-list.json and create GitHub Issue:
+Add a new feature to .claude-harness/features/active.json and create GitHub Issue:
 
 Arguments: $ARGUMENTS
 
@@ -22,7 +22,7 @@ Arguments: $ARGUMENTS
    - Priority: `priority:high`, `priority:medium`, `priority:low`
    - Type: `feature`, `enhancement`, `bugfix`, `refactor`, `docs`
    - Status: `status:in-progress`, `status:blocked`, `status:ready-for-review`
-4. Add to .claude-harness/feature-list.json with:
+4. Add to .claude-harness/features/active.json with:
    - id, name, description, priority (default 1)
    - passes: false
    - verification: Generate reasonable verification steps (human-readable)

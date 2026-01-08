@@ -143,7 +143,7 @@ Before anything else, check if legacy root-level harness files need migration:
 9. Read `.claude-harness/claude-progress.json` for session context
 
 10. Read `.claude-harness/features/active.json` (or legacy `feature-list.json`) to identify next priority
-   - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" .claude-harness/feature-list.json` to see pending features
+   - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" .claude-harness/features/active.json` to see pending features
    - Run `/claude-harness:checkpoint` to auto-archive completed features and reduce file size
 
 11. Optionally check `.claude-harness/features/archive.json` (or legacy `feature-archive.json`) to see completed feature count/history
@@ -219,7 +219,7 @@ Before anything else, check if legacy root-level harness files need migration:
    - Open issues with "feature" label
    - Open PRs from feature branches
    - CI/CD status for open PRs
-   - Cross-reference with .claude-harness/feature-list.json
+   - Cross-reference with .claude-harness/features/active.json
 
 17. Sync GitHub Issues with .claude-harness/features/active.json:
    - For each GitHub issue with "feature" label NOT in active.json:
