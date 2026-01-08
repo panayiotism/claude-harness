@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v3.1
+# Claude Code Long-Running Agent Harness Setup v3.3
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v3.1 ==="
+echo "=== Claude Code Agent Harness Setup v3.3 ==="
 echo ""
 
 # Detect project info
@@ -764,7 +764,7 @@ else
 fi
 
 echo ""
-echo "=== Environment Ready (v3.1) ==="
+echo "=== Environment Ready (v3.3) ==="
 echo "Commands:"
 echo "  /start           - Compile context, show GitHub dashboard"
 echo "  /feature         - Add feature (generates tests first)"
@@ -1487,7 +1487,7 @@ Run `/checkpoint` after to commit changes.
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.1.0")
+PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.3.1")
 echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
 echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 
@@ -1496,7 +1496,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v3.1 - Bug Fix Command) ==="
+echo "=== Setup Complete (v3.3 - Self-Improving Skills) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1547,9 +1547,10 @@ echo "  2. Run /start to compile context and see status"
 echo "  3. Run /feature to add features (tests generated first)"
 echo "  4. Run /implement to start test-driven implementation"
 echo ""
-echo "v3.1 Features:"
+echo "v3.3 Features:"
+echo "  • Self-Improving Skills (/reflect) - Learn from user corrections"
 echo "  • Bug Fix Command (/fix) - Create fixes linked to original features"
-echo "  • 4-Layer Memory Architecture (Working/Episodic/Semantic/Procedural)"
+echo "  • 5-Layer Memory Architecture (Working/Episodic/Semantic/Procedural/Learned)"
 echo "  • Failure Prevention (learns from mistakes)"
 echo "  • Impact Analysis (warns about breaking changes)"
 echo "  • Test-Driven Features (generate tests before implementation)"

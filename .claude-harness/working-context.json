@@ -1,30 +1,22 @@
 {
   "version": 1,
-  "lastUpdated": "2026-01-06T19:30:00Z",
-  "activeFeature": "feature-007",
-  "summary": "Self-Improving Skills (/reflect command)",
-  "workingFiles": {
-    "commands/reflect.md": "new - main command for extracting user corrections",
-    "setup.sh": "modified - creates memory/learned/ dir and rules.json",
-    "commands/start.md": "modified - Phase 1.6 displays learned rules",
-    "commands/checkpoint.md": "modified - Phase 1.10 auto-reflect",
-    "hooks/session-start.sh": "modified - shows rules count in status",
-    "README.md": "modified - command docs and changelog",
-    ".claude-plugin/plugin.json": "modified - version 3.3.0"
-  },
+  "lastUpdated": "2026-01-08T10:00:00Z",
+  "activeFeature": null,
+  "summary": "All features merged to main",
+  "workingFiles": {},
   "decisions": [
     "Store rules in JSON only (memory/learned/rules.json) - not CLAUDE.md",
     "Manual /reflect command + optional auto-reflect at checkpoint",
     "Extract only user corrections, not inferred patterns",
-    "Rules display at session start via Phase 1.6 in /start"
+    "Rules display at session start via Phase 1.6 in /start",
+    "All commands use features/active.json (not legacy feature-list.json)"
   ],
   "codebaseUnderstanding": {
     "memoryLayers": "working, episodic, semantic, procedural, learned",
-    "currentVersion": "v3.3.0"
+    "currentVersion": "v3.3.1"
   },
   "nextSteps": [
-    "Commit and push changes",
-    "Create PR for feature-007",
-    "Merge and release v3.3.0"
+    "Test /reflect command in a real project",
+    "Consider next feature"
   ]
 }
