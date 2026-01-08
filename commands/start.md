@@ -124,6 +124,54 @@ Before anything else, check if legacy root-level harness files need migration:
    └─────────────────────────────────────────────────────────────────┘
    ```
 
+## Phase 1.6: Load Learned Rules
+
+6.5. **Load and display learned rules from user corrections**:
+   - Read `.claude-harness/memory/learned/rules.json`
+   - If file exists and has active rules (`rules` array with `active: true`):
+
+   - Filter rules for current context:
+     - If active feature exists, include rules where:
+       - `applicability.always` is true, OR
+       - `applicability.features` includes current feature, OR
+       - `applicability.filePatterns` overlap with feature's `relatedFiles`
+     - If no active feature, include all active rules
+
+   - Add rules to working context:
+     - Update `.claude-harness/memory/working/context.json`:
+       ```json
+       {
+         "relevantMemory": {
+           "recentDecisions": [...],
+           "projectPatterns": [...],
+           "avoidApproaches": [...],
+           "learnedRules": [
+             {
+               "id": "rule-001",
+               "title": "Always use absolute imports",
+               "description": "Use @/components/... not relative paths",
+               "scope": "coding-style"
+             }
+           ]
+         }
+       }
+       ```
+
+   - Display learned rules if any exist:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  📚 LEARNED RULES (from your corrections)                       │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  • {rule.title}                                                 │
+     │  • {rule.title}                                                 │
+     │  • {rule.title}                                                 │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  {N} rules active | /claude-harness:reflect to add more         │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+
+   - If no learned rules exist yet, skip this section (no output)
+
 ## Phase 2: Local Status
 
 7. **Load working context** (if exists):
