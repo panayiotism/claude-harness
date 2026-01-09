@@ -1,19 +1,54 @@
 {
-  "version": 3,
-  "feature": null,
-  "featureName": null,
+  "version": 4,
+  "feature": "feature-010",
+  "featureName": "Ralph-Style Loop Continuation",
   "type": "feature",
   "linkedTo": {
     "featureId": null,
     "featureName": null
   },
-  "status": "idle",
-  "attempt": 0,
+  "status": "completed",
+  "attempt": 1,
   "maxAttempts": 10,
-  "startedAt": null,
-  "lastAttemptAt": null,
-  "verification": {},
-  "history": [],
-  "lastCheckpoint": "0fdf41febdab823730f8def2d357c76385cf22f1",
+  "autonomous": false,
+  "startedAt": "2026-01-09T10:45:00Z",
+  "completedAt": "2026-01-09T16:38:00Z",
+  "lastAttemptAt": "2026-01-09T16:38:00Z",
+  "verification": {
+    "build": null,
+    "tests": null,
+    "lint": null,
+    "typecheck": null,
+    "custom": [
+      "grep -q 'decision.*block' hooks/loop-checkpoint.sh",
+      "grep -q 'progress.txt' commands/implement.md",
+      "grep -q 'guardrails' commands/implement.md",
+      "grep -q 'autonomous' commands/implement.md"
+    ]
+  },
+  "history": [
+    {
+      "attempt": 1,
+      "timestamp": "2026-01-09T16:38:00Z",
+      "approach": "Implemented Ralph-style loop continuation: Enhanced loop-checkpoint.sh with decision:block for autonomous mode, added progress.txt logging, guardrails.md generation, --autonomous flag to /implement, updated start.md to show progress/guardrails, updated setup.sh with new files, bumped version to 3.5.0",
+      "filesModified": [
+        "hooks/loop-checkpoint.sh",
+        "commands/implement.md",
+        "commands/start.md",
+        "setup.sh",
+        ".claude-plugin/plugin.json"
+      ],
+      "filesCreated": [
+        ".claude-harness/loops/progress.txt",
+        ".claude-harness/loops/guardrails.md"
+      ],
+      "result": "passed",
+      "verificationResults": {
+        "custom": "all 4 passed"
+      }
+    }
+  ],
+  "totalAttempts": 1,
+  "lastCheckpoint": "2026-01-09T16:49:00Z",
   "escalationRequested": false
 }

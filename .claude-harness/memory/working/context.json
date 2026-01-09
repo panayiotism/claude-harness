@@ -1,0 +1,23 @@
+{
+  "version": 3,
+  "computedAt": "2026-01-08T19:18:00Z",
+  "sessionId": "session-20260108-191800",
+  "activeFeature": null,
+  "relevantMemory": {
+    "recentDecisions": [],
+    "projectPatterns": [],
+    "avoidApproaches": [],
+    "learnedRules": []
+  },
+  "currentTask": {
+    "description": null,
+    "files": [],
+    "acceptanceCriteria": []
+  },
+  "compilationLog": [
+    "Loaded 0 failures from procedural memory",
+    "Loaded 0 successes from procedural memory",
+    "Loaded 0 decisions from episodic memory",
+    "Loaded 0 learned rules"
+  ]
+}

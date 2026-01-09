@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v3.3
+# Claude Code Long-Running Agent Harness Setup v3.5
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v3.3 ==="
+echo "=== Claude Code Agent Harness Setup v3.5 ==="
 echo ""
 
 # Detect project info
@@ -559,7 +559,7 @@ create_file ".claude-harness/agents/handoffs.json" '{
 # ============================================================================
 
 create_file ".claude-harness/loops/state.json" '{
-  "version": 3,
+  "version": 4,
   "feature": null,
   "featureName": null,
   "type": "feature",
@@ -570,6 +570,7 @@ create_file ".claude-harness/loops/state.json" '{
   "status": "idle",
   "attempt": 0,
   "maxAttempts": 10,
+  "autonomous": false,
   "startedAt": null,
   "lastAttemptAt": null,
   "verification": {
@@ -583,6 +584,20 @@ create_file ".claude-harness/loops/state.json" '{
   "lastCheckpoint": null,
   "escalationRequested": false
 }'
+
+# Ralph-style loop continuation files
+create_file ".claude-harness/loops/progress.txt" '# Ralph Loop Progress Log
+# Each attempt is logged here for cross-context persistence
+# Format: [timestamp] Attempt N | PASSED/FAILED | Approach: description | Error: message
+'
+
+create_file ".claude-harness/loops/guardrails.md" '# Guardrails - Approaches to AVOID
+
+This file captures failure patterns that should NOT be repeated.
+When an approach fails 2+ times, it gets added here automatically.
+
+---
+'
 
 # ============================================================================
 # 10. CONFIG: Plugin configuration
@@ -764,7 +779,7 @@ else
 fi
 
 echo ""
-echo "=== Environment Ready (v3.3) ==="
+echo "=== Environment Ready (v3.5) ==="
 echo "Commands:"
 echo "  /start           - Compile context, show GitHub dashboard"
 echo "  /feature         - Add feature (generates tests first)"
@@ -1487,7 +1502,7 @@ Run `/checkpoint` after to commit changes.
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.3.2")
+PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.5.0")
 echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
 echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 
@@ -1496,7 +1511,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v3.3 - Self-Improving Skills) ==="
+echo "=== Setup Complete (v3.5 - Ralph-Style Autonomous Loops) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1547,7 +1562,7 @@ echo "  2. Run /start to compile context and see status"
 echo "  3. Run /feature to add features (tests generated first)"
 echo "  4. Run /implement to start test-driven implementation"
 echo ""
-echo "v3.3 Features:"
+echo "v3.5 Features:"
 echo "  • Self-Improving Skills (/reflect) - Learn from user corrections"
 echo "  • Bug Fix Command (/fix) - Create fixes linked to original features"
 echo "  • 5-Layer Memory Architecture (Working/Episodic/Semantic/Procedural/Learned)"
