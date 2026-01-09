@@ -15,10 +15,10 @@
   ],
   "codebaseUnderstanding": {
     "memoryLayers": "working, episodic, semantic, procedural, learned",
-    "currentVersion": "v3.5.0"
+    "currentVersion": "v3.5.2"
   },
   "nextSteps": [
-    "Merge PR #19 to main",
+    "Create GitHub release for v3.5.2",
     "Test Ralph-style autonomous loops in a real project",
     "Consider feature-009 (Brainstorm Mode)"
   ]

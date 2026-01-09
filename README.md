@@ -86,7 +86,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v3.5.0 (Ralph-Style Loops)       │
+│                  CLAUDE HARNESS v3.5.2 (Ralph-Style Loops)       │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -310,18 +310,36 @@ Successful Patterns to Use:
 
 | Command | Purpose |
 |---------|---------|
-| `/claude-harness:setup` | Initialize harness with v3.3 structure |
+| `/claude-harness:setup` | Initialize harness with v3.5 structure |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
 | `/claude-harness:feature <desc>` | Add feature (test-driven) |
 | `/claude-harness:fix <feature-id> "<desc>"` | Create bug fix linked to original feature |
 | `/claude-harness:generate-tests <id>` | Generate test cases before implementation |
 | `/claude-harness:plan-feature <id>` | Plan implementation (Phase 1) |
 | `/claude-harness:check-approach <desc>` | Check if approach matches past failures |
-| `/claude-harness:implement <id>` | Agentic loop until tests pass (Phase 2) |
+| `/claude-harness:implement <id> [--autonomous]` | Agentic loop until tests pass (Phase 2) |
 | `/claude-harness:orchestrate <id>` | Spawn multi-agent team |
 | `/claude-harness:reflect` | Extract rules from user corrections |
 | `/claude-harness:checkpoint` | Commit + persist memory + create/update PR |
 | `/claude-harness:merge-all` | Merge PRs, close issues, archive features |
+
+### Command Flags
+
+**`/implement --autonomous`** (Ralph Mode)
+
+Enables hands-off autonomous coding where Claude continues working through context resets without human intervention:
+
+```bash
+/claude-harness:implement feature-001 --autonomous
+```
+
+In autonomous mode:
+- **Stop hook blocks exit** - Uses `decision: "block"` to re-feed the prompt automatically
+- **Cross-context persistence** - Progress logged to `loops/progress.txt`
+- **Failure prevention** - Patterns saved to `loops/guardrails.md`
+- **Circuit breaker** - Auto-escalates after 3 identical consecutive errors
+
+Based on the [Ralph Wiggum methodology](https://ghuntley.com/ralph/).
 
 ## v3.0 Directory Structure
 
@@ -354,7 +372,9 @@ Successful Patterns to Use:
 │   ├── context.json              # Orchestration state
 │   └── handoffs.json             # Agent handoff queue
 ├── loops/
-│   └── state.json                # Agentic loop state
+│   ├── state.json                # Agentic loop state
+│   ├── progress.txt              # Ralph-style cross-context log
+│   └── guardrails.md             # Failure patterns to avoid
 ├── config.json                   # Plugin configuration
 └── claude-progress.json          # Session summary
 ```
@@ -594,6 +614,8 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.5.2** | **Bug Fix**: Remove duplicate hooks reference from `plugin.json` - `hooks/hooks.json` is auto-loaded by Claude Code |
+| **3.5.1** | **Bug Fix**: Fix `hooks.json` matcher format - must be string (glob pattern), not object. Split tool matchers into separate entries |
 | **3.5.0** | **Ralph-Style Autonomous Loops**: `--autonomous` flag for `/implement` enables Ralph-style loop continuation. Stop hook blocks exit and re-feeds prompt until verification passes. Added `progress.txt` for cross-context logging and `guardrails.md` for failure pattern memory. Circuit breaker triggers after 3 identical errors. Inspired by [ghuntley.com/ralph](https://ghuntley.com/ralph/). |
 | **3.4.0** | **Agent Lifecycle Hooks**: Integration with Claude Code v2.1.0 lifecycle hooks - `PreToolUse`, `PostToolUse`, `Stop` hooks with `once:true` support for session start |
 | **3.3.2** | **Chore**: Fixed legacy file path references in command docs - all commands now reference correct v3.0+ paths (`agents/context.json`, `memory/procedural/`, `loops/state.json`) |
