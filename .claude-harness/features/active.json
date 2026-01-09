@@ -38,11 +38,11 @@
       ],
       "github": {
         "issueNumber": null,
-        "prNumber": null,
-        "branch": null
+        "prNumber": 19,
+        "branch": "feature/feature-010-ralph-loops"
       },
       "createdAt": "2026-01-09T10:30:00Z",
-      "phase": "planned",
+      "phase": "completed",
       "plan": {
         "steps": [
           {
