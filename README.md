@@ -86,7 +86,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v3.3.2 (Memory Architecture)     │
+│                  CLAUDE HARNESS v3.5.0 (Ralph-Style Loops)       │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -594,6 +594,8 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.5.0** | **Ralph-Style Autonomous Loops**: `--autonomous` flag for `/implement` enables Ralph-style loop continuation. Stop hook blocks exit and re-feeds prompt until verification passes. Added `progress.txt` for cross-context logging and `guardrails.md` for failure pattern memory. Circuit breaker triggers after 3 identical errors. Inspired by [ghuntley.com/ralph](https://ghuntley.com/ralph/). |
+| **3.4.0** | **Agent Lifecycle Hooks**: Integration with Claude Code v2.1.0 lifecycle hooks - `PreToolUse`, `PostToolUse`, `Stop` hooks with `once:true` support for session start |
 | **3.3.2** | **Chore**: Fixed legacy file path references in command docs - all commands now reference correct v3.0+ paths (`agents/context.json`, `memory/procedural/`, `loops/state.json`) |
 | **3.3.1** | **Bug Fix**: Fixed inconsistent file path references - all commands now consistently use `features/active.json` instead of legacy `feature-list.json` |
 | **3.3.0** | **Self-Improving Skills**: `/reflect` command - Extract rules from user corrections, auto-reflect at checkpoint, display learned rules at session start |
