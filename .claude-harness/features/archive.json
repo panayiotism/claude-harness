@@ -1,0 +1,34 @@
+{
+  "version": 3,
+  "archived": [
+    {
+      "id": "feature-011",
+      "name": "Safe Permissions Configuration",
+      "description": "Configure Claude Code permissions to avoid --dangerously-skip-permissions while maintaining harness functionality",
+      "priority": 1,
+      "status": "passing",
+      "phase": "complete",
+      "verification": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": ["Manual test: run claude without --dangerously-skip-permissions"]
+      },
+      "relatedFiles": [
+        ".claude/settings.local.json",
+        ".claude/settings.json",
+        "README.md"
+      ],
+      "github": {
+        "issueNumber": null,
+        "prNumber": 20,
+        "branch": "feature/feature-011-safe-permissions"
+      },
+      "createdAt": "2026-01-10T12:00:00Z",
+      "updatedAt": "2026-01-10T12:00:00Z",
+      "archivedAt": "2026-01-10T05:25:00Z"
+    }
+  ],
+  "archivedFixes": []
+}
