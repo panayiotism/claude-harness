@@ -86,7 +86,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v3.3.2 (Memory Architecture)     │
+│                  CLAUDE HARNESS v3.4.0 (Memory Architecture)     │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -310,7 +310,7 @@ Successful Patterns to Use:
 
 | Command | Purpose |
 |---------|---------|
-| `/claude-harness:setup` | Initialize harness with v3.3 structure |
+| `/claude-harness:setup` | Initialize harness with v3.4 structure |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
 | `/claude-harness:feature <desc>` | Add feature (test-driven) |
 | `/claude-harness:fix <feature-id> "<desc>"` | Create bug fix linked to original feature |

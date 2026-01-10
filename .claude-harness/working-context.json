@@ -14,7 +14,7 @@
   ],
   "codebaseUnderstanding": {
     "memoryLayers": "working, episodic, semantic, procedural, learned",
-    "currentVersion": "v3.3.2"
+    "currentVersion": "v3.4.0"
   },
   "nextSteps": [
     "Test /reflect command in a real project",
