@@ -1,0 +1,32 @@
+{
+  "maxEntries": 50,
+  "entries": [
+    {
+      "id": "dec-20260110-001",
+      "timestamp": "2026-01-10T05:20:00Z",
+      "feature": "feature-011",
+      "decision": "Use deny > ask > allow precedence for permission safety",
+      "rationale": "Deny rules must have highest precedence to block dangerous commands even if they match ask/allow patterns",
+      "alternatives": ["Only use allow list", "Use ask for everything"],
+      "impact": ".claude/settings.json, .claude/settings.local.json"
+    },
+    {
+      "id": "dec-20260110-002",
+      "timestamp": "2026-01-10T05:20:00Z",
+      "feature": "feature-011",
+      "decision": "Put rm:* in ask list with specific dangerous patterns in deny",
+      "rationale": "This allows safe rm commands (like rm node_modules) with user confirmation, while blocking destructive patterns (rm -rf /) unconditionally",
+      "alternatives": ["Block all rm commands", "Allow all rm commands"],
+      "impact": ".claude/settings.json"
+    },
+    {
+      "id": "dec-20260110-003",
+      "timestamp": "2026-01-10T05:20:00Z",
+      "feature": "feature-011",
+      "decision": "Create both settings.json (shared) and settings.local.json (personal)",
+      "rationale": "Team-shared settings ensure consistent safety across all users, while personal settings allow customization without affecting others",
+      "alternatives": ["Only create settings.local.json"],
+      "impact": ".claude/settings.json, .claude/settings.local.json"
+    }
+  ]
+}
