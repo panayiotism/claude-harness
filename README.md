@@ -594,6 +594,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.4.0** | **Safe Permissions**: Comprehensive permission configuration to avoid `--dangerously-skip-permissions` - deny list for dangerous commands, ask list for destructive ops, allow list for safe harness operations |
 | **3.3.2** | **Chore**: Fixed legacy file path references in command docs - all commands now reference correct v3.0+ paths (`agents/context.json`, `memory/procedural/`, `loops/state.json`) |
 | **3.3.1** | **Bug Fix**: Fixed inconsistent file path references - all commands now consistently use `features/active.json` instead of legacy `feature-list.json` |
 | **3.3.0** | **Self-Improving Skills**: `/reflect` command - Extract rules from user corrections, auto-reflect at checkpoint, display learned rules at session start |
@@ -610,6 +611,122 @@ claude mcp add github -s user
 | 2.0.0 | Shortened command names |
 | 1.1.0 | Multi-agent orchestration |
 | 1.0.0 | Initial release |
+
+## Safe Permissions (Avoiding --dangerously-skip-permissions)
+
+The harness includes a comprehensive permission configuration that allows Claude Code to run without the dangerous `--dangerously-skip-permissions` flag while maintaining full functionality.
+
+### Configuration Location
+
+```
+.claude/settings.local.json    # Personal settings (gitignored)
+.claude/settings.json          # Team-shared settings (committed)
+```
+
+### Permission Model
+
+| Category | Behavior | Examples |
+|----------|----------|----------|
+| **Allow** | Auto-approved | `git add`, `npm run`, `ls`, `cat` |
+| **Ask** | Prompts user | `rm`, `git push`, `npm install` |
+| **Deny** | Always blocked | `curl`, `sudo`, `rm -rf /` |
+
+### Safe Operations (Auto-Allowed)
+
+```json
+{
+  "allow": [
+    "Bash(git status:*)", "Bash(git add:*)", "Bash(git commit:*)",
+    "Bash(git checkout:*)", "Bash(git branch:*)", "Bash(git log:*)",
+    "Bash(npm run:*)", "Bash(npx tsc:*)", "Bash(npx jest:*)",
+    "Bash(mkdir:*)", "Bash(ls:*)", "Bash(cat:*)", "Bash(grep:*)",
+    "Bash(./hooks/*)", "Bash(./.claude-harness/*)"
+  ]
+}
+```
+
+### User Confirmation Required
+
+```json
+{
+  "ask": [
+    "Bash(rm:*)",           // All file deletion
+    "Bash(rmdir:*)",        // All directory deletion
+    "Bash(git push:*)",     // Remote operations
+    "Bash(git reset:*)",    // Destructive git
+    "Bash(npm install:*)",  // Package installation
+    "Bash(chmod:*)"         // Permission changes
+  ]
+}
+```
+
+### Dangerous Operations (Always Blocked)
+
+```json
+{
+  "deny": [
+    // Network (data exfiltration risk)
+    "Bash(curl:*)", "Bash(wget:*)", "Bash(nc:*)", "Bash(ssh:*)",
+
+    // Privilege escalation
+    "Bash(sudo:*)", "Bash(su:*)", "Bash(doas:*)",
+
+    // Destructive filesystem operations
+    "Bash(rm -rf /)", "Bash(rm -rf ~)", "Bash(rm -rf /home:*)",
+    "Bash(rm -rf /etc:*)", "Bash(rm -rf /usr:*)", "Bash(rm -rf /var:*)",
+
+    // Low-level system operations
+    "Bash(dd:*)", "Bash(mkfs:*)", "Bash(fdisk:*)",
+    "Bash(systemctl:*)", "Bash(shutdown:*)", "Bash(reboot:*)",
+
+    // User/group management
+    "Bash(useradd:*)", "Bash(userdel:*)", "Bash(passwd:*)",
+
+    // Code execution (potential RCE)
+    "Bash(python -c:*)", "Bash(node -e:*)", "Bash(eval:*)",
+
+    // Secrets protection
+    "Read(.env)", "Read(.env.*)", "Read(**/credentials*)", "Read(**/*.pem)"
+  ]
+}
+```
+
+### How Precedence Works
+
+1. **Deny rules checked first** - If matched, command is blocked
+2. **Ask rules checked second** - If matched, user is prompted
+3. **Allow rules checked last** - If matched, command runs
+
+This means dangerous patterns like `rm -rf /home/*` are blocked even though `rm:*` is in the ask list.
+
+### Using the Configuration
+
+```bash
+# Run Claude Code normally (no dangerous flag needed)
+cd your-project
+claude
+
+# The harness commands work with auto-approved safe operations
+/claude-harness:start       # ✅ Uses git status, cat, grep
+/claude-harness:checkpoint  # ✅ Uses git add, commit (push prompts)
+/claude-harness:implement   # ✅ Uses npm run, npx tsc
+```
+
+### Extending for Your Project
+
+Add project-specific safe commands to `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose up:*)",
+      "Bash(make build:*)",
+      "Bash(cargo test:*)"
+    ]
+  }
+}
+```
 
 ## Key Principles
 
