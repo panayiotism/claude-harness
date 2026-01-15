@@ -1,31 +1,28 @@
 {
   "version": 1,
-  "lastUpdated": "2026-01-10T05:20:00Z",
+  "lastUpdated": "2026-01-15T14:35:00Z",
   "activeFeature": null,
-  "summary": "Feature-011 complete - Safe Permissions Configuration",
+  "summary": "Feature-012 complete - TDD Enforcement Command",
   "workingFiles": {
-    ".claude/settings.json": "new - team-shared permission configuration",
-    ".claude/settings.local.json": "new - personal settings (gitignored)",
-    "README.md": "modified - added Safe Permissions documentation section",
-    "setup.sh": "modified - updated version to 3.4.0",
-    "hooks/session-start.sh": "modified - updated version to 3.4.0",
-    ".claude-plugin/plugin.json": "modified - version 3.4.0"
+    "commands/do-tdd.md": "new - TDD workflow command with RED-GREEN-REFACTOR enforcement",
+    "README.md": "modified - added /do-tdd documentation and command reference",
+    "hooks/session-start.sh": "modified - display /do-tdd in session menu",
+    ".claude-plugin/plugin.json": "modified - version 3.7.0",
+    "RELEASES/v3.7.0.md": "modified - release notes for TDD feature"
   },
   "decisions": [
-    "Use deny > ask > allow precedence for permission evaluation",
-    "Put rm:* in ask list with specific dangerous patterns in deny (blocked first)",
-    "Block all network tools (curl, wget, nc, ssh) to prevent data exfiltration",
-    "Block all privilege escalation (sudo, su, doas)",
-    "Block code execution vectors (python -c, node -e, eval)",
-    "Create both settings.json (shared) and settings.local.json (personal)"
+    "Create separate /do-tdd command instead of flag on /do for clarity",
+    "Enforce test existence gate - block implementation until tests exist",
+    "Use RED-GREEN-REFACTOR phases with clear messaging",
+    "Keep /do unchanged for backward compatibility"
   ],
   "codebaseUnderstanding": {
-    "permissionSystem": "Claude Code uses allow/ask/deny with deny having highest precedence",
-    "settingsScopes": "managed > CLI > local > shared > user settings",
-    "currentVersion": "v3.4.0"
+    "commandSystem": "Commands are markdown files in commands/ folder, auto-discovered",
+    "hooksSystem": "SessionStart hook displays menu and context to Claude",
+    "currentVersion": "v3.7.0"
   },
   "nextSteps": [
-    "Merge PR #20",
-    "Test harness without --dangerously-skip-permissions"
+    "Merge PR #24 for TDD enforcement",
+    "Test /do-tdd on a real project with tests"
   ]
 }

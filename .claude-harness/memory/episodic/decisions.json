@@ -27,6 +27,33 @@
       "rationale": "Team-shared settings ensure consistent safety across all users, while personal settings allow customization without affecting others",
       "alternatives": ["Only create settings.local.json"],
       "impact": ".claude/settings.json, .claude/settings.local.json"
+    },
+    {
+      "id": "dec-20260115-001",
+      "timestamp": "2026-01-15T14:35:00Z",
+      "feature": "feature-012",
+      "decision": "Create separate /do-tdd command instead of --tdd flag on /do",
+      "rationale": "User preferred explicit command over additional flag to reduce complexity. Separate command makes TDD workflow first-class and clear.",
+      "alternatives": ["Add --tdd flag to /do", "Make TDD default with --skip-tdd opt-out"],
+      "impact": "commands/do-tdd.md, README.md"
+    },
+    {
+      "id": "dec-20260115-002",
+      "timestamp": "2026-01-15T14:35:00Z",
+      "feature": "feature-012",
+      "decision": "Enforce test existence gate - block implementation until tests exist",
+      "rationale": "True TDD requires tests to exist before implementation. Gate ensures workflow is followed, not just suggested.",
+      "alternatives": ["Warning only (no blocking)", "Optional enforcement via flag"],
+      "impact": "commands/do-tdd.md"
+    },
+    {
+      "id": "dec-20260115-003",
+      "timestamp": "2026-01-15T14:35:00Z",
+      "feature": "feature-012",
+      "decision": "Use RED-GREEN-REFACTOR phases with explicit phase tracking",
+      "rationale": "Classic TDD cycle provides clear structure. Phase tracking in loop state enables resume from any point.",
+      "alternatives": ["Simple test-first without phases", "Only track test pass/fail"],
+      "impact": "commands/do-tdd.md, .claude-harness/loops/state.json schema"
     }
   ]
 }

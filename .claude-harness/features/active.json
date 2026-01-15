@@ -1,5 +1,56 @@
 {
   "version": 1,
-  "features": [],
+  "features": [
+    {
+      "id": "feature-012",
+      "name": "TDD Enforcement Mode",
+      "description": "Investigate and implement TDD enforcement in the harness workflow without breaking existing functionality",
+      "priority": 1,
+      "status": "passing",
+      "tdd": false,
+      "verification": {
+        "testsExist": "N/A - documentation/command feature",
+        "testsPass": "N/A",
+        "buildPasses": "N/A - no build step for markdown commands",
+        "lintPasses": "N/A",
+        "docsUpdated": "README and command docs updated"
+      },
+      "verificationCommands": {
+        "build": null,
+        "test": null,
+        "lint": null,
+        "typecheck": null
+      },
+      "maxAttempts": 10,
+      "github": {
+        "issueNumber": 23,
+        "prNumber": null,
+        "branch": "feature/feature-012"
+      },
+      "plan": {
+        "steps": [
+          {"step": 1, "description": "Create commands/do-tdd.md", "files": ["commands/do-tdd.md"], "status": "completed"},
+          {"step": 2, "description": "Update README.md documentation", "files": ["README.md"], "status": "completed"},
+          {"step": 3, "description": "Update session-start.sh hook", "files": ["hooks/session-start.sh"], "status": "completed"},
+          {"step": 4, "description": "Bump version to 3.7.0", "files": [".claude-plugin/plugin.json"], "status": "completed"}
+        ],
+        "estimatedFiles": ["commands/do-tdd.md", "README.md", "hooks/session-start.sh", ".claude-plugin/plugin.json"],
+        "impactScore": "medium",
+        "risks": [],
+        "mitigations": [],
+        "planFile": ".claude-harness/plans/feature-012-tdd-enforcement.md"
+      },
+      "relatedFiles": [
+        "commands/do-tdd.md",
+        "commands/do.md",
+        "README.md",
+        "hooks/session-start.sh",
+        ".claude-plugin/plugin.json",
+        "RELEASES/v3.7.0.md"
+      ],
+      "createdAt": "2026-01-15T14:02:43Z",
+      "completedAt": "2026-01-15T14:30:00Z"
+    }
+  ],
   "fixes": []
 }

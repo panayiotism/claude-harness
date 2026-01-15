@@ -1,19 +1,40 @@
 {
   "version": 3,
-  "feature": null,
-  "featureName": null,
+  "feature": "feature-012",
+  "featureName": "TDD Enforcement Mode",
   "type": "feature",
   "linkedTo": {
     "featureId": null,
     "featureName": null
   },
-  "status": "idle",
-  "attempt": 0,
+  "status": "completed",
+  "attempt": 1,
   "maxAttempts": 10,
-  "startedAt": null,
-  "lastAttemptAt": null,
-  "verification": {},
-  "history": [],
-  "lastCheckpoint": "0fdf41febdab823730f8def2d357c76385cf22f1",
-  "escalationRequested": false
+  "startedAt": "2026-01-15T14:02:43Z",
+  "lastAttemptAt": "2026-01-15T14:30:00Z",
+  "verification": {
+    "docsUpdated": true
+  },
+  "history": [
+    {
+      "attempt": 1,
+      "approach": "Created /claude-harness:do-tdd command with RED-GREEN-REFACTOR workflow enforcement",
+      "result": "success",
+      "timestamp": "2026-01-15T14:30:00Z"
+    }
+  ],
+  "lastCheckpoint": null,
+  "escalationRequested": false,
+  "workflow": {
+    "active": true,
+    "command": "do",
+    "phase": "checkpoint",
+    "options": {
+      "quick": false,
+      "auto": false,
+      "planOnly": false,
+      "tdd": false
+    },
+    "startedAt": "2026-01-15T14:02:43Z"
+  }
 }
