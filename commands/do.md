@@ -24,49 +24,109 @@ Arguments: $ARGUMENTS
 
 ## Phase 1: Feature Creation (if new feature)
 
+**CRITICAL: GitHub issue and branch MUST be created BEFORE any code work begins.**
+
 3. If creating new feature (no --fix flag):
-   - Generate unique feature ID (feature-XXX based on existing IDs)
-   - If GitHub MCP is available:
-     - Create GitHub issue with title, description, labels
-     - Create feature branch: `feature/feature-XXX`
-     - Checkout the feature branch
+
+   **Step 3a: Generate feature ID**
+   - Read `.claude-harness/features/active.json` to find highest existing ID
+   - Generate next sequential ID: `feature-XXX` (zero-padded, e.g., feature-013)
+
+   **Step 3b: Create GitHub Issue (MANDATORY if GitHub MCP available)**
+   - Create GitHub issue using `mcp__github__create_issue`:
+     - owner: Get from git remote URL
+     - repo: Get from git remote URL
+     - title: Feature description
+     - body: Include acceptance criteria, verification steps
+     - labels: `["feature", "claude-harness"]`
+   - Store the returned issue number
+   - **DO NOT PROCEED** without issue creation (if MCP available)
+
+   **Step 3c: Create and Checkout Feature Branch (MANDATORY)**
+   - Create branch using `mcp__github__create_branch`:
+     - branch: `feature/feature-XXX`
+     - from_branch: `main` (or default branch)
+   - **IMMEDIATELY checkout the branch locally**:
+     ```bash
+     git fetch origin
+     git checkout feature/feature-XXX
+     ```
+   - **VERIFY you are on the feature branch before ANY code work**:
+     ```bash
+     git branch --show-current  # Must show feature/feature-XXX
+     ```
+   - **STOP AND ERROR** if not on feature branch
+
+   **Step 3d: Create Feature Entry**
    - Add to `.claude-harness/features/active.json` with:
      - id, name, description, priority
-     - passes: false
+     - status: "pending"
      - verification: Generate reasonable verification steps
      - verificationCommands: Auto-detect from project (build, test, lint, typecheck)
      - maxAttempts: 10
-     - github: { issueNumber, prNumber: null, branch }
+     - github: { issueNumber: {from 3b}, prNumber: null, branch: "feature/feature-XXX" }
 
 ## Phase 1a: Fix Creation (if --fix flag)
 
+**CRITICAL: GitHub issue and branch MUST be created BEFORE any code work begins.**
+
 3a. If creating bug fix (`--fix <feature-id> "description"`):
-    - Validate original feature exists in active.json or archive.json
-    - Generate fix ID: `fix-{feature-id}-{NNN}` (zero-padded sequential)
-    - Generate branch name: `fix/{feature-id}-{slug}`
-    - Inherit verification commands from original feature
-    - If GitHub MCP available:
-      - Create issue: `fix: {description}` with link to original
-      - Add comment to original issue: "Bug fix created: #{new-issue}"
-      - Create and checkout fix branch
-    - Add to `.claude-harness/features/active.json` fixes array:
-      ```json
-      {
-        "id": "fix-{feature-id}-{NNN}",
-        "name": "{bug description}",
-        "linkedTo": {
-          "featureId": "{original-feature-id}",
-          "featureName": "{original-feature-name}",
-          "issueNumber": {original-issue-number}
-        },
-        "type": "bugfix",
-        "status": "pending",
-        "verification": { ...inherited, "inherited": true },
-        "github": { "issueNumber": X, "branch": "fix/..." }
-      }
-      ```
-    - Query procedural memory for original feature's learnings
-    - Display fix context (past successes/failures for this feature)
+
+   **Step 3a.1: Validate Original Feature**
+   - Search in `.claude-harness/features/active.json` features array
+   - Search in `.claude-harness/features/archive.json` archived array
+   - Extract feature details (name, issueNumber, verification commands)
+   - **STOP AND ERROR** if feature not found
+
+   **Step 3a.2: Generate Fix ID and Branch Name**
+   - Generate fix ID: `fix-{feature-id}-{NNN}` (zero-padded sequential)
+   - Generate branch name: `fix/{feature-id}-{slug}` (slug from description, max 30 chars)
+
+   **Step 3a.3: Create GitHub Issue (MANDATORY if GitHub MCP available)**
+   - Create issue using `mcp__github__create_issue`:
+     - title: `fix: {description}`
+     - body: Link to original issue, bug description
+     - labels: `["bugfix", "claude-harness", "linked-to:{feature-id}"]`
+   - Add comment to original feature issue: "Bug fix created: #{new-issue}"
+   - **DO NOT PROCEED** without issue creation (if MCP available)
+
+   **Step 3a.4: Create and Checkout Fix Branch (MANDATORY)**
+   - Create branch using `mcp__github__create_branch`:
+     - branch: `fix/{feature-id}-{slug}`
+     - from_branch: `main` (or default branch)
+   - **IMMEDIATELY checkout the branch locally**:
+     ```bash
+     git fetch origin
+     git checkout fix/{feature-id}-{slug}
+     ```
+   - **VERIFY you are on the fix branch before ANY code work**:
+     ```bash
+     git branch --show-current  # Must show fix/{feature-id}-{slug}
+     ```
+   - **STOP AND ERROR** if not on fix branch
+
+   **Step 3a.5: Create Fix Entry**
+   - Inherit verification commands from original feature
+   - Add to `.claude-harness/features/active.json` fixes array:
+     ```json
+     {
+       "id": "fix-{feature-id}-{NNN}",
+       "name": "{bug description}",
+       "linkedTo": {
+         "featureId": "{original-feature-id}",
+         "featureName": "{original-feature-name}",
+         "issueNumber": {original-issue-number}
+       },
+       "type": "bugfix",
+       "status": "pending",
+       "verification": { ...inherited, "inherited": true },
+       "github": { "issueNumber": {from 3a.3}, "branch": "fix/{feature-id}-{slug}" }
+     }
+     ```
+
+   **Step 3a.6: Load Context**
+   - Query procedural memory for original feature's learnings
+   - Display fix context (past successes/failures for this feature)
 
 4. Interactive checkpoint (unless --auto):
    ```
@@ -158,21 +218,46 @@ Arguments: $ARGUMENTS
 
 ## Phase 3: Implementation
 
-14. Update workflow phase to "implementing"
+**CRITICAL SAFETY CHECK: Verify branch before ANY code changes.**
 
-15. Initialize or resume agentic loop:
+14. **Branch Verification (MANDATORY - NEVER SKIP)**
+    ```bash
+    CURRENT_BRANCH=$(git branch --show-current)
+    EXPECTED_BRANCH=$(cat .claude-harness/features/active.json | grep -o '"branch": "[^"]*"' | head -1 | cut -d'"' -f4)
+    ```
+    - If on `main` or `master`: **STOP IMMEDIATELY**
+      ```
+      ┌─────────────────────────────────────────────────────────────────┐
+      │  ❌ SAFETY ERROR: Cannot implement on main branch!              │
+      │     Current branch: main                                        │
+      │     Expected branch: {feature-branch}                           │
+      ├─────────────────────────────────────────────────────────────────┤
+      │  Run: git checkout {feature-branch}                             │
+      │  Then resume with: /do {feature-id}                             │
+      └─────────────────────────────────────────────────────────────────┘
+      ```
+    - If branch doesn't exist locally, fetch and checkout:
+      ```bash
+      git fetch origin
+      git checkout {expected-branch}
+      ```
+    - **DO NOT PROCEED** until on correct feature/fix branch
+
+15. Update workflow phase to "implementing"
+
+16. Initialize or resume agentic loop:
     - If resuming: Load state from `.claude-harness/loops/state.json`
     - If new: Initialize loop state with version 3 schema
 
-16. Query procedural memory:
+17. Query procedural memory:
     - Show past failures to avoid
     - Show successful approaches to consider
 
-17. Health check:
+18. Health check:
     - Run build command to ensure baseline isn't broken
     - If fails: attempt git stash or inform user
 
-18. Execute implementation loop:
+19. Execute implementation loop:
     - Plan current attempt (avoiding past failures)
     - Execute implementation
     - Document approach in loop state
@@ -180,7 +265,7 @@ Arguments: $ARGUMENTS
     - If ALL pass: Record success, commit, continue to checkpoint
     - If ANY fail: Record failure to procedural memory, retry (up to maxAttempts)
 
-19. On verification success:
+20. On verification success:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │  ✅ Feature Complete: feature-012                               │
@@ -190,15 +275,15 @@ Arguments: $ARGUMENTS
     └─────────────────────────────────────────────────────────────────┘
     ```
 
-20. On escalation (max attempts reached):
+21. On escalation (max attempts reached):
     - Show attempt summary
     - Offer options: increase attempts, get human help, abort
 
 ## Phase 4: Checkpoint (if confirmed or --auto)
 
-21. Update workflow phase to "checkpoint"
+22. Update workflow phase to "checkpoint"
 
-22. If user confirms (or --auto):
+23. If user confirms (or --auto):
     - Update `.claude-harness/claude-progress.json`
     - Persist to memory layers (episodic, semantic, procedural)
     - **Auto-reflect**: Scan conversation for user corrections
@@ -212,7 +297,7 @@ Arguments: $ARGUMENTS
     - Create/update PR (if GitHub MCP available)
     - Archive completed feature/fix to `.claude-harness/features/archive.json`
 
-23. Clear workflow state:
+24. Clear workflow state:
     ```json
     {
       "workflow": {
@@ -223,7 +308,7 @@ Arguments: $ARGUMENTS
     }
     ```
 
-24. Report completion:
+25. Report completion:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │  ✅ Workflow Complete                                           │
@@ -235,12 +320,12 @@ Arguments: $ARGUMENTS
 
 ## Resume Behavior
 
-25. `/do resume`:
+26. `/do resume`:
     - Read `.claude-harness/loops/state.json`
     - If workflow.active is true: Resume from workflow.phase
     - If no active workflow: Show error "No active workflow to resume"
 
-26. `/do feature-012` (existing feature):
+27. `/do feature-012` (existing feature):
     - Check if feature exists in active.json
     - If exists with active workflow: Resume from current phase
     - If exists without workflow: Start from planning phase
@@ -248,12 +333,12 @@ Arguments: $ARGUMENTS
 
 ## Error Handling
 
-27. If interrupted at any phase:
+28. If interrupted at any phase:
     - State is preserved in loops/state.json
     - SessionStart hook will show: "🔄 Workflow paused at {phase}"
     - User can resume with `/do resume` or `/do feature-XXX`
 
-28. If any phase fails:
+29. If any phase fails:
     - Preserve state for debugging
     - Show clear error message
     - Offer recovery options
