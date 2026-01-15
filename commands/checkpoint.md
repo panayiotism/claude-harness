@@ -304,3 +304,33 @@ Create a checkpoint of the current session:
 
    - Write updated files
    - Report: "Persisted {N} agent results to procedural memory"
+
+## Phase 9: Context Management Recommendation
+
+9. Display context management recommendation:
+   ```
+   ┌─────────────────────────────────────────────────────────────────┐
+   │  ✅ CHECKPOINT COMPLETE                                         │
+   │     Progress saved to memory layers                             │
+   │     Commit: {hash}                                              │
+   │     PR: #{number} (if applicable)                               │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  💡 RECOMMENDED: Run /clear to reset context                    │
+   │                                                                 │
+   │     Your progress is preserved in:                              │
+   │     • claude-progress.json (session summary)                    │
+   │     • memory/working/context.json (working state)               │
+   │     • memory/episodic/decisions.json (decisions)                │
+   │     • memory/procedural/ (successes & failures)                 │
+   │     • memory/learned/rules.json (learned rules)                 │
+   │                                                                 │
+   │     Fresh context = better performance on next task.            │
+   │     Run /start after /clear to reload context.                  │
+   └─────────────────────────────────────────────────────────────────┘
+   ```
+
+   **Why clear context?**
+   - Prevents "context rot" from accumulated irrelevant information
+   - Reduces token costs for subsequent work
+   - Improves Claude's focus on the next task
+   - Memory files preserve all important learnings
