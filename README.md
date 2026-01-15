@@ -89,12 +89,15 @@ The `/do` command chains all steps automatically with interactive checkpoints. U
 ### v3.0 Memory Architecture
 
 ```
-.claude-harness/memory/
-├── working/     → Rebuilt each session (fresh, relevant context)
-├── episodic/    → Rolling window of 50 recent decisions
-├── semantic/    → Persistent project architecture & patterns
-├── procedural/  → Append-only success/failure logs (never repeat mistakes)
-└── learned/     → Rules from user corrections (self-improving)
+.claude-harness/
+├── memory/
+│   ├── episodic/    → Rolling window of 50 recent decisions
+│   ├── semantic/    → Persistent project architecture & patterns
+│   ├── procedural/  → Append-only success/failure logs (never repeat mistakes)
+│   └── learned/     → Rules from user corrections (self-improving)
+├── features/        → Shared feature registry (active.json, archive.json)
+└── sessions/        → Per-session state (gitignored, enables parallel work)
+    └── {uuid}/      → Each Claude instance gets isolated loop/context state
 ```
 
 ## Session Start Hook
@@ -618,6 +621,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.8.0** | **Parallel Work Streams**: Session-scoped state enables multiple Claude instances to work on different features simultaneously without conflicts. Each session gets unique ID and isolated state directory (`.claude-harness/sessions/{id}/`). Sessions are gitignored, shared state (features, memory) remains committed. |
 | **3.7.1** | **Fix Missing Learned Rules**: Fixed error when reading `.claude-harness/memory/learned/rules.json` on installations from pre-v3.6. `/start` Phase 0 now creates the file if missing. |
 | **3.7.0** | **TDD Enforcement Command**: New `/claude-harness:do-tdd` command for test-driven development. Enforces RED-GREEN-REFACTOR workflow, blocks implementation until tests exist. Keeps `/do` unchanged for backward compatibility. |
 | **3.6.7** | **Fix GitHub Repo Detection**: Added explicit `git remote get-url origin` parsing instructions to all commands that use GitHub MCP. Prevents Claude from guessing or caching wrong owner/repo values from previous sessions. |

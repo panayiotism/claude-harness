@@ -158,7 +158,8 @@ Arguments: $ARGUMENTS
    - n: Stop here, return control to user
    - skip: Skip planning, go directly to implementation
 
-5. Update workflow state in `.claude-harness/loops/state.json`:
+5. Update workflow state in session-scoped loop file `.claude-harness/sessions/{session-id}/loop-state.json`:
+   **Note**: The session ID is provided by the SessionStart hook. All workflow state for this session should use the session directory.
    ```json
    {
      "workflow": {
@@ -174,7 +175,7 @@ Arguments: $ARGUMENTS
 ## Phase 2: Planning (unless --quick)
 
 6. Load context:
-   - Read compiled context from `.claude-harness/memory/working/context.json`
+   - Read compiled context from session-scoped path: `.claude-harness/sessions/{session-id}/context.json`
    - Read semantic memory for project architecture
    - Query procedural memory for past failures/successes on similar work
 
@@ -262,8 +263,9 @@ Arguments: $ARGUMENTS
 15. Update workflow phase to "implementing"
 
 16. Initialize or resume agentic loop:
-    - If resuming: Load state from `.claude-harness/loops/state.json`
-    - If new: Initialize loop state with version 3 schema
+    - If resuming: Load state from session-scoped path: `.claude-harness/sessions/{session-id}/loop-state.json`
+    - If session file doesn't exist, check legacy path: `.claude-harness/loops/state.json`
+    - If new: Initialize loop state in session directory with version 3 schema
 
 17. Query procedural memory:
     - Show past failures to avoid
@@ -313,7 +315,7 @@ Arguments: $ARGUMENTS
     - Create/update PR (if GitHub MCP available)
     - Archive completed feature/fix to `.claude-harness/features/archive.json`
 
-24. Clear workflow state:
+24. Clear workflow state (in session-scoped file):
     ```json
     {
       "workflow": {
@@ -337,7 +339,8 @@ Arguments: $ARGUMENTS
 ## Resume Behavior
 
 26. `/claude-harness:do resume`:
-    - Read `.claude-harness/loops/state.json`
+    - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
+    - If session file doesn't exist, check legacy: `.claude-harness/loops/state.json`
     - If workflow.active is true: Resume from workflow.phase
     - If no active workflow: Show error "No active workflow to resume"
 
@@ -350,9 +353,10 @@ Arguments: $ARGUMENTS
 ## Error Handling
 
 28. If interrupted at any phase:
-    - State is preserved in loops/state.json
+    - State is preserved in session-scoped file: `.claude-harness/sessions/{session-id}/loop-state.json`
     - SessionStart hook will show: "🔄 Workflow paused at {phase}"
     - User can resume with `/claude-harness:do resume` or `/claude-harness:do feature-XXX`
+    - **Note**: Each session has its own state, so parallel sessions don't conflict
 
 29. If any phase fails:
     - Preserve state for debugging

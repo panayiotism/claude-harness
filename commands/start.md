@@ -76,8 +76,11 @@ Before anything else, check if legacy root-level harness files need migration:
 
 ## Phase 1: Context Compilation (Memory System)
 
+**Session ID**: The SessionStart hook automatically generates a unique session ID and creates a session directory at `.claude-harness/sessions/{session-id}/`. All session-specific state files should use this directory. The session ID is provided in the hook output as `sessionId` and `sessionDir`.
+
 1. **Compile working context from memory layers**:
-   - Clear/initialize `.claude-harness/memory/working/context.json`
+   - Get session directory from SessionStart hook output (`.claude-harness/sessions/{session-id}/`)
+   - Clear/initialize session context file: `.claude-harness/sessions/{session-id}/context.json`
    - Read `.claude-harness/features/active.json` (or legacy `feature-list.json`) to identify active feature
 
 2. **Query procedural memory for failures to avoid**:
@@ -97,8 +100,8 @@ Before anything else, check if legacy root-level harness files need migration:
    - Get entries from last 7 days or last 20 entries (whichever is smaller)
    - Add to `relevantMemory.recentDecisions` in working context
 
-5. **Write compiled context**:
-   - Update `.claude-harness/memory/working/context.json`:
+5. **Write compiled context** (to session-scoped path):
+   - Update `.claude-harness/sessions/{session-id}/context.json`:
      ```json
      {
        "version": 3,
@@ -154,7 +157,7 @@ Before anything else, check if legacy root-level harness files need migration:
      - If no active feature, include all active rules
 
    - Add rules to working context:
-     - Update `.claude-harness/memory/working/context.json`:
+     - Update `.claude-harness/sessions/{session-id}/context.json`:
        ```json
        {
          "relevantMemory": {
@@ -215,7 +218,8 @@ Before anything else, check if legacy root-level harness files need migration:
 ## Phase 3: Loop & Orchestration State
 
 12. **Check active loop state** (PRIORITY):
-   - Read `.claude-harness/loops/state.json` (or legacy `.claude-harness/loop-state.json`)
+   - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
+   - If session file doesn't exist, check legacy paths: `.claude-harness/loops/state.json` or `.claude-harness/loop-state.json`
    - Check `type` field to determine if this is a feature or fix
    - If `status` is "in_progress" and `type` is "feature":
      ```

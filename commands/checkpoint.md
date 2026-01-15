@@ -15,7 +15,9 @@ Create a checkpoint of the current session:
 
 ## Phase 1.5: Capture Working Context
 
-1.5. Update `.claude-harness/working-context.json` with current working state:
+**Session Paths**: All session-specific state uses `.claude-harness/sessions/{session-id}/`. The session ID is provided by the SessionStart hook.
+
+1.5. Update session-scoped working context `.claude-harness/sessions/{session-id}/working-context.json` with current working state:
    - Read `.claude-harness/features/active.json` (or legacy `feature-list.json`) to identify active feature (first with passes=false)
    - Set `activeFeature` to the feature ID and `summary` to feature name
    - Populate `workingFiles` from:
@@ -146,7 +148,8 @@ Create a checkpoint of the current session:
 3. ALWAYS commit changes:
    - Stage all modified files (except secrets/env files)
    - Check loop state to determine commit prefix:
-     - Read `.claude-harness/loops/state.json` (or legacy `loop-state.json`)
+     - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
+     - If session file doesn't exist, check legacy: `.claude-harness/loops/state.json`
      - If `type` is "fix": Use `fix({linkedTo.featureId}): <description>` prefix
      - If `type` is "feature" or undefined: Use `feat({feature-id}): <description>` prefix
    - Write descriptive commit message summarizing the work
@@ -212,7 +215,8 @@ Create a checkpoint of the current session:
 ## Phase 6: Clear Loop State (if feature/fix completed)
 
 6. If an agentic loop just completed successfully:
-   - Read `.claude-harness/loops/state.json` (or legacy `loop-state.json`)
+   - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
+   - If session file doesn't exist, check legacy: `.claude-harness/loops/state.json`
    - If `status` is "completed" and matches current feature/fix:
      - Reset loop state to idle:
        ```json
@@ -238,6 +242,7 @@ Create a checkpoint of the current session:
        ```
      - Report: "Loop completed and reset" (indicate if it was a feature or fix)
    - If loop is still in progress, preserve state for session continuity
+   - **Optional session cleanup**: If feature is archived and session is complete, the session directory `.claude-harness/sessions/{session-id}/` can be removed (it's gitignored anyway)
 
 ## Phase 7: Archive Completed Features and Fixes
 
@@ -326,7 +331,7 @@ Create a checkpoint of the current session:
    │                                                                 │
    │     Your progress is preserved in:                              │
    │     • claude-progress.json (session summary)                    │
-   │     • memory/working/context.json (working state)               │
+   │     • sessions/{id}/context.json (session working state)        │
    │     • memory/episodic/decisions.json (decisions)                │
    │     • memory/procedural/ (successes & failures)                 │
    │     • memory/learned/rules.json (learned rules)                 │

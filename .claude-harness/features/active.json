@@ -1,5 +1,41 @@
 {
   "version": 1,
-  "features": [],
+  "features": [
+    {
+      "id": "feature-013",
+      "name": "Parallel Work Streams - Session-Scoped State",
+      "description": "Enable multiple Claude sessions to work in parallel on different features without state file conflicts by implementing session-scoped state directories",
+      "priority": 1,
+      "status": "in_progress",
+      "verification": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": [
+          "Two parallel /start commands get different session IDs",
+          "Two parallel /do commands don't conflict on loop state",
+          "/checkpoint merges learnings without conflicts"
+        ]
+      },
+      "relatedFiles": [
+        "commands/start.md",
+        "commands/do.md",
+        "commands/checkpoint.md",
+        "hooks/session-start.sh",
+        "setup.sh",
+        ".gitignore",
+        ".claude-plugin/plugin.json",
+        "README.md"
+      ],
+      "github": {
+        "issueNumber": 25,
+        "prNumber": null,
+        "branch": "feature/feature-013"
+      },
+      "createdAt": "2026-01-15T18:00:00Z",
+      "updatedAt": "2026-01-15T18:00:00Z"
+    }
+  ],
   "fixes": []
 }

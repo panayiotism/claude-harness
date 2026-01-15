@@ -2,3 +2,6 @@
 claude-progress.json
 *.log
 .DS_Store
+
+# Session-specific state (ephemeral, per-Claude-instance)
+.claude-harness/sessions/

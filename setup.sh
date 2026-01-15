@@ -328,6 +328,7 @@ mkdir -p .claude-harness/impact
 mkdir -p .claude-harness/features/tests
 mkdir -p .claude-harness/agents
 mkdir -p .claude-harness/loops
+mkdir -p .claude-harness/sessions
 
 # ============================================================================
 # 1. CLAUDE.md - Main context file
