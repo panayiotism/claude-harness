@@ -1,0 +1,20 @@
+{
+  "entries": [
+    {
+      "pattern": "Phase 0 migration pattern: check for legacy files before creating new ones",
+      "source": "feature-004"
+    },
+    {
+      "pattern": "Verification loop: Build → Tests → Lint → Typecheck (ALL must pass)",
+      "source": "feature-005"
+    },
+    {
+      "pattern": "Test setup.sh in the harness repo itself to catch inception issues",
+      "source": "feature-004"
+    },
+    {
+      "pattern": "Both setup.sh AND commands/setup.md must be updated together",
+      "source": "feature-005"
+    }
+  ]
+}

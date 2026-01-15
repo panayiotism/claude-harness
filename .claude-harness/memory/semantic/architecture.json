@@ -1,0 +1,22 @@
+{
+  "projectType": "claude-plugin",
+  "techStack": {
+    "languages": ["Shell/Bash", "Markdown", "JSON"],
+    "frameworks": [],
+    "testing": null,
+    "build": null
+  },
+  "structure": {
+    "entryPoints": ["setup.sh"],
+    "components": ["commands/", "hooks/"],
+    "api": [],
+    "tests": []
+  },
+  "patterns": {
+    "commandFiles": "commands/{name}.md (no harness- prefix)",
+    "stateFiles": ".claude-harness/{name}.json",
+    "loopArchitecture": "/implement for single-agent, /orchestrate for multi-agent"
+  },
+  "discoveredAt": "2026-01-15T15:00:00Z",
+  "lastUpdated": "2026-01-15T15:00:00Z"
+}
