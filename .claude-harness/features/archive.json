@@ -28,6 +28,37 @@
       "createdAt": "2026-01-10T12:00:00Z",
       "updatedAt": "2026-01-10T12:00:00Z",
       "archivedAt": "2026-01-10T05:25:00Z"
+    },
+    {
+      "id": "feature-012",
+      "name": "TDD Enforcement Mode",
+      "description": "New /claude-harness:do-tdd command for test-driven development with RED-GREEN-REFACTOR workflow",
+      "priority": 1,
+      "status": "passing",
+      "tdd": false,
+      "verification": {
+        "testsExist": "N/A - documentation/command feature",
+        "testsPass": "N/A",
+        "buildPasses": "N/A - no build step for markdown commands",
+        "lintPasses": "N/A",
+        "docsUpdated": "README and command docs updated"
+      },
+      "relatedFiles": [
+        "commands/do-tdd.md",
+        "commands/do.md",
+        "README.md",
+        "hooks/session-start.sh",
+        ".claude-plugin/plugin.json",
+        "RELEASES/v3.7.0.md"
+      ],
+      "github": {
+        "issueNumber": 23,
+        "prNumber": 24,
+        "branch": "feature/feature-012"
+      },
+      "createdAt": "2026-01-15T14:02:43Z",
+      "completedAt": "2026-01-15T14:35:00Z",
+      "archivedAt": "2026-01-15T14:37:00Z"
     }
   ],
   "archivedFixes": []
