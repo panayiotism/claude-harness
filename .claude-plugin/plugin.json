@@ -1,7 +1,7 @@
 {
   "name": "claude-harness",
   "description": "Long-running agent harness with unified workflow, 4-layer memory architecture, failure prevention, self-improving skills, test-driven features, bug fix tracking, GitHub integration, and multi-agent orchestration",
-  "version": "3.7.0",
+  "version": "3.7.1",
   "author": {
     "name": "panayiotis"
   }
