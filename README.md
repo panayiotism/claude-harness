@@ -586,6 +586,8 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.6.2** | **Branch Safety**: Fixed `/do` to enforce GitHub issue and branch creation BEFORE any code work. Added branch verification safety check that stops if on main/master. Explicit step-by-step instructions with "DO NOT PROCEED" markers. |
+| **3.6.1** | **Hooks Fix**: Removed duplicate `hooks` reference from plugin.json - `hooks/hooks.json` is auto-loaded by convention. |
 | **3.6.0** | **Command Consolidation**: Reduced from 13 to 6 commands. `/do` now handles fixes via `--fix` flag. Removed redundant commands (`/feature`, `/plan-feature`, `/implement`, `/fix`, `/reflect`, `/generate-tests`, `/check-approach`). Renamed `/merge-all` to `/merge`. Auto-reflect always enabled at checkpoint. |
 | **3.5.0** | **Unified Workflow**: `/do` command - chains feature creation, planning, implementation, and checkpoint in one command with interactive prompts. Options: `--quick` (skip planning), `--auto` (no prompts), `--plan-only`. Resumable with `/do resume` or `/do feature-XXX` |
 | **3.4.0** | **Safe Permissions**: Comprehensive permission configuration to avoid `--dangerously-skip-permissions` - deny list for dangerous commands, ask list for destructive ops, allow list for safe harness operations |
