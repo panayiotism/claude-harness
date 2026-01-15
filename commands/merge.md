@@ -9,9 +9,20 @@ Arguments: $ARGUMENTS (optional - specific version like v1.2.0, defaults to auto
 
 Requires GitHub MCP to be configured.
 
+## Phase 0: Parse Repository Info
+
+0. **Parse repository owner and name from git remote** (MANDATORY before any GitHub API calls):
+   ```bash
+   REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+   # SSH: git@github.com:owner/repo.git → owner, repo
+   # HTTPS: https://github.com/owner/repo.git → owner, repo
+   ```
+   CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
+   Use the parsed owner/repo for ALL GitHub API calls in this command.
+
 ## Phase 1: Gather State
 
-1. Gather state:
+1. Gather state (using parsed owner/repo):
    - List all open PRs for this repository (includes both feature and fix PRs)
    - List all open issues with "feature" or "bugfix" labels
    - Read `.claude-harness/features/active.json`:

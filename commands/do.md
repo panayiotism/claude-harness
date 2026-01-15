@@ -33,9 +33,16 @@ Arguments: $ARGUMENTS
    - Generate next sequential ID: `feature-XXX` (zero-padded, e.g., feature-013)
 
    **Step 3b: Create GitHub Issue (MANDATORY if GitHub MCP available)**
+   - **First, parse owner/repo from git remote** (MANDATORY):
+     ```bash
+     REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+     # SSH: git@github.com:owner/repo.git → owner, repo
+     # HTTPS: https://github.com/owner/repo.git → owner, repo
+     ```
+     CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
    - Create GitHub issue using `mcp__github__create_issue`:
-     - owner: Get from git remote URL
-     - repo: Get from git remote URL
+     - owner: Parsed from REMOTE_URL (the username/org before the repo name)
+     - repo: Parsed from REMOTE_URL (the repository name, without .git suffix)
      - title: Feature description
      - body: Include acceptance criteria, verification steps
      - labels: `["feature", "claude-harness"]`
@@ -83,7 +90,16 @@ Arguments: $ARGUMENTS
    - Generate branch name: `fix/{feature-id}-{slug}` (slug from description, max 30 chars)
 
    **Step 3a.3: Create GitHub Issue (MANDATORY if GitHub MCP available)**
+   - **First, parse owner/repo from git remote** (MANDATORY):
+     ```bash
+     REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+     # SSH: git@github.com:owner/repo.git → owner, repo
+     # HTTPS: https://github.com/owner/repo.git → owner, repo
+     ```
+     CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
    - Create issue using `mcp__github__create_issue`:
+     - owner: Parsed from REMOTE_URL
+     - repo: Parsed from REMOTE_URL
      - title: `fix: {description}`
      - body: Link to original issue, bug description
      - labels: `["bugfix", "claude-harness", "linked-to:{feature-id}"]`

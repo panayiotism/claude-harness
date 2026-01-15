@@ -156,8 +156,15 @@ Create a checkpoint of the current session:
 ## Phase 4: PR Management (if GitHub MCP available)
 
 4. If on a feature/fix branch and GitHub MCP is available:
+   - **First, parse owner/repo from git remote** (MANDATORY before any GitHub API calls):
+     ```bash
+     REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+     # SSH: git@github.com:owner/repo.git → owner, repo
+     # HTTPS: https://github.com/owner/repo.git → owner, repo
+     ```
+     CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
    - Check loop state type to determine if this is a feature or fix
-   - Check if PR exists for this branch
+   - Check if PR exists for this branch (use parsed owner/repo)
    - If no PR exists:
      - Create PR with descriptive title following conventional commits:
        - For features: `feat: <description>`
