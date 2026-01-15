@@ -166,7 +166,7 @@ Before anything else, check if legacy root-level harness files need migration:
      │  • {rule.title}                                                 │
      │  • {rule.title}                                                 │
      ├─────────────────────────────────────────────────────────────────┤
-     │  {N} rules active | /claude-harness:reflect to add more         │
+     │  {N} rules active (auto-captured at checkpoint)                 │
      └─────────────────────────────────────────────────────────────────┘
      ```
 
@@ -211,7 +211,7 @@ Before anything else, check if legacy root-level harness files need migration:
      │  Last approach: {history[-1].approach}                         │
      │  Last result: {history[-1].result}                             │
      │                                                                │
-     │  Resume: /claude-harness:implement {feature}                   │
+     │  Resume: /claude-harness:do {feature}                          │
      └─────────────────────────────────────────────────────────────────┘
      ```
    - If `status` is "in_progress" and `type` is "fix":
@@ -225,7 +225,7 @@ Before anything else, check if legacy root-level harness files need migration:
      │  Last approach: {history[-1].approach}                         │
      │  Last result: {history[-1].result}                             │
      │                                                                │
-     │  Resume: /claude-harness:implement {feature}                   │
+     │  Resume: /claude-harness:do {feature}                          │
      └─────────────────────────────────────────────────────────────────┘
      ```
    - If `status` is "escalated":
@@ -283,13 +283,13 @@ Before anything else, check if legacy root-level harness files need migration:
     - Pending features and fixes prioritized
     - GitHub sync results
     - Recommended next action (in priority order):
-      1. **Active loop (fix)**: Resume with `/claude-harness:implement {fix-id}`
-      2. **Active loop (feature)**: Resume with `/claude-harness:implement {feature-id}`
+      1. **Active loop (fix)**: Resume with `/claude-harness:do {fix-id}`
+      2. **Active loop (feature)**: Resume with `/claude-harness:do {feature-id}`
       3. **Escalated loop**: Review history and provide guidance, or increase maxAttempts
-      4. **Pending fixes**: Resume fix with `/claude-harness:implement {fix-id}`
+      4. **Pending fixes**: Resume fix with `/claude-harness:do {fix-id}`
       5. **Pending handoffs**: Resume orchestration with `/claude-harness:orchestrate {feature-id}`
       6. **Pending features**: Start implementation:
-         - Simple feature: `/claude-harness:implement {feature-id}`
+         - Simple feature: `/claude-harness:do {feature-id}`
          - Complex feature: `/claude-harness:orchestrate {feature-id}`
-      7. **No features**: Add one with `/claude-harness:feature <description>`
-      8. **Create fix for completed feature**: `/claude-harness:fix {feature-id} "bug description"`
+      7. **No features**: Add one with `/claude-harness:do "description"`
+      8. **Create fix for completed feature**: `/claude-harness:do --fix {feature-id} "bug description"`

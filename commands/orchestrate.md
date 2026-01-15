@@ -215,7 +215,7 @@ Arguments: $ARGUMENTS
 17. If verification keeps failing after multiple agent re-runs:
     - Escalate: Report which verification step fails persistently
     - Provide error summary and agent history
-    - Recommend: Manual intervention or `/claude-harness:implement` for focused loop
+    - Recommend: Manual intervention or `/claude-harness:do {feature-id}` for focused loop
 
 ## Phase 7: Reporting
 
@@ -272,5 +272,5 @@ If orchestration is interrupted:
 - `.claude-harness/agents/context.json` preserves state
 - `.claude-harness/loops/state.json` tracks verification attempts
 - Run `/claude-harness:orchestrate` again to resume from pendingHandoffs
-- Run `/claude-harness:implement {feature-id}` for focused single-agent loop
+- Run `/claude-harness:do {feature-id}` for focused single-agent loop
 - Use `/claude-harness:start` to see orchestration state and recommendations

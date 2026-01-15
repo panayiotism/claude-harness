@@ -164,7 +164,7 @@ Arguments: $ARGUMENTS
     - If resuming: Load state from `.claude-harness/loops/state.json`
     - If new: Initialize loop state with version 3 schema
 
-16. Query procedural memory (same as /implement Phase 0.5):
+16. Query procedural memory:
     - Show past failures to avoid
     - Show successful approaches to consider
 

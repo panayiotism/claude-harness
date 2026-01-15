@@ -211,6 +211,5 @@ Report:
 - Current plugin version
 - Next steps:
   1. Run `/claude-harness:start` to compile context and sync GitHub
-  2. Use `/claude-harness:feature` to add features
-  3. Use `/claude-harness:generate-tests` before implementation
-  4. Use `/claude-harness:implement` for agentic loops
+  2. Use `/claude-harness:do "description"` to create and implement features
+  3. Use `/claude-harness:do --fix feature-XXX "bug"` to create bug fixes

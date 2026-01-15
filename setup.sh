@@ -725,10 +725,10 @@ if [ -f ".claude-harness/loops/state.json" ]; then
         if [ "$looptype" = "fix" ]; then
             echo "ACTIVE FIX: $feature (attempt $attempt, status: $status)"
             echo "Linked to: $linkedFeature"
-            echo "Resume with: /claude-harness:implement $feature"
+            echo "Resume with: /claude-harness:do $feature"
         else
             echo "ACTIVE LOOP: $feature (attempt $attempt, status: $status)"
-            echo "Resume with: /claude-harness:implement $feature"
+            echo "Resume with: /claude-harness:do $feature"
         fi
     else
         echo "No active loop"
@@ -765,17 +765,13 @@ fi
 
 echo ""
 echo "=== Environment Ready (v3.6) ==="
-echo "Commands:"
+echo "Commands (6 total):"
+echo "  /setup           - Initialize harness (one-time)"
 echo "  /start           - Compile context, show GitHub dashboard"
-echo "  /feature         - Add feature (generates tests first)"
-echo "  /fix             - Create bug fix linked to a feature"
-echo "  /plan-feature    - Plan implementation before coding"
-echo "  /generate-tests  - Generate test cases for a feature"
-echo "  /check-approach  - Check if approach matches past failures"
-echo "  /implement       - Start agentic loop until tests pass"
-echo "  /orchestrate     - Spawn multi-agent team"
+echo "  /do              - Unified workflow (features + fixes)"
 echo "  /checkpoint      - Save progress, persist memory"
-echo "  /merge-all       - Merge PRs, close issues"
+echo "  /orchestrate     - Spawn multi-agent team"
+echo "  /merge           - Merge PRs, auto-version, release"
 '
 chmod +x .claude-harness/init.sh 2>/dev/null || true
 
@@ -904,474 +900,139 @@ create_file ".claude/commands/checkpoint.md" 'Create a checkpoint of the current
 ' "command"
 
 # ============================================================================
-# 17. /feature command - Now with test-driven schema
+# 17. /do command - Unified workflow (features + fixes)
 # ============================================================================
 
-create_file ".claude/commands/feature.md" '---
-description: Add a new feature with test-driven approach
-argumentsPrompt: Feature name and description
+create_file ".claude/commands/do.md" '---
+description: Unified workflow - create, plan, and implement features or fixes in one command
+argumentsPrompt: Feature description, feature ID, or --fix flag (e.g., "Add dark mode", "feature-001", "--fix feature-001 Bug description")
 ---
 
-Add a new feature to .claude-harness/features/active.json:
+Unified command that orchestrates the complete development workflow:
 
 Arguments: $ARGUMENTS
 
-## Phase 1: Parse and Generate
-1. Parse the feature description from arguments
-2. Generate unique feature ID (feature-XXX based on existing IDs)
+## Argument Parsing
 
-## Phase 2: GitHub Integration (if MCP available)
-3. If GitHub MCP is available:
-   - Create GitHub issue with:
-     - Title: Feature name
-     - Body: Description + verification steps checklist
-     - Labels: ["feature", "claude-harness", priority label]
-   - Create feature branch: `feature/feature-XXX`
-   - Checkout the feature branch
+1. Detect argument type:
+   - If starts with `--fix <feature-id>`: Create bug fix linked to feature
+   - If matches `feature-\d+`: Resume existing feature
+   - If matches `fix-feature-\d+-\d+`: Resume existing fix
+   - If "resume": Resume last active workflow
+   - Otherwise: Create new feature from description
 
-## Phase 3: Create Feature Entry
-4. Add to .claude-harness/features/active.json with v3.0 schema:
-   ```json
-   {
-     "id": "feature-XXX",
-     "name": "Feature name",
-     "description": "Full description",
-     "priority": 1,
-     "status": "pending",
-     "phase": "planning",
-     "tests": {
-       "generated": false,
-       "file": null,
-       "passing": 0,
-       "total": 0
-     },
-     "verification": {
-       "build": "<detected or default>",
-       "tests": "<detected or default>",
-       "lint": "<detected or default>",
-       "typecheck": "<detected or default>",
-       "custom": []
-     },
-     "attempts": 0,
-     "maxAttempts": 10,
-     "relatedFiles": [],
-     "github": {
-       "issueNumber": <from GitHub>,
-       "prNumber": null,
-       "branch": "feature/feature-XXX"
-     },
-     "createdAt": "<ISO timestamp>",
-     "updatedAt": "<ISO timestamp>"
-   }
-   ```
+2. Parse options:
+   - `--fix <feature-id>`: Create bug fix linked to specified feature
+   - `--quick`: Skip planning phase (for simple tasks)
+   - `--auto`: No interactive prompts (full automation)
+   - `--plan-only`: Stop after planning (review before implementation)
 
-## Phase 4: Recommend Next Steps
-5. Confirm creation with:
-   - Feature ID
-   - GitHub issue URL (if created)
-   - Branch name (if created)
-   - **Recommended**: Run `/claude-harness:generate-tests feature-XXX` to generate test cases
-   - Then: Run `/claude-harness:implement feature-XXX` to start implementation
+## Phase 1: Feature Creation (if new feature)
+
+3. If creating new feature (no --fix flag):
+   - Generate unique feature ID (feature-XXX based on existing IDs)
+   - If GitHub MCP is available:
+     - Create GitHub issue with title, description, labels
+     - Create feature branch: `feature/feature-XXX`
+     - Checkout the feature branch
+   - Add to `.claude-harness/features/active.json`
+
+## Phase 1a: Fix Creation (if --fix flag)
+
+3a. If creating bug fix (`--fix <feature-id> "description"`):
+    - Validate original feature exists in active.json or archive.json
+    - Generate fix ID: `fix-{feature-id}-{NNN}`
+    - Inherit verification commands from original feature
+    - If GitHub MCP available: Create issue + branch
+    - Add to `.claude-harness/features/active.json` fixes array
+
+## Phase 2: Planning (unless --quick)
+
+4. Load context from memory layers
+5. Analyze requirements, identify files
+6. Check past failures, suggest alternatives
+7. Generate implementation plan
+
+## Phase 3: Implementation
+
+8. Initialize or resume agentic loop
+9. Query procedural memory for failures to avoid
+10. Execute implementation with verification
+11. On success: Record to successes.json
+12. On failure: Record to failures.json, retry
+
+## Phase 4: Checkpoint (if confirmed or --auto)
+
+13. Commit changes with appropriate prefix (feat: or fix:)
+14. Push to remote, create/update PR
+15. Auto-reflect on user corrections
+16. Archive completed feature/fix
+
+## Quick Reference
+
+| Command | Behavior |
+|---------|----------|
+| `/do "Add X"` | Full workflow with prompts |
+| `/do --fix feature-001 "Bug Y"` | Create bug fix linked to feature |
+| `/do feature-001` | Resume existing feature |
+| `/do fix-feature-001-001` | Resume existing fix |
+| `/do resume` | Resume last active workflow |
+| `/do --quick "Simple change"` | Skip planning phase |
+| `/do --auto "Add Z"` | No prompts, full automation |
+| `/do --plan-only "Big feature"` | Plan only, implement later |
 ' "command"
 
 # ============================================================================
-# 18. /generate-tests command - NEW for test-driven development
+# 18. /merge command - Merge PRs, auto-version, release
 # ============================================================================
 
-create_file ".claude/commands/generate-tests.md" '---
-description: Generate test cases for a feature before implementation
-argumentsPrompt: Feature ID (e.g., feature-001)
+create_file ".claude/commands/merge.md" '---
+description: Merge all PRs, auto-version, create release
+argumentsPrompt: Optional: specific version tag (e.g., v1.2.0). Defaults to auto-versioning.
 ---
 
-Generate test cases BEFORE implementation:
+Merge all open PRs, close related issues, create version tag and release:
 
-Arguments: $ARGUMENTS
-
-## Core Principle
-Test-driven development: Generate tests first, then implement to pass them.
-This provides clear acceptance criteria and prevents "marking complete without testing".
-
-## Phase 1: Load Feature
-1. Parse feature ID from arguments
-2. Read feature from .claude-harness/features/active.json
-3. Verify feature exists and is in pending/planning phase
-
-## Phase 2: Analyze Project
-4. Read .claude-harness/memory/semantic/architecture.json for:
-   - Test framework (jest, vitest, pytest, etc.)
-   - Test directory structure
-   - Existing test patterns
-
-5. Read .claude-harness/memory/procedural/successes.json for:
-   - Test patterns that worked before
-   - File naming conventions
-
-## Phase 3: Generate Test Cases
-6. Based on feature description, generate test cases:
-   - Unit tests for core functionality
-   - Integration tests for API/database
-   - Edge cases and error handling
-
-7. Create test file at `.claude-harness/features/tests/{feature-id}.json`:
-   ```json
-   {
-     "featureId": "feature-XXX",
-     "generatedAt": "<ISO timestamp>",
-     "framework": "jest|pytest|vitest",
-     "cases": [
-       {
-         "id": "test-001",
-         "type": "unit|integration|e2e",
-         "description": "Should do X when Y",
-         "file": "tests/path/to/test.ts",
-         "status": "pending",
-         "code": "test code here",
-         "dependencies": []
-       }
-     ],
-     "coverage": {
-       "target": 80,
-       "current": 0
-     }
-   }
-   ```
-
-## Phase 4: Create Test Files
-8. Write actual test files to the project:
-   - Create test file(s) based on project conventions
-   - Tests should FAIL initially (no implementation yet)
-
-9. Run tests to confirm they fail (expected)
-
-## Phase 5: Update Feature
-10. Update feature in active.json:
-    - Set status to "needs_implementation"
-    - Set phase to "test_generation"
-    - Set tests.generated = true
-    - Set tests.file = path to test spec
-    - Set tests.total = number of test cases
-
-## Phase 6: Report
-11. Report:
-    - Number of test cases generated
-    - Test file locations
-    - Expected failures (normal - no implementation yet)
-    - **Next**: Run `/claude-harness:implement feature-XXX` to implement
-' "command"
-
-# ============================================================================
-# 19. /plan-feature command - NEW for two-phase approach
-# ============================================================================
-
-create_file ".claude/commands/plan-feature.md" '---
-description: Plan feature implementation before coding (Phase 1 of two-phase pattern)
-argumentsPrompt: Feature ID to plan (e.g., feature-001)
----
-
-Plan a feature before implementation (Two-Phase Pattern - Phase 1):
-
-Arguments: $ARGUMENTS
-
-## Core Principle
-Separate planning from implementation for better outcomes.
-This is Phase 1: Planning. Phase 2 is /implement.
-
-## Phase 1: Load Context
-1. Parse feature ID from arguments
-2. Read feature from .claude-harness/features/active.json
-3. Read compiled context from .claude-harness/memory/working/context.json
-4. Read semantic memory for project architecture
-
-## Phase 2: Analyze Requirements
-5. Break down feature into sub-tasks
-6. Identify files to create/modify
-7. Identify dependencies on other features/modules
-
-## Phase 3: Impact Analysis
-8. Read .claude-harness/impact/dependency-graph.json
-9. For each file to modify:
-   - Identify dependent files (importedBy)
-   - Identify related tests
-   - Calculate impact score
-10. Warn if high-impact changes detected
-
-## Phase 4: Check Past Approaches
-11. Read .claude-harness/memory/procedural/failures.json
-12. Check if planned approach matches any past failures
-13. If match found:
-    - Warn about similar past failure
-    - Show root cause and prevention tips
-    - Suggest alternative approach from successes.json
-
-## Phase 5: Generate Tests (if not done)
-14. If feature.tests.generated = false:
-    - Automatically run test generation
-    - Or prompt to run /generate-tests first
-
-## Phase 6: Create Implementation Plan
-15. Write implementation plan to feature:
-    ```json
-    {
-      "plan": {
-        "steps": [
-          {"step": 1, "description": "...", "files": [...]},
-          ...
-        ],
-        "estimatedFiles": ["file1.ts", "file2.ts"],
-        "impactScore": "low|medium|high",
-        "risks": ["..."],
-        "mitigations": ["..."]
-      }
-    }
-    ```
-
-## Phase 7: Update Feature
-16. Update feature in active.json:
-    - Set phase to "planned"
-    - Store implementation plan
-
-## Phase 8: Report
-17. Report:
-    - Implementation steps
-    - Files to modify
-    - Impact analysis
-    - Risks and mitigations
-    - Past failures to avoid
-    - **Next**: Run `/claude-harness:implement feature-XXX` to start coding
-' "command"
-
-# ============================================================================
-# 20. /check-approach command - NEW for failure prevention
-# ============================================================================
-
-create_file ".claude/commands/check-approach.md" '---
-description: Check if a proposed approach matches past failures
-argumentsPrompt: Describe the approach you plan to take
----
-
-Check if your planned approach matches any past failures:
-
-Arguments: $ARGUMENTS
-
-## Core Principle
-Learn from mistakes. Do not repeat approaches that failed before.
-
-## Phase 1: Parse Approach
-1. Extract approach description from arguments
-2. Identify key elements:
-   - Files involved
-   - Technique/pattern being used
-   - Problem being solved
-
-## Phase 2: Query Failure Memory
-3. Read .claude-harness/memory/procedural/failures.json
-4. For each failure entry:
-   - Calculate similarity score based on:
-     - File overlap (same files affected)
-     - Technique similarity (same approach)
-     - Problem similarity (same type of issue)
-   - If similarity > 0.7, flag as potential match
-
-## Phase 3: Report Matches
-5. If matches found:
-   ```
-   ⚠️  SIMILAR APPROACH FAILED BEFORE
-
-   Failure: {failure description}
-   When: {timestamp}
-   Files: {affected files}
-   Error: {error messages}
-   Root Cause: {why it failed}
-
-   Prevention Tip: {how to avoid}
-   ```
-
-## Phase 4: Suggest Alternatives
-6. Read .claude-harness/memory/procedural/successes.json
-7. Find successful approaches for similar problems
-8. Report alternatives:
-   ```
-   ✅ SUCCESSFUL ALTERNATIVE
-
-   Approach: {description}
-   When: {timestamp}
-   Files: {files}
-   Why it worked: {rationale}
-   ```
-
-## Phase 5: Recommendation
-9. If high-similarity failure found:
-   - Recommend NOT proceeding with current approach
-   - Suggest specific alternative
-
-10. If no matches:
-    - "No similar failures found. Proceed with caution."
-    - Still recommend running tests frequently
-' "command"
-
-# ============================================================================
-# 21. /implement command - Enhanced with failure check and test-driven loop
-# ============================================================================
-
-create_file ".claude/commands/implement.md" '---
-description: Start or resume an agentic loop to implement a feature until verification passes
-argumentsPrompt: Feature ID to implement (e.g., feature-001)
----
-
-Implement a feature using a persistent agentic loop until tests pass:
-
-Arguments: $ARGUMENTS
-
-## Core Principle
-"Claude marked features complete without proper testing" - NEVER trust self-assessment.
-Always run actual verification commands. Tests must pass.
-
-## Loop Cycle (v3.0 Enhanced)
-
-### Phase 0: Load State
-1. Read .claude-harness/loops/state.json
-2. If status != idle and feature matches: RESUME
-3. Otherwise: INITIALIZE new loop
-
-### Phase 1: Pre-Implementation Checks
-4. **FAILURE PREVENTION**: Query .claude-harness/memory/procedural/failures.json
-   - Check if planned approach matches past failures
-   - If match found: WARN and suggest alternative
-   - If critical match: BLOCK and require acknowledgment
-
-5. **TEST READINESS**: Check if tests are generated
-   - If feature.tests.generated = false: Run /generate-tests first
-   - Tests must exist before implementation
-
-### Phase 2: Health Check
-6. Run baseline verification to ensure environment works:
-   - Build command: {from config or feature}
-   - If baseline fails: Report and exit (environment issue)
-
-### Phase 3: Attempt Implementation
-7. Plan approach (record in history)
-8. Execute implementation
-9. Record files modified
-
-### Phase 4: Verification (MANDATORY)
-10. Run ALL verification commands:
-    - Build: {build command}
-    - Tests: {test command}
-    - Lint: {lint command}
-    - Typecheck: {typecheck command}
-    - Custom: {any custom commands}
-
-11. ALL must pass. Partial success = failure.
-
-### Phase 5A: On Success
-12. Update .claude-harness/loops/state.json: status = "completed"
-13. Update feature status to "passing"
-14. **PERSIST SUCCESS**: Add to .claude-harness/memory/procedural/successes.json:
-    ```json
-    {
-      "id": "uuid",
-      "timestamp": "ISO",
-      "feature": "feature-XXX",
-      "approach": "What worked",
-      "files": ["modified files"],
-      "verificationResults": {"build": "passed", ...},
-      "patterns": ["reusable patterns discovered"]
-    }
-    ```
-15. Git commit with descriptive message
-16. Report success, recommend /checkpoint
-
-### Phase 5B: On Failure
-17. **PERSIST FAILURE**: Add to .claude-harness/memory/procedural/failures.json:
-    ```json
-    {
-      "id": "uuid",
-      "timestamp": "ISO",
-      "feature": "feature-XXX",
-      "attempt": N,
-      "approach": "What was tried",
-      "files": ["affected files"],
-      "errors": ["error messages"],
-      "rootCause": "Analysis of why it failed",
-      "tags": ["type-error", "test-failure"],
-      "prevention": "How to avoid in future"
-    }
-    ```
-18. Increment attempt counter
-19. Analyze errors, formulate different approach
-20. If attempt < maxAttempts: RETRY (go to Phase 3)
-21. If attempt >= maxAttempts: ESCALATE
-
-### Phase 6: Escalation
-22. Update status to "escalated"
-23. Generate escalation report:
-    - All attempts and their outcomes
-    - Error patterns observed
-    - Suggested manual intervention
-24. Do NOT mark feature as complete
-
-## Session Continuity
-
-Loop state persists in .claude-harness/loops/state.json across context windows.
-SessionStart hook shows active loops and prompts to resume.
-
-## Commands
-
-- Start/resume: `/claude-harness:implement feature-001`
-- With more attempts: `/claude-harness:implement feature-001 --max-attempts 20`
-- Skip failure check: `/claude-harness:implement feature-001 --skip-failure-check` (not recommended)
-' "command"
-
-# ============================================================================
-# 22. /merge-all command
-# ============================================================================
-
-create_file ".claude/commands/merge-all.md" 'Merge all open PRs, close related issues, and delete branches in dependency order:
+Arguments: $ARGUMENTS (optional - specific version like v1.2.0, defaults to auto-versioning)
 
 Requires GitHub MCP to be configured.
 
 ## Phase 1: Gather State
-1. List all open PRs for this repository
-2. List all open issues with "feature" label
-3. Read .claude-harness/features/active.json for linked issue/PR numbers
+1. List all open PRs (features and fixes)
+2. List all open issues with "feature" or "bugfix" labels
+3. Read `.claude-harness/features/active.json` for linked issue/PR numbers
+4. Get latest version tag from git
 
 ## Phase 2: Build Dependency Graph
-4. For each PR, check if its base branch is another feature branch (not main/master)
-5. Order PRs so that dependent PRs are merged after their base PRs
-6. If PR A base is PR B head branch, merge B first
+5. Order PRs so dependent PRs merge after their base PRs
 
 ## Phase 3: Pre-merge Validation
-7. For each PR:
-   - CI status passes
-   - No merge conflicts
-   - Has required approvals (if any)
-8. Report any PRs that cannot be merged and why
+6. For each PR: CI passes, no conflicts, has approvals
 
 ## Phase 4: Execute Merges
-9. Merge in dependency order:
-   - Merge the PR (squash merge preferred)
-   - Wait for merge to complete
-   - Find and close any linked issues
-   - Delete the source branch
-   - Update features/active.json: set status=passing
+7. Merge in dependency order (squash preferred)
+8. Close linked issues
+9. Delete source branches
 
-## Phase 5: Cleanup
-10. Prune local branches: `git fetch --prune`
-11. Delete local feature branches that were merged
-12. Switch to main/master branch
+## Phase 5: Version Tagging
+10. Auto-version based on PR types:
+    - `feat:` PRs → bump MINOR
+    - `fix:` PRs only → bump PATCH
+    - `BREAKING CHANGE` → bump MAJOR
+11. Create annotated git tag and push
 
-## Phase 6: Archive & Report
-13. Move completed features to archive
-14. Report summary:
-    - PRs merged (with commit hashes)
-    - Issues closed
-    - Branches deleted
-    - Features archived
-    - Any failures or skipped items
+## Phase 6: Release Notes
+12. Create GitHub release with auto-generated notes
+
+## Phase 7: Cleanup
+13. Prune branches, switch to main, pull latest
+
+## Phase 8: Report Summary
+14. PRs merged, issues closed, version tag, release URL
 ' "command"
 
 # ============================================================================
-# 23. /orchestrate command - Enhanced with impact analysis
+# 19. /orchestrate command - Multi-agent teams
 # ============================================================================
 
 create_file ".claude/commands/orchestrate.md" '---
@@ -1384,100 +1045,38 @@ Orchestrate specialized agents to implement a feature or task:
 Arguments: $ARGUMENTS
 
 ## Phase 1: Task Analysis
+1. Identify target (feature ID or description)
+2. Read orchestration context and learned patterns
+3. Analyze task: file types, domains, security-sensitive ops
 
-1. Identify the target:
-   - If $ARGUMENTS matches a feature ID, read from features/active.json
-   - Otherwise, treat as task description
-
-2. Read orchestration context:
-   - Read `.claude-harness/agents/context.json`
-   - Read `.claude-harness/memory/procedural/` for learned patterns
-
-3. Analyze the task:
-   - Identify file types to modify
-   - Detect domains (frontend, backend, database, testing)
-   - Check for security-sensitive operations
-
-## Phase 2: Impact Analysis (NEW in v3.0)
-
-4. Read `.claude-harness/impact/dependency-graph.json`
-5. For each file in scope:
-   - Identify dependents (importedBy)
-   - Identify related tests
-   - Calculate impact score
-6. If high impact: Add code-reviewer and qa-expert to mandatory agents
+## Phase 2: Impact Analysis
+4. Read dependency graph
+5. Calculate impact score
+6. Add mandatory quality agents for high-impact changes
 
 ## Phase 3: Agent Selection
-
 7. Map requirements to agents:
-
-   **Implementation Agents:**
-   | Domain | Agent | Triggers |
-   |--------|-------|----------|
-   | React/Frontend | react-specialist | .tsx, .jsx, component |
-   | Backend/API | backend-developer | route.ts, api/ |
-   | Next.js | nextjs-developer | app/, pages/ |
-   | Database | database-administrator | prisma, SQL |
-   | Python | python-pro | .py files |
-   | TypeScript | typescript-pro | complex types |
-
-   **Quality Agents (mandatory for code):**
-   | Type | Agent | When |
-   |------|-------|------|
-   | Review | code-reviewer | Always for code changes |
-   | Security | security-auditor | Auth, tokens, encryption |
-   | Testing | qa-expert | New features, bug fixes |
+   - Implementation: react-specialist, backend-developer, etc.
+   - Quality: code-reviewer, security-auditor, qa-expert
 
 ## Phase 4: Failure Prevention Check
-
-8. Before spawning agents, check procedural/failures.json:
-   - Any similar tasks that failed?
-   - What approaches to avoid?
-   - What worked for similar tasks?
+8. Check procedural/failures.json before spawning
 
 ## Phase 5: Agent Spawning
-
-9. Build execution plan:
-   - Group 1: Analysis/research agents
-   - Group 2: Implementation agents (parallel if independent)
-   - Group 3: Quality agents (code-reviewer, security-auditor)
-   - Group 4: Documentation agents
-
-10. For each agent, provide:
-    - Shared context from agents/context.json
-    - Failure patterns to avoid
-    - Success patterns to use
-    - Specific task assignment
+9. Build execution plan with groups
+10. Provide context, failures to avoid, success patterns
 
 ## Phase 6: Coordination
-
-11. After each agent:
-    - Update agents/context.json with results
-    - Handle failures (retry or fallback)
-    - Manage handoffs via agents/handoffs.json
+11. Update agents/context.json, handle failures, manage handoffs
 
 ## Phase 7: Verification Loop
-
-12. After all agents complete:
-    - Run all verification commands
-    - If ANY fail: Re-spawn relevant agents
-    - Max 3 retry cycles
+12. Run all verification commands, re-spawn on failure (max 3 cycles)
 
 ## Phase 8: Memory Persistence
-
-13. Update procedural memory:
-    - Record successful approaches
-    - Record any failures
+13. Record successes/failures to procedural memory
 
 ## Phase 9: Report
-
-14. Report summary:
-    - Agents invoked and status
-    - Files created/modified
-    - Impact analysis results
-    - Verification results
-    - Decisions recorded
-    - Next steps
+14. Summary of agents, files, verification, next steps
 
 Run `/checkpoint` after to commit changes.
 ' "command"
@@ -1524,16 +1123,13 @@ echo "  │   └── handoffs.json"
 echo "  ├── loops/state.json"
 echo "  └── config.json"
 echo ""
-echo "Commands:"
+echo "Commands (6 total):"
+echo "  .claude/commands/setup.md           (initialize harness)"
 echo "  .claude/commands/start.md           (compile context)"
-echo "  .claude/commands/feature.md         (add feature)"
-echo "  .claude/commands/generate-tests.md  (test-driven development)"
-echo "  .claude/commands/plan-feature.md    (two-phase planning)"
-echo "  .claude/commands/check-approach.md  (failure prevention)"
-echo "  .claude/commands/implement.md       (agentic loop)"
-echo "  .claude/commands/orchestrate.md     (multi-agent)"
+echo "  .claude/commands/do.md              (unified workflow)"
 echo "  .claude/commands/checkpoint.md      (save + persist memory)"
-echo "  .claude/commands/merge-all.md       (merge PRs)"
+echo "  .claude/commands/orchestrate.md     (multi-agent)"
+echo "  .claude/commands/merge.md           (merge PRs + release)"
 echo ""
 echo "=== GitHub MCP Setup (Optional) ==="
 echo ""
@@ -1544,17 +1140,16 @@ echo "=== Next Steps ==="
 echo ""
 echo "  1. Edit CLAUDE.md to describe your project"
 echo "  2. Run /start to compile context and see status"
-echo "  3. Run /feature to add features (tests generated first)"
-echo "  4. Run /implement to start test-driven implementation"
+echo "  3. Run /do \"feature description\" to create and implement features"
+echo "  4. Run /do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
 echo "v3.6 Features:"
+echo "  • Command Consolidation - 6 commands instead of 13"
+echo "  • Unified /do command - features AND fixes in one command"
+echo "  • Auto-reflect at checkpoint - learns from user corrections"
 echo "  • Safe Permissions - Run without --dangerously-skip-permissions"
-echo "  • Self-Improving Skills (/reflect) - Learn from user corrections"
-echo "  • Bug Fix Command (/fix) - Create fixes linked to original features"
 echo "  • 5-Layer Memory Architecture (Working/Episodic/Semantic/Procedural/Learned)"
 echo "  • Failure Prevention (learns from mistakes)"
 echo "  • Impact Analysis (warns about breaking changes)"
-echo "  • Test-Driven Features (generate tests before implementation)"
-echo "  • Two-Phase Pattern (plan-feature -> implement)"
 echo "  • Context Compilation (fresh, relevant context each session)"
 echo ""

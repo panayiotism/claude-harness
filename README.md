@@ -430,10 +430,10 @@ Key differences from features:
 
 ## Agentic Loops
 
-Autonomous implementation loops that continue until ALL tests pass:
+The `/do` command runs autonomous implementation loops that continue until ALL tests pass:
 
 ```
-/claude-harness:implement feature-001
+/claude-harness:do feature-001
 
 ┌─────────────────────────────────────────────────────────────────┐
 │  AGENTIC LOOP: User Authentication                              │
@@ -539,11 +539,14 @@ Or let it auto-migrate on first run of a harness command.
 # Setup
 claude mcp add github -s user
 
-# Workflow
-/claude-harness:feature Add dark mode   # Creates issue + branch
-/claude-harness:implement feature-001   # Implements until tests pass
-/claude-harness:checkpoint              # Commits, pushes, creates PR
-/claude-harness:merge-all               # Merges PRs in dependency order
+# Workflow (all in one command!)
+/claude-harness:do "Add dark mode"      # Creates issue + branch, implements, commits, creates PR
+
+# Or step by step
+/claude-harness:do --plan-only "Add dark mode"  # Create + plan only
+/claude-harness:do feature-001                  # Resume and implement
+/claude-harness:checkpoint                      # Manual commit + PR if needed
+/claude-harness:merge                           # Merge all PRs, auto-version
 ```
 
 ## Configuration
@@ -700,7 +703,7 @@ claude
 # The harness commands work with auto-approved safe operations
 /claude-harness:start       # ✅ Uses git status, cat, grep
 /claude-harness:checkpoint  # ✅ Uses git add, commit (push prompts)
-/claude-harness:implement   # ✅ Uses npm run, npx tsc
+/claude-harness:do          # ✅ Uses npm run, npx tsc
 ```
 
 ### Extending for Your Project

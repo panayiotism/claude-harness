@@ -108,8 +108,8 @@ Create a checkpoint of the current session:
    - High-confidence rules are auto-saved; lower-confidence go to review queue
 
 1.11. **Run reflection with auto mode**:
-   - Execute the reflection logic from `/reflect` command with `--auto` flag:
-     - Scan conversation for user correction patterns (same as reflect Phase 1)
+   - Execute the reflection logic (auto mode):
+     - Scan conversation for user correction patterns
      - Filter for high-confidence corrections only
      - Skip interactive approval (auto mode)
    - For corrections with confidence >= `minConfidenceForAuto`:
@@ -127,7 +127,7 @@ Create a checkpoint of the current session:
    │  • {rule title}                                                 │
    │                                                                 │
    │  Lower-confidence (manual review needed): {N}                   │
-   │  Run /claude-harness:reflect to review these                    │
+   │  (Low-confidence rules queued for next checkpoint review)       │
    └─────────────────────────────────────────────────────────────────┘
    ```
 
