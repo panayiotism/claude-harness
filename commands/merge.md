@@ -1,6 +1,6 @@
 ---
 description: Merge all PRs, auto-version, create release
-argumentsPrompt: [VERSION]
+argument-hint: "[VERSION]"
 ---
 
 Merge all open PRs, close related issues, create version tag and release:

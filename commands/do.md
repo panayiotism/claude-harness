@@ -1,6 +1,6 @@
 ---
 description: Unified workflow - create, plan, and implement features or fixes
-argumentsPrompt: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "BUG" [--quick] [--auto] [--plan-only]
+argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "BUG" [--quick] [--auto] [--plan-only]
 ---
 
 Unified command that orchestrates the complete development workflow:

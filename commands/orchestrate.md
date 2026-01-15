@@ -1,6 +1,6 @@
 ---
 description: Orchestrate multi-agent teams for complex features
-argumentsPrompt: FEATURE-ID
+argument-hint: "FEATURE-ID"
 ---
 
 Orchestrate specialized agents to implement a feature or task:
