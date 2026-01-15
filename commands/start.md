@@ -56,6 +56,22 @@ Before anything else, check if legacy root-level harness files need migration:
        "nextSteps": []
      }
      ```
+   - `.claude-harness/memory/learned/rules.json` (if missing):
+     - First create directory if needed: `mkdir -p .claude-harness/memory/learned`
+     - Then create file with defaults:
+     ```json
+     {
+       "version": 3,
+       "lastUpdated": "{ISO timestamp}",
+       "metadata": {
+         "totalRules": 0,
+         "projectSpecific": 0,
+         "general": 0,
+         "lastReflection": null
+       },
+       "rules": []
+     }
+     ```
    - Report: "Created missing state file: {filename}"
 
 ## Phase 1: Context Compilation (Memory System)

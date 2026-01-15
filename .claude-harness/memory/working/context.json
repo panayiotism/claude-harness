@@ -1,53 +1,55 @@
 {
   "version": 3,
-  "computedAt": "2026-01-15T00:00:00Z",
-  "sessionId": "session-20260115-001",
+  "computedAt": "2026-01-15T17:50:00Z",
+  "sessionId": "session-20260115-1750",
   "activeFeature": null,
   "relevantMemory": {
     "recentDecisions": [
       {
-        "id": "dec-20260110-001",
-        "decision": "Use deny > ask > allow precedence for permission safety",
-        "feature": "feature-011"
+        "id": "dec-20260115-005",
+        "timestamp": "2026-01-15T15:00:00Z",
+        "feature": "feature-012",
+        "decision": "Use squash merge for feature PRs"
       },
       {
-        "id": "dec-20260110-002",
-        "decision": "Put rm:* in ask list with specific dangerous patterns in deny",
-        "feature": "feature-011"
+        "id": "dec-20260115-004",
+        "timestamp": "2026-01-15T15:00:00Z",
+        "feature": "feature-012",
+        "decision": "Re-tag version after merge to include actual feature code"
       },
       {
-        "id": "dec-20260110-003",
-        "decision": "Create both settings.json (shared) and settings.local.json (personal)",
-        "feature": "feature-011"
+        "id": "dec-20260115-003",
+        "timestamp": "2026-01-15T14:35:00Z",
+        "feature": "feature-012",
+        "decision": "Use RED-GREEN-REFACTOR phases with explicit phase tracking"
+      },
+      {
+        "id": "dec-20260115-002",
+        "timestamp": "2026-01-15T14:35:00Z",
+        "feature": "feature-012",
+        "decision": "Enforce test existence gate - block implementation until tests exist"
+      },
+      {
+        "id": "dec-20260115-001",
+        "timestamp": "2026-01-15T14:35:00Z",
+        "feature": "feature-012",
+        "decision": "Create separate /do-tdd command instead of --tdd flag on /do"
       }
     ],
     "projectPatterns": [
-      {
-        "pattern": "Phase 0 migration pattern: check for legacy files before creating new ones",
-        "source": "feature-004"
-      },
-      {
-        "pattern": "Verification loop: Build → Tests → Lint → Typecheck (ALL must pass)",
-        "source": "feature-005"
-      },
-      {
-        "pattern": "Test setup.sh in the harness repo itself to catch inception issues",
-        "source": "feature-004"
-      },
-      {
-        "pattern": "Both setup.sh AND commands/setup.md must be updated together",
-        "source": "feature-005"
-      }
+      "Re-tag version after merge if tag was created pre-merge",
+      "Squash merge keeps main branch history clean",
+      "Create separate command for distinct workflow instead of flags",
+      "Use deny > ask > allow precedence for security"
     ],
     "avoidApproaches": [],
     "learnedRules": []
   },
   "currentTask": null,
   "compilationLog": [
-    "Loaded 3 recent decisions from episodic memory",
-    "Loaded 4 project patterns from procedural memory",
-    "Loaded 1 success entry from procedural memory",
-    "No failures to avoid",
+    "Loaded 8 episodic decisions (5 recent)",
+    "Loaded 3 successes (4 patterns extracted)",
+    "Loaded 0 failures",
     "No learned rules found"
   ]
 }

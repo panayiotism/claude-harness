@@ -1,24 +1,23 @@
 {
   "version": 1,
-  "lastUpdated": "2026-01-15T15:05:00Z",
+  "lastUpdated": "2026-01-15T18:00:00Z",
   "activeFeature": null,
-  "summary": "Session idle - v3.7.0 merged and released",
+  "summary": "Fixed missing learned/rules.json error",
   "workingFiles": {
-    ".claude-harness/loops/state.json": "modified - updated lastCheckpoint to merged commit",
-    ".claude-harness/claude-progress.json": "modified - session progress update"
+    "commands/start.md": "modified - added learned/rules.json to Phase 0 missing files check",
+    ".claude-harness/memory/learned/rules.json": "new - empty rules file for existing installations"
   },
   "decisions": [
-    "Re-tagged v3.7.0 to point to merged commit (was pointing to pre-merge)",
-    "Used squash merge to keep clean commit history on main"
+    "Add learned/rules.json creation to /start Phase 0 instead of just setup.sh",
+    "Use same JSON schema as setup.sh creates for consistency"
   ],
   "codebaseUnderstanding": {
-    "commandSystem": "Commands are markdown files in commands/ folder, auto-discovered",
-    "hooksSystem": "SessionStart hook displays menu and context to Claude",
-    "currentVersion": "v3.7.0",
-    "releaseWorkflow": "/merge handles: merge PR, close issues, delete branch, tag release"
+    "setupProcess": "setup.sh creates all memory directories and files, but older installations miss new files",
+    "startCommand": "Phase 0 creates missing state files for plugin updates - need to include all memory files",
+    "memoryArchitecture": "5 layers: working, episodic, semantic, procedural, learned"
   },
   "nextSteps": [
-    "Test /do-tdd on a real project with tests",
-    "Consider creating GitHub Release from v3.7.0 tag"
+    "Commit and push this fix",
+    "Consider version bump for this fix"
   ]
 }
