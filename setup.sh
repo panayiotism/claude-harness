@@ -353,7 +353,7 @@ On every session start:
 
 ## Development Rules
 - Work on ONE feature at a time
-- Always run /checkpoint after completing work
+- Always run /claude-harness:checkpoint after completing work
 - Run tests before marking features complete
 - Commit with descriptive messages
 - Leave codebase in clean, working state
@@ -766,12 +766,12 @@ fi
 echo ""
 echo "=== Environment Ready (v3.6) ==="
 echo "Commands (6 total):"
-echo "  /setup           - Initialize harness (one-time)"
-echo "  /start           - Compile context, show GitHub dashboard"
-echo "  /do              - Unified workflow (features + fixes)"
-echo "  /checkpoint      - Save progress, persist memory"
-echo "  /orchestrate     - Spawn multi-agent team"
-echo "  /merge           - Merge PRs, auto-version, release"
+echo "  /claude-harness:setup       - Initialize harness (one-time)"
+echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
+echo "  /claude-harness:do          - Unified workflow (features + fixes)"
+echo "  /claude-harness:checkpoint  - Save progress, persist memory"
+echo "  /claude-harness:orchestrate - Spawn multi-agent team"
+echo "  /claude-harness:merge       - Merge PRs, auto-version, release"
 '
 chmod +x .claude-harness/init.sh 2>/dev/null || true
 
@@ -972,14 +972,14 @@ Arguments: $ARGUMENTS
 
 | Command | Behavior |
 |---------|----------|
-| `/do "Add X"` | Full workflow with prompts |
-| `/do --fix feature-001 "Bug Y"` | Create bug fix linked to feature |
-| `/do feature-001` | Resume existing feature |
-| `/do fix-feature-001-001` | Resume existing fix |
-| `/do resume` | Resume last active workflow |
-| `/do --quick "Simple change"` | Skip planning phase |
-| `/do --auto "Add Z"` | No prompts, full automation |
-| `/do --plan-only "Big feature"` | Plan only, implement later |
+| `/claude-harness:do "Add X"` | Full workflow with prompts |
+| `/claude-harness:do --fix feature-001 "Bug Y"` | Create bug fix linked to feature |
+| `/claude-harness:do feature-001` | Resume existing feature |
+| `/claude-harness:do fix-feature-001-001` | Resume existing fix |
+| `/claude-harness:do resume` | Resume last active workflow |
+| `/claude-harness:do --quick "Simple change"` | Skip planning phase |
+| `/claude-harness:do --auto "Add Z"` | No prompts, full automation |
+| `/claude-harness:do --plan-only "Big feature"` | Plan only, implement later |
 ' "command"
 
 # ============================================================================
@@ -1078,7 +1078,7 @@ Arguments: $ARGUMENTS
 ## Phase 9: Report
 14. Summary of agents, files, verification, next steps
 
-Run `/checkpoint` after to commit changes.
+Run `/claude-harness:checkpoint` after to commit changes.
 ' "command"
 
 # ============================================================================
@@ -1139,13 +1139,13 @@ echo ""
 echo "=== Next Steps ==="
 echo ""
 echo "  1. Edit CLAUDE.md to describe your project"
-echo "  2. Run /start to compile context and see status"
-echo "  3. Run /do \"feature description\" to create and implement features"
-echo "  4. Run /do --fix feature-XXX \"bug\" to create bug fixes"
+echo "  2. Run /claude-harness:start to compile context and see status"
+echo "  3. Run /claude-harness:do \"feature description\" to create and implement features"
+echo "  4. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
 echo "v3.6 Features:"
 echo "  • Command Consolidation - 6 commands instead of 13"
-echo "  • Unified /do command - features AND fixes in one command"
+echo "  • Unified /claude-harness:do command - features AND fixes in one command"
 echo "  • Auto-reflect at checkpoint - learns from user corrections"
 echo "  • Safe Permissions - Run without --dangerously-skip-permissions"
 echo "  • 5-Layer Memory Architecture (Working/Episodic/Semantic/Procedural/Learned)"

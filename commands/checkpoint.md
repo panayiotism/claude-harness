@@ -325,7 +325,7 @@ Create a checkpoint of the current session:
    │     • memory/learned/rules.json (learned rules)                 │
    │                                                                 │
    │     Fresh context = better performance on next task.            │
-   │     Run /start after /clear to reload context.                  │
+   │     Run /claude-harness:start after /clear to reload context.   │
    └─────────────────────────────────────────────────────────────────┘
    ```
 

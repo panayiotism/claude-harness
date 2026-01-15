@@ -1,7 +1,7 @@
 #!/bin/bash
 # Claude Harness PreCompact Hook v3.6
 # Saves critical state before context compaction to prevent data loss
-# This is a safety net - ideally users run /checkpoint then /clear
+# This is a safety net - ideally users run /claude-harness:checkpoint then /clear
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
@@ -93,9 +93,9 @@ State has been preserved before compaction:
 - Branch: $GIT_BRANCH
 - Last commit: $GIT_LAST_COMMIT
 
-After compaction, run /start to reload context from memory files.
+After compaction, run /claude-harness:start to reload context from memory files.
 
-TIP: To avoid compaction, run /checkpoint then /clear periodically."
+TIP: To avoid compaction, run /claude-harness:checkpoint then /clear periodically."
 
 # Escape for JSON
 USER_MSG_ESCAPED=$(echo "$USER_MSG" | sed 's/"/\\"/g')

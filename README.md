@@ -586,6 +586,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.6.6** | **Full Command Prefixes**: All command references now use full `/claude-harness:` prefix for clarity and to avoid conflicts with other plugins. |
 | **3.6.5** | **Context Management**: Added `/clear` recommendation after checkpoint to prevent context rot. Added PreCompact hook as safety net to backup state before automatic compaction. |
 | **3.6.4** | **Fix Argument Hints**: Use correct `argument-hint` field (with hyphen) instead of `argumentsPrompt`. Now displays input suggestions like ralph-loop. |
 | **3.6.3** | **Improved Argument Hints**: Updated command hints to use CLI-style bracket notation (e.g., `"DESC" \| ID [--quick] [--auto]`) for better scannability. Added hints to `/checkpoint`. |

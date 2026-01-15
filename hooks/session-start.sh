@@ -285,7 +285,7 @@ if [ "$IS_V3" = true ]; then
     # Add failure prevention context if there are failures to avoid
     if [ "$FAILURES_COUNT" -gt 0 ]; then
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** FAILURE PREVENTION ACTIVE ***"
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n$FAILURES_COUNT past failures recorded. /do automatically checks these before implementation."
+        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n$FAILURES_COUNT past failures recorded. /claude-harness:do automatically checks these before implementation."
     fi
 fi
 
@@ -326,7 +326,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.6 WORKFLOW (6 commands) ===\n1. /setup - Initialize harness (one-time)\n2. /start - Compile context + GitHub sync\n3. /do - Unified workflow (features AND fixes)\n4. /checkpoint - Manual commit + push + PR\n5. /orchestrate - Multi-agent team (advanced)\n6. /merge - Merge PRs, auto-version, release"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.6 WORKFLOW (6 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:do - Unified workflow (features AND fixes)\n4. /claude-harness:checkpoint - Manual commit + push + PR\n5. /claude-harness:orchestrate - Multi-agent team (advanced)\n6. /claude-harness:merge - Merge PRs, auto-version, release"
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi

@@ -213,7 +213,7 @@ Arguments: $ARGUMENTS
 
 13. If --plan-only: Stop here with message:
     ```
-    Plan complete. Run `/do feature-012` to implement.
+    Plan complete. Run `/claude-harness:do feature-012` to implement.
     ```
 
 ## Phase 3: Implementation
@@ -233,7 +233,7 @@ Arguments: $ARGUMENTS
       │     Expected branch: {feature-branch}                           │
       ├─────────────────────────────────────────────────────────────────┤
       │  Run: git checkout {feature-branch}                             │
-      │  Then resume with: /do {feature-id}                             │
+      │  Then resume with: /claude-harness:do {feature-id}               │
       └─────────────────────────────────────────────────────────────────┘
       ```
     - If branch doesn't exist locally, fetch and checkout:
@@ -320,12 +320,12 @@ Arguments: $ARGUMENTS
 
 ## Resume Behavior
 
-26. `/do resume`:
+26. `/claude-harness:do resume`:
     - Read `.claude-harness/loops/state.json`
     - If workflow.active is true: Resume from workflow.phase
     - If no active workflow: Show error "No active workflow to resume"
 
-27. `/do feature-012` (existing feature):
+27. `/claude-harness:do feature-012` (existing feature):
     - Check if feature exists in active.json
     - If exists with active workflow: Resume from current phase
     - If exists without workflow: Start from planning phase
@@ -336,7 +336,7 @@ Arguments: $ARGUMENTS
 28. If interrupted at any phase:
     - State is preserved in loops/state.json
     - SessionStart hook will show: "🔄 Workflow paused at {phase}"
-    - User can resume with `/do resume` or `/do feature-XXX`
+    - User can resume with `/claude-harness:do resume` or `/claude-harness:do feature-XXX`
 
 29. If any phase fails:
     - Preserve state for debugging
@@ -347,11 +347,11 @@ Arguments: $ARGUMENTS
 
 | Command | Behavior |
 |---------|----------|
-| `/do "Add X"` | Full workflow with prompts |
-| `/do --fix feature-001 "Bug Y"` | Create bug fix linked to feature |
-| `/do feature-001` | Resume existing feature |
-| `/do fix-feature-001-001` | Resume existing fix |
-| `/do resume` | Resume last active workflow |
-| `/do --quick "Simple change"` | Skip planning phase |
-| `/do --auto "Add Z"` | No prompts, full automation |
-| `/do --plan-only "Big feature"` | Plan only, implement later |
+| `/claude-harness:do "Add X"` | Full workflow with prompts |
+| `/claude-harness:do --fix feature-001 "Bug Y"` | Create bug fix linked to feature |
+| `/claude-harness:do feature-001` | Resume existing feature |
+| `/claude-harness:do fix-feature-001-001` | Resume existing fix |
+| `/claude-harness:do resume` | Resume last active workflow |
+| `/claude-harness:do --quick "Simple change"` | Skip planning phase |
+| `/claude-harness:do --auto "Add Z"` | No prompts, full automation |
+| `/claude-harness:do --plan-only "Big feature"` | Plan only, implement later |
