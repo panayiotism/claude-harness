@@ -54,6 +54,24 @@
       "rationale": "Classic TDD cycle provides clear structure. Phase tracking in loop state enables resume from any point.",
       "alternatives": ["Simple test-first without phases", "Only track test pass/fail"],
       "impact": "commands/do-tdd.md, .claude-harness/loops/state.json schema"
+    },
+    {
+      "id": "dec-20260115-004",
+      "timestamp": "2026-01-15T15:00:00Z",
+      "feature": "feature-012",
+      "decision": "Re-tag version after merge to include actual feature code",
+      "rationale": "v3.7.0 was originally tagged on pre-merge commit. After squash merge, tag needed to be moved to include the actual feature implementation.",
+      "alternatives": ["Keep old tag", "Bump to v3.7.1"],
+      "impact": "Git tags, GitHub releases"
+    },
+    {
+      "id": "dec-20260115-005",
+      "timestamp": "2026-01-15T15:00:00Z",
+      "feature": "feature-012",
+      "decision": "Use squash merge for feature PRs",
+      "rationale": "Squash merge keeps main branch clean with one commit per feature. Preserves full history in PR for reference.",
+      "alternatives": ["Merge commit", "Rebase and merge"],
+      "impact": "Git history on main branch"
     }
   ]
 }

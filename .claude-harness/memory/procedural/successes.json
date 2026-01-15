@@ -61,6 +61,31 @@
         "User feedback: prefer explicit commands over additional flags for major features",
         "TDD enforcement works via blocking gates, not warnings"
       ]
+    },
+    {
+      "id": "suc-20260115-002",
+      "timestamp": "2026-01-15T15:00:00Z",
+      "feature": "feature-012",
+      "type": "merge",
+      "linkedTo": null,
+      "approach": "Used /merge workflow to squash merge PR #24, auto-close issue #23, re-tag v3.7.0",
+      "files": [],
+      "verificationResults": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null
+      },
+      "patterns": [
+        "Re-tag version after merge if tag was created pre-merge",
+        "Squash merge keeps main branch history clean",
+        "Use 'Closes #N' in PR body for auto-close of issues"
+      ],
+      "lessons": [
+        "GitHub auto-closes linked issues when PR is merged with 'Closes #N'",
+        "Tags can be safely deleted and recreated to point to correct commit",
+        "Delete feature branch after merge to keep repo clean"
+      ]
     }
   ]
 }

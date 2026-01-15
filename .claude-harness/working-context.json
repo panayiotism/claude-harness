@@ -1,28 +1,24 @@
 {
   "version": 1,
-  "lastUpdated": "2026-01-15T14:35:00Z",
+  "lastUpdated": "2026-01-15T15:05:00Z",
   "activeFeature": null,
-  "summary": "Feature-012 complete - TDD Enforcement Command",
+  "summary": "Session idle - v3.7.0 merged and released",
   "workingFiles": {
-    "commands/do-tdd.md": "new - TDD workflow command with RED-GREEN-REFACTOR enforcement",
-    "README.md": "modified - added /do-tdd documentation and command reference",
-    "hooks/session-start.sh": "modified - display /do-tdd in session menu",
-    ".claude-plugin/plugin.json": "modified - version 3.7.0",
-    "RELEASES/v3.7.0.md": "modified - release notes for TDD feature"
+    ".claude-harness/loops/state.json": "modified - updated lastCheckpoint to merged commit",
+    ".claude-harness/claude-progress.json": "modified - session progress update"
   },
   "decisions": [
-    "Create separate /do-tdd command instead of flag on /do for clarity",
-    "Enforce test existence gate - block implementation until tests exist",
-    "Use RED-GREEN-REFACTOR phases with clear messaging",
-    "Keep /do unchanged for backward compatibility"
+    "Re-tagged v3.7.0 to point to merged commit (was pointing to pre-merge)",
+    "Used squash merge to keep clean commit history on main"
   ],
   "codebaseUnderstanding": {
     "commandSystem": "Commands are markdown files in commands/ folder, auto-discovered",
     "hooksSystem": "SessionStart hook displays menu and context to Claude",
-    "currentVersion": "v3.7.0"
+    "currentVersion": "v3.7.0",
+    "releaseWorkflow": "/merge handles: merge PR, close issues, delete branch, tag release"
   },
   "nextSteps": [
-    "Merge PR #24 for TDD enforcement",
-    "Test /do-tdd on a real project with tests"
+    "Test /do-tdd on a real project with tests",
+    "Consider creating GitHub Release from v3.7.0 tag"
   ]
 }
