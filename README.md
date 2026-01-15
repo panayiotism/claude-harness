@@ -23,7 +23,7 @@ cd your-project && claude
 
 The `/do` command chains all steps automatically with interactive checkpoints. Use `--quick` to skip planning for simple tasks, or `--auto` for full automation.
 
-### Complete Workflow (6 Commands Total)
+### Complete Workflow (7 Commands Total)
 
 ```bash
 # 1. SETUP (one-time)
@@ -37,6 +37,9 @@ The `/do` command chains all steps automatically with interactive checkpoints. U
 /claude-harness:do --fix feature-001 "Token bug"  # Bug fix linked to feature
 /claude-harness:do feature-001           # Resume existing feature/fix
 /claude-harness:do --quick "Simple fix"  # Skip planning for simple tasks
+
+# 3b. TDD DEVELOPMENT - Test-Driven (tests first)
+/claude-harness:do-tdd "Add authentication"  # TDD: write tests BEFORE code
 
 # 4. MANUAL CHECKPOINT (optional - /do includes checkpoint)
 /claude-harness:checkpoint               # Commit, push, create PR
@@ -64,6 +67,14 @@ The `/do` command chains all steps automatically with interactive checkpoints. U
                    5. Commits, pushes, creates PR
                    Options: --quick (skip planning), --auto (no prompts)
                    Resume: /do feature-001 or /do resume
+
+/do-tdd          → TDD WORKFLOW (tests first):
+                   1. Creates feature/fix (same as /do)
+                   2. Plans with TEST SPECS first
+                   3. RED: Write failing tests (blocks until tests exist)
+                   4. GREEN: Write minimal code to pass
+                   5. REFACTOR: Improve while keeping tests green
+                   6. Commits with [TDD] tag, creates PR
 
 /checkpoint      → Manual commit + push + PR (when not using /do)
                    Auto-reflects on user corrections
@@ -100,6 +111,7 @@ When you start Claude Code in a harness-enabled project:
 │  /claude-harness:setup          Initialize harness (one-time)   │
 │  /claude-harness:start          Compile context + GitHub sync   │
 │  /claude-harness:do             Unified workflow (features+fixes)│
+│  /claude-harness:do-tdd         TDD workflow (tests first)      │
 │  /claude-harness:checkpoint     Commit + persist memory         │
 │  /claude-harness:orchestrate    Spawn multi-agent team          │
 │  /claude-harness:merge          Merge PRs + auto-version        │
@@ -288,13 +300,14 @@ Successful Patterns to Use:
 
 Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 
-## Commands Reference (6 Total)
+## Commands Reference (7 Total)
 
 | Command | Purpose |
 |---------|---------|
 | `/claude-harness:setup` | Initialize harness in project (one-time) |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
 | **`/claude-harness:do`** | **Unified workflow**: features AND fixes |
+| **`/claude-harness:do-tdd`** | **TDD workflow**: tests first, then implement |
 | `/claude-harness:checkpoint` | Manual commit + push + PR |
 | `/claude-harness:orchestrate <id>` | Spawn multi-agent team (advanced) |
 | `/claude-harness:merge` | Merge all PRs, auto-version, release |
@@ -311,6 +324,25 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/do --quick "Simple change"` | Skip planning phase |
 | `/do --auto "Add Y"` | No prompts, full automation |
 | `/do --plan-only "Big feature"` | Plan only, implement later |
+
+### `/do-tdd` Command Options
+
+| Syntax | Behavior |
+|--------|----------|
+| `/do-tdd "Add feature"` | TDD workflow: write tests first |
+| `/do-tdd --fix feature-001 "Bug"` | TDD bug fix linked to feature |
+| `/do-tdd feature-001` | Resume TDD feature |
+| `/do-tdd resume` | Resume last TDD workflow |
+| `/do-tdd --quick "Simple"` | Skip planning, **tests still required** |
+| `/do-tdd --auto "Add Y"` | No prompts, TDD enforced |
+| `/do-tdd --plan-only "Big"` | Plan with test specs only |
+
+**TDD Workflow Phases:**
+```
+🔴 RED     → Write failing tests (BLOCKS until tests exist)
+🟢 GREEN   → Write minimal code to pass tests
+🔄 REFACTOR → Improve code while keeping tests green
+```
 
 ## v3.0 Directory Structure
 
@@ -586,6 +618,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.7.0** | **TDD Enforcement Command**: New `/claude-harness:do-tdd` command for test-driven development. Enforces RED-GREEN-REFACTOR workflow, blocks implementation until tests exist. Keeps `/do` unchanged for backward compatibility. |
 | **3.6.7** | **Fix GitHub Repo Detection**: Added explicit `git remote get-url origin` parsing instructions to all commands that use GitHub MCP. Prevents Claude from guessing or caching wrong owner/repo values from previous sessions. |
 | **3.6.6** | **Full Command Prefixes**: All command references now use full `/claude-harness:` prefix for clarity and to avoid conflicts with other plugins. |
 | **3.6.5** | **Context Management**: Added `/clear` recommendation after checkpoint to prevent context rot. Added PreCompact hook as safety net to backup state before automatic compaction. |
