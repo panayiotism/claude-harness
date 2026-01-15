@@ -30,18 +30,13 @@ On every session start:
 - Commit with descriptive messages
 - Leave codebase in clean, working state
 
-## Available Commands
+## Available Commands (6 total)
 - `/claude-harness:setup` - Initialize harness in project
-- `/claude-harness:start` - Start session with GitHub dashboard
-- `/claude-harness:feature` - Add new feature
-- `/claude-harness:fix` - Create bug fix linked to a feature
-- `/claude-harness:generate-tests` - Generate tests before implementation
-- `/claude-harness:plan-feature` - Plan before implementation
-- `/claude-harness:implement` - Start agentic loop
-- `/claude-harness:orchestrate` - Spawn multi-agent team
-- `/claude-harness:reflect` - Learn from user corrections
-- `/claude-harness:checkpoint` - Save progress, create PR
-- `/claude-harness:merge-all` - Merge all PRs with auto-versioning
+- `/claude-harness:start` - Start session, compile context
+- `/claude-harness:do` - **Unified workflow**: features and fixes (create, plan, implement, checkpoint)
+- `/claude-harness:checkpoint` - Manual commit + push + PR
+- `/claude-harness:orchestrate` - Spawn multi-agent team (advanced)
+- `/claude-harness:merge` - Merge all PRs, auto-version, release
 
 ## Progress Tracking
 See: `.claude-harness/claude-progress.json` and `.claude-harness/features/active.json`

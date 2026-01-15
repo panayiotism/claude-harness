@@ -101,15 +101,13 @@ Create a checkpoint of the current session:
    - Write updated file
    - Report: "Updated procedural patterns"
 
-## Phase 1.10: Auto-Reflect on User Corrections (Optional)
+## Phase 1.10: Auto-Reflect on User Corrections
 
-1.10. **Check if auto-reflect is enabled**:
-   - Read `.claude-harness/config.json`
-   - Check `reflection.enabled` is true
-   - Check `reflection.autoReflectOnCheckpoint` setting
-   - If disabled (default), skip to Phase 2
+1.10. **Auto-reflect is now always enabled** (part of UX simplification):
+   - This phase always runs to capture learnings from the session
+   - High-confidence rules are auto-saved; lower-confidence go to review queue
 
-1.11. **Run reflection with auto mode** (if enabled):
+1.11. **Run reflection with auto mode**:
    - Execute the reflection logic from `/reflect` command with `--auto` flag:
      - Scan conversation for user correction patterns (same as reflect Phase 1)
      - Filter for high-confidence corrections only

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v3.4
+# Claude Harness SessionStart Hook v3.6
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with memory layer awareness and context compilation
 
@@ -184,7 +184,7 @@ STATUS_PADDED=$(printf "%-61s" "$STATUS_LINE")
 if [ -n "$LOOP_LINE" ]; then
     # Active loop - highest priority display
     LOOP_PADDED=$(printf "%-61s" "$LOOP_LINE")
-    RESUME_CMD="/claude-harness:implement $LOOP_FEATURE"
+    RESUME_CMD="/claude-harness:do $LOOP_FEATURE"
     RESUME_PADDED=$(printf "%-61s" "Resume: $RESUME_CMD")
 
     if [ "$IS_V3" = true ]; then
@@ -199,9 +199,8 @@ if [ -n "$LOOP_LINE" ]; then
 │  $STATUS_PADDED│
 │  $MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:implement    Resume agentic loop               │
+│  /claude-harness:do           Resume or start workflow          │
 │  /claude-harness:checkpoint   Commit + persist memory           │
-│  /claude-harness:check-approach  Validate approach vs failures  │
 └─────────────────────────────────────────────────────────────────┘"
     else
         USER_MSG="
@@ -214,7 +213,7 @@ if [ -n "$LOOP_LINE" ]; then
 │  $STATUS_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
-│  /claude-harness:implement   Resume/start agentic loop          │
+│  /claude-harness:do          Resume or start workflow           │
 │  /claude-harness:start       Full status + GitHub sync          │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
 └─────────────────────────────────────────────────────────────────┘"
@@ -229,17 +228,12 @@ elif [ "$IS_V3" = true ]; then
 │  $STATUS_PADDED│
 │  $MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
+│  /claude-harness:setup          Initialize harness (one-time)   │
 │  /claude-harness:start          Compile context + GitHub sync   │
-│  /claude-harness:feature        Add feature (test-driven)       │
-│  /claude-harness:fix            Create bug fix for a feature    │
-│  /claude-harness:generate-tests Generate tests before coding    │
-│  /claude-harness:plan-feature   Plan before implementation      │
-│  /claude-harness:check-approach Validate approach vs failures   │
-│  /claude-harness:implement      Start agentic loop              │
-│  /claude-harness:orchestrate    Spawn multi-agent team          │
-│  /claude-harness:reflect        Learn from user corrections     │
+│  /claude-harness:do             Unified workflow (features+fixes)│
 │  /claude-harness:checkpoint     Commit + persist memory         │
-│  /claude-harness:merge-all      Merge PRs + archive features    │
+│  /claude-harness:orchestrate    Spawn multi-agent team          │
+│  /claude-harness:merge          Merge PRs + auto-version        │
 └─────────────────────────────────────────────────────────────────┘"
 else
     # v2.x display
@@ -251,11 +245,10 @@ else
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
 │  /claude-harness:start       Full status + GitHub sync          │
-│  /claude-harness:feature     Add new feature + GitHub issue     │
-│  /claude-harness:implement   Start agentic loop for feature     │
+│  /claude-harness:do          Unified workflow (features+fixes)  │
 │  /claude-harness:orchestrate Spawn multi-agent team             │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
-│  /claude-harness:merge-all   Merge PRs + create release         │
+│  /claude-harness:merge       Merge PRs + create release         │
 └─────────────────────────────────────────────────────────────────┘"
 fi
 
@@ -292,9 +285,7 @@ if [ "$IS_V3" = true ]; then
     # Add failure prevention context if there are failures to avoid
     if [ "$FAILURES_COUNT" -gt 0 ]; then
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** FAILURE PREVENTION ACTIVE ***"
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n$FAILURES_COUNT past failures recorded. Before implementing, check:"
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n- .claude-harness/memory/procedural/failures.json"
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n- Run /claude-harness:check-approach to validate your approach"
+        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n$FAILURES_COUNT past failures recorded. /do automatically checks these before implementation."
     fi
 fi
 
@@ -316,11 +307,12 @@ fi
 
 # Add active loop context (PRIORITY)
 if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress\n\nIMPORTANT: Resume the loop with: /claude-harness:implement $LOOP_FEATURE\nThe loop will continue from the last attempt, analyzing previous errors to try a different approach."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress\n\nIMPORTANT: Resume the loop with: /claude-harness:do $LOOP_FEATURE\nThe loop will continue from the last attempt, analyzing previous errors to try a different approach."
 
     if [ "$IS_V3" = true ]; then
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nPast failures for this feature are recorded in memory/procedural/failures.json."
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nConsult these before attempting a new approach."
+        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nResume with: /claude-harness:do $LOOP_FEATURE"
     fi
 fi
 
@@ -334,7 +326,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.4 WORKFLOW ===\n1. /start - Compile fresh context from memory layers\n2. /feature - Add feature (generates tests first)\n3. /plan-feature - Plan implementation\n4. /implement - Execute until tests pass\n5. /reflect - Extract rules from user corrections\n6. /checkpoint - Persist to memory + commit\n7. /fix - Create bug fix for completed feature"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.6 WORKFLOW (6 commands) ===\n1. /setup - Initialize harness (one-time)\n2. /start - Compile context + GitHub sync\n3. /do - Unified workflow (features AND fixes)\n4. /checkpoint - Manual commit + push + PR\n5. /orchestrate - Multi-agent team (advanced)\n6. /merge - Merge PRs, auto-version, release"
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi

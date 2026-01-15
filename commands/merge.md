@@ -1,9 +1,9 @@
 ---
-description: Merge all PRs, close issues, delete branches (dependency order)
+description: Merge all PRs, auto-version, create release
 argumentsPrompt: Optional: specific version tag (e.g., v1.2.0). Defaults to auto-versioning.
 ---
 
-Merge all open PRs, close related issues, and delete branches in dependency order:
+Merge all open PRs, close related issues, create version tag and release:
 
 Arguments: $ARGUMENTS (optional - specific version like v1.2.0, defaults to auto-versioning)
 
