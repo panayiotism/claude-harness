@@ -92,21 +92,17 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v3.4.0 (Memory Architecture)     │
+│                  CLAUDE HARNESS v3.6.0 (Memory Architecture)     │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
 ├─────────────────────────────────────────────────────────────────┤
+│  /claude-harness:setup          Initialize harness (one-time)   │
 │  /claude-harness:start          Compile context + GitHub sync   │
-│  /claude-harness:feature        Add feature (test-driven)       │
-│  /claude-harness:fix            Create bug fix for a feature    │
-│  /claude-harness:generate-tests Generate tests before coding    │
-│  /claude-harness:plan-feature   Plan before implementation      │
-│  /claude-harness:check-approach Validate approach vs failures   │
-│  /claude-harness:implement      Start agentic loop              │
-│  /claude-harness:orchestrate    Spawn multi-agent team          │
+│  /claude-harness:do             Unified workflow (features+fixes)│
 │  /claude-harness:checkpoint     Commit + persist memory         │
-│  /claude-harness:merge-all      Merge PRs + archive features    │
+│  /claude-harness:orchestrate    Spawn multi-agent team          │
+│  /claude-harness:merge          Merge PRs + auto-version        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -178,10 +174,10 @@ Never repeat the same mistakes. When you try an approach that fails, it's record
 }
 ```
 
-Before each implementation attempt:
+Before each implementation attempt, `/do` automatically checks past failures:
 
 ```
-/claude-harness:implement feature-002
+/claude-harness:do feature-002
 
 ⚠️  SIMILAR APPROACH FAILED BEFORE
 
@@ -199,40 +195,18 @@ Files: src/components/User.tsx
 Why it worked: Proper SSR hydration
 ```
 
-### Check Your Approach
-
-```
-/claude-harness:check-approach "I plan to use localStorage for auth state"
-
-→ Checks procedural/failures.json for similar approaches
-→ Checks procedural/successes.json for alternatives
-→ Reports matches and recommendations
-```
-
 ## Test-Driven Features
 
-Features now generate tests **before** implementation:
+The `/do` command can generate tests **before** implementation during planning:
 
 ```
-/claude-harness:feature Add user authentication
+/claude-harness:do "Add user authentication"
 
 → Creates feature entry with status: "pending"
 → Creates GitHub issue (if MCP configured)
 → Creates feature branch
-→ Recommends: Run /claude-harness:generate-tests feature-001
-```
-
-```
-/claude-harness:generate-tests feature-001
-
-→ Reads feature description
-→ Analyzes project test patterns from semantic memory
-→ Generates test cases:
-  • Unit tests for core functionality
-  • Integration tests for API/database
-  • Edge cases and error handling
-→ Creates test files (they FAIL initially - no implementation yet)
-→ Updates feature: status = "needs_implementation"
+→ Plans implementation (generates tests if needed)
+→ Implements until all verification passes
 ```
 
 ### Test Cases Schema
@@ -262,19 +236,20 @@ Features now generate tests **before** implementation:
 
 ## Two-Phase Pattern
 
-Separate planning from implementation:
+The `/do` command separates planning from implementation internally:
 
-### Phase 1: Plan
+### Phase 1: Plan (automatic in /do)
 
 ```
-/claude-harness:plan-feature feature-001
+/claude-harness:do "Add authentication"
 
-→ Analyzes requirements
-→ Identifies files to create/modify
-→ Runs impact analysis
-→ Checks failure patterns
-→ Generates tests (if not done)
-→ Creates implementation plan
+→ Planning Phase:
+  → Analyzes requirements
+  → Identifies files to create/modify
+  → Runs impact analysis
+  → Checks failure patterns
+  → Generates tests (if needed)
+  → Creates implementation plan
 ```
 
 Output:
@@ -299,18 +274,19 @@ Successful Patterns to Use:
 - Server-side session validation
 ```
 
-### Phase 2: Implement
+### Phase 2: Implement (automatic in /do)
 
 ```
-/claude-harness:implement feature-001
-
-→ Loads loop state (resume if active)
-→ Checks failure patterns before each attempt
-→ Verifies tests are generated
-→ Implements to pass tests
-→ Runs ALL verification commands
-→ Records success/failure to procedural memory
+→ Implementation Phase:
+  → Loads loop state (resume if active)
+  → Checks failure patterns before each attempt
+  → Verifies tests are generated
+  → Implements to pass tests
+  → Runs ALL verification commands
+  → Records success/failure to procedural memory
 ```
+
+Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 
 ## Commands Reference (6 Total)
 

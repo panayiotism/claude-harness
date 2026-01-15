@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v3.4
+# Claude Code Long-Running Agent Harness Setup v3.6
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v3.4 ==="
+echo "=== Claude Code Agent Harness Setup v3.6 ==="
 echo ""
 
 # Detect project info
@@ -764,7 +764,7 @@ else
 fi
 
 echo ""
-echo "=== Environment Ready (v3.4) ==="
+echo "=== Environment Ready (v3.6) ==="
 echo "Commands:"
 echo "  /start           - Compile context, show GitHub dashboard"
 echo "  /feature         - Add feature (generates tests first)"
@@ -1496,7 +1496,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v3.4 - Safe Permissions) ==="
+echo "=== Setup Complete (v3.6 - Command Consolidation) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1547,7 +1547,7 @@ echo "  2. Run /start to compile context and see status"
 echo "  3. Run /feature to add features (tests generated first)"
 echo "  4. Run /implement to start test-driven implementation"
 echo ""
-echo "v3.4 Features:"
+echo "v3.6 Features:"
 echo "  • Safe Permissions - Run without --dangerously-skip-permissions"
 echo "  • Self-Improving Skills (/reflect) - Learn from user corrections"
 echo "  • Bug Fix Command (/fix) - Create fixes linked to original features"
