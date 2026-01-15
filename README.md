@@ -9,64 +9,70 @@ Based on [Anthropic's engineering article](https://www.anthropic.com/engineering
 
 ## TL;DR - End-to-End Workflow
 
+### Quick Start (Unified Command)
+
 ```bash
-# 1. SETUP - Install plugin and initialize in your project
+# Setup once
 claude plugin install claude-harness github:panayiotism/claude-harness
 cd your-project && claude
-/claude-harness:setup                    # Creates .claude-harness/ with memory architecture
+/claude-harness:setup
 
-# 2. START SESSION - Compile fresh context from memory layers
-/claude-harness:start                    # Shows status, syncs GitHub, compiles context
+# One command does it all: create → plan → implement → checkpoint
+/claude-harness:do "Add user authentication with JWT tokens"
+```
 
-# 3. ADD FEATURE - Creates GitHub issue + branch
-/claude-harness:feature Add user authentication with JWT tokens
+The `/do` command chains all steps automatically with interactive checkpoints. Use `--quick` to skip planning for simple tasks, or `--auto` for full automation.
 
-# 4. GENERATE TESTS - Write tests BEFORE implementation (TDD)
-/claude-harness:generate-tests feature-001
+### Complete Workflow (6 Commands Total)
 
-# 5. PLAN - Analyze impact, check past failures, create implementation plan
-/claude-harness:plan-feature feature-001
+```bash
+# 1. SETUP (one-time)
+/claude-harness:setup                    # Initialize harness in project
 
-# 6. CHECK APPROACH (optional) - Validate your approach against past failures
-/claude-harness:check-approach "Using localStorage for token storage"
+# 2. START SESSION
+/claude-harness:start                    # Compile context, show status
 
-# 7. IMPLEMENT - Agentic loop runs until ALL tests pass
-/claude-harness:implement feature-001    # Retries up to 10x, learns from failures
+# 3. DEVELOPMENT - Features and Fixes
+/claude-harness:do "Add authentication"  # New feature (full workflow)
+/claude-harness:do --fix feature-001 "Token bug"  # Bug fix linked to feature
+/claude-harness:do feature-001           # Resume existing feature/fix
+/claude-harness:do --quick "Simple fix"  # Skip planning for simple tasks
 
-# 8. REFLECT (optional) - Extract rules from your corrections
-/claude-harness:reflect                  # Saves rules to memory/learned/
+# 4. MANUAL CHECKPOINT (optional - /do includes checkpoint)
+/claude-harness:checkpoint               # Commit, push, create PR
 
-# 9. CHECKPOINT - Commit, push, create PR, persist to memory
-/claude-harness:checkpoint               # Saves successful approach to memory
+# 5. ADVANCED - Multi-agent (for complex features)
+/claude-harness:orchestrate feature-001  # Spawn specialized agent team
 
-# 10. FOR COMPLEX FEATURES - Spawn multi-agent team instead of /implement
-/claude-harness:orchestrate feature-001  # Coordinates react-specialist, backend-developer, etc.
-
-# 11. FIX BUGS IN COMPLETED FEATURES
-/claude-harness:fix feature-001 "Token expiry not handled"  # Creates linked bug fix
-
-# 12. MERGE & RELEASE - When all PRs ready
-/claude-harness:merge-all                # Merges PRs, closes issues, archives features
+# 6. RELEASE
+/claude-harness:merge                    # Merge all PRs, auto-version, release
 ```
 
 ### What Happens Behind the Scenes
 
 ```
+/setup           → One-time: Creates .claude-harness/ with memory architecture
+
 /start           → Compiles working context from 4 memory layers
-/feature         → Creates issue + branch + feature entry (status: pending)
-/generate-tests  → Writes test files that FAIL (no implementation yet)
-/plan-feature    → Checks impact graph + failure patterns → creates plan
-/implement       → Loop: implement → verify → if fail: record + retry
-                   On success: saves approach to procedural/successes.json
-                   On failure: saves to procedural/failures.json (prevents repeat)
-/reflect         → Analyzes conversation for user corrections
-                   Extracts rules, saves to learned/rules.json
-                   Rules display at next /start (self-improving)
-/fix             → Creates bug fix linked to original feature
-                   Same agentic loop, shares memory context with original
-                   Commits with fix: prefix (PATCH version bump)
-/checkpoint      → Persists decisions to episodic, patterns to semantic
-/merge-all       → Merges in dependency order, archives completed features
+                   Shows status, syncs GitHub, displays learned rules
+
+/do              → UNIFIED WORKFLOW (handles features AND fixes):
+                   1. Creates feature/fix (GitHub issue + branch)
+                   2. Plans implementation (checks past failures)
+                   3. Agentic loop until verification passes
+                   4. Auto-reflects on user corrections
+                   5. Commits, pushes, creates PR
+                   Options: --quick (skip planning), --auto (no prompts)
+                   Resume: /do feature-001 or /do resume
+
+/checkpoint      → Manual commit + push + PR (when not using /do)
+                   Auto-reflects on user corrections
+
+/orchestrate     → Spawns specialized agent team for complex features
+
+/merge           → Merges PRs in dependency order
+                   Auto-versions (MAJOR/MINOR/PATCH based on changes)
+                   Creates GitHub release with notes
 ```
 
 ### v3.0 Memory Architecture
@@ -86,21 +92,17 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v3.4.0 (Memory Architecture)     │
+│                  CLAUDE HARNESS v3.6.0 (Memory Architecture)     │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
 ├─────────────────────────────────────────────────────────────────┤
+│  /claude-harness:setup          Initialize harness (one-time)   │
 │  /claude-harness:start          Compile context + GitHub sync   │
-│  /claude-harness:feature        Add feature (test-driven)       │
-│  /claude-harness:fix            Create bug fix for a feature    │
-│  /claude-harness:generate-tests Generate tests before coding    │
-│  /claude-harness:plan-feature   Plan before implementation      │
-│  /claude-harness:check-approach Validate approach vs failures   │
-│  /claude-harness:implement      Start agentic loop              │
-│  /claude-harness:orchestrate    Spawn multi-agent team          │
+│  /claude-harness:do             Unified workflow (features+fixes)│
 │  /claude-harness:checkpoint     Commit + persist memory         │
-│  /claude-harness:merge-all      Merge PRs + archive features    │
+│  /claude-harness:orchestrate    Spawn multi-agent team          │
+│  /claude-harness:merge          Merge PRs + auto-version        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -172,10 +174,10 @@ Never repeat the same mistakes. When you try an approach that fails, it's record
 }
 ```
 
-Before each implementation attempt:
+Before each implementation attempt, `/do` automatically checks past failures:
 
 ```
-/claude-harness:implement feature-002
+/claude-harness:do feature-002
 
 ⚠️  SIMILAR APPROACH FAILED BEFORE
 
@@ -193,40 +195,18 @@ Files: src/components/User.tsx
 Why it worked: Proper SSR hydration
 ```
 
-### Check Your Approach
-
-```
-/claude-harness:check-approach "I plan to use localStorage for auth state"
-
-→ Checks procedural/failures.json for similar approaches
-→ Checks procedural/successes.json for alternatives
-→ Reports matches and recommendations
-```
-
 ## Test-Driven Features
 
-Features now generate tests **before** implementation:
+The `/do` command can generate tests **before** implementation during planning:
 
 ```
-/claude-harness:feature Add user authentication
+/claude-harness:do "Add user authentication"
 
 → Creates feature entry with status: "pending"
 → Creates GitHub issue (if MCP configured)
 → Creates feature branch
-→ Recommends: Run /claude-harness:generate-tests feature-001
-```
-
-```
-/claude-harness:generate-tests feature-001
-
-→ Reads feature description
-→ Analyzes project test patterns from semantic memory
-→ Generates test cases:
-  • Unit tests for core functionality
-  • Integration tests for API/database
-  • Edge cases and error handling
-→ Creates test files (they FAIL initially - no implementation yet)
-→ Updates feature: status = "needs_implementation"
+→ Plans implementation (generates tests if needed)
+→ Implements until all verification passes
 ```
 
 ### Test Cases Schema
@@ -256,19 +236,20 @@ Features now generate tests **before** implementation:
 
 ## Two-Phase Pattern
 
-Separate planning from implementation:
+The `/do` command separates planning from implementation internally:
 
-### Phase 1: Plan
+### Phase 1: Plan (automatic in /do)
 
 ```
-/claude-harness:plan-feature feature-001
+/claude-harness:do "Add authentication"
 
-→ Analyzes requirements
-→ Identifies files to create/modify
-→ Runs impact analysis
-→ Checks failure patterns
-→ Generates tests (if not done)
-→ Creates implementation plan
+→ Planning Phase:
+  → Analyzes requirements
+  → Identifies files to create/modify
+  → Runs impact analysis
+  → Checks failure patterns
+  → Generates tests (if needed)
+  → Creates implementation plan
 ```
 
 Output:
@@ -293,35 +274,43 @@ Successful Patterns to Use:
 - Server-side session validation
 ```
 
-### Phase 2: Implement
+### Phase 2: Implement (automatic in /do)
 
 ```
-/claude-harness:implement feature-001
-
-→ Loads loop state (resume if active)
-→ Checks failure patterns before each attempt
-→ Verifies tests are generated
-→ Implements to pass tests
-→ Runs ALL verification commands
-→ Records success/failure to procedural memory
+→ Implementation Phase:
+  → Loads loop state (resume if active)
+  → Checks failure patterns before each attempt
+  → Verifies tests are generated
+  → Implements to pass tests
+  → Runs ALL verification commands
+  → Records success/failure to procedural memory
 ```
 
-## Commands Reference
+Use `--quick` to skip planning, or `--plan-only` to stop after planning.
+
+## Commands Reference (6 Total)
 
 | Command | Purpose |
 |---------|---------|
-| `/claude-harness:setup` | Initialize harness with v3.4 structure |
+| `/claude-harness:setup` | Initialize harness in project (one-time) |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
-| `/claude-harness:feature <desc>` | Add feature (test-driven) |
-| `/claude-harness:fix <feature-id> "<desc>"` | Create bug fix linked to original feature |
-| `/claude-harness:generate-tests <id>` | Generate test cases before implementation |
-| `/claude-harness:plan-feature <id>` | Plan implementation (Phase 1) |
-| `/claude-harness:check-approach <desc>` | Check if approach matches past failures |
-| `/claude-harness:implement <id>` | Agentic loop until tests pass (Phase 2) |
-| `/claude-harness:orchestrate <id>` | Spawn multi-agent team |
-| `/claude-harness:reflect` | Extract rules from user corrections |
-| `/claude-harness:checkpoint` | Commit + persist memory + create/update PR |
-| `/claude-harness:merge-all` | Merge PRs, close issues, archive features |
+| **`/claude-harness:do`** | **Unified workflow**: features AND fixes |
+| `/claude-harness:checkpoint` | Manual commit + push + PR |
+| `/claude-harness:orchestrate <id>` | Spawn multi-agent team (advanced) |
+| `/claude-harness:merge` | Merge all PRs, auto-version, release |
+
+### `/do` Command Options
+
+| Syntax | Behavior |
+|--------|----------|
+| `/do "Add feature"` | Full workflow with interactive prompts |
+| `/do --fix feature-001 "Bug"` | Create bug fix linked to feature |
+| `/do feature-001` | Resume existing feature |
+| `/do fix-feature-001-001` | Resume existing fix |
+| `/do resume` | Resume last active workflow |
+| `/do --quick "Simple change"` | Skip planning phase |
+| `/do --auto "Add Y"` | No prompts, full automation |
+| `/do --plan-only "Big feature"` | Plan only, implement later |
 
 ## v3.0 Directory Structure
 
@@ -441,10 +430,10 @@ Key differences from features:
 
 ## Agentic Loops
 
-Autonomous implementation loops that continue until ALL tests pass:
+The `/do` command runs autonomous implementation loops that continue until ALL tests pass:
 
 ```
-/claude-harness:implement feature-001
+/claude-harness:do feature-001
 
 ┌─────────────────────────────────────────────────────────────────┐
 │  AGENTIC LOOP: User Authentication                              │
@@ -550,11 +539,14 @@ Or let it auto-migrate on first run of a harness command.
 # Setup
 claude mcp add github -s user
 
-# Workflow
-/claude-harness:feature Add dark mode   # Creates issue + branch
-/claude-harness:implement feature-001   # Implements until tests pass
-/claude-harness:checkpoint              # Commits, pushes, creates PR
-/claude-harness:merge-all               # Merges PRs in dependency order
+# Workflow (all in one command!)
+/claude-harness:do "Add dark mode"      # Creates issue + branch, implements, commits, creates PR
+
+# Or step by step
+/claude-harness:do --plan-only "Add dark mode"  # Create + plan only
+/claude-harness:do feature-001                  # Resume and implement
+/claude-harness:checkpoint                      # Manual commit + PR if needed
+/claude-harness:merge                           # Merge all PRs, auto-version
 ```
 
 ## Configuration
@@ -594,6 +586,15 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.6.7** | **Fix GitHub Repo Detection**: Added explicit `git remote get-url origin` parsing instructions to all commands that use GitHub MCP. Prevents Claude from guessing or caching wrong owner/repo values from previous sessions. |
+| **3.6.6** | **Full Command Prefixes**: All command references now use full `/claude-harness:` prefix for clarity and to avoid conflicts with other plugins. |
+| **3.6.5** | **Context Management**: Added `/clear` recommendation after checkpoint to prevent context rot. Added PreCompact hook as safety net to backup state before automatic compaction. |
+| **3.6.4** | **Fix Argument Hints**: Use correct `argument-hint` field (with hyphen) instead of `argumentsPrompt`. Now displays input suggestions like ralph-loop. |
+| **3.6.3** | **Improved Argument Hints**: Updated command hints to use CLI-style bracket notation (e.g., `"DESC" \| ID [--quick] [--auto]`) for better scannability. Added hints to `/checkpoint`. |
+| **3.6.2** | **Branch Safety**: Fixed `/do` to enforce GitHub issue and branch creation BEFORE any code work. Added branch verification safety check that stops if on main/master. Explicit step-by-step instructions with "DO NOT PROCEED" markers. |
+| **3.6.1** | **Hooks Fix**: Removed duplicate `hooks` reference from plugin.json - `hooks/hooks.json` is auto-loaded by convention. |
+| **3.6.0** | **Command Consolidation**: Reduced from 13 to 6 commands. `/do` now handles fixes via `--fix` flag. Removed redundant commands (`/feature`, `/plan-feature`, `/implement`, `/fix`, `/reflect`, `/generate-tests`, `/check-approach`). Renamed `/merge-all` to `/merge`. Auto-reflect always enabled at checkpoint. |
+| **3.5.0** | **Unified Workflow**: `/do` command - chains feature creation, planning, implementation, and checkpoint in one command with interactive prompts. Options: `--quick` (skip planning), `--auto` (no prompts), `--plan-only`. Resumable with `/do resume` or `/do feature-XXX` |
 | **3.4.0** | **Safe Permissions**: Comprehensive permission configuration to avoid `--dangerously-skip-permissions` - deny list for dangerous commands, ask list for destructive ops, allow list for safe harness operations |
 | **3.3.2** | **Chore**: Fixed legacy file path references in command docs - all commands now reference correct v3.0+ paths (`agents/context.json`, `memory/procedural/`, `loops/state.json`) |
 | **3.3.1** | **Bug Fix**: Fixed inconsistent file path references - all commands now consistently use `features/active.json` instead of legacy `feature-list.json` |
@@ -709,7 +710,7 @@ claude
 # The harness commands work with auto-approved safe operations
 /claude-harness:start       # ✅ Uses git status, cat, grep
 /claude-harness:checkpoint  # ✅ Uses git add, commit (push prompts)
-/claude-harness:implement   # ✅ Uses npm run, npx tsc
+/claude-harness:do          # ✅ Uses npm run, npx tsc
 ```
 
 ### Extending for Your Project

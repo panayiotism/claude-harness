@@ -1,5 +1,6 @@
 ---
 description: Save session progress - commits, pushes, creates/updates PR, archives completed features
+argument-hint: "[--message COMMIT_MESSAGE]"
 ---
 
 Create a checkpoint of the current session:
@@ -101,17 +102,15 @@ Create a checkpoint of the current session:
    - Write updated file
    - Report: "Updated procedural patterns"
 
-## Phase 1.10: Auto-Reflect on User Corrections (Optional)
+## Phase 1.10: Auto-Reflect on User Corrections
 
-1.10. **Check if auto-reflect is enabled**:
-   - Read `.claude-harness/config.json`
-   - Check `reflection.enabled` is true
-   - Check `reflection.autoReflectOnCheckpoint` setting
-   - If disabled (default), skip to Phase 2
+1.10. **Auto-reflect is now always enabled** (part of UX simplification):
+   - This phase always runs to capture learnings from the session
+   - High-confidence rules are auto-saved; lower-confidence go to review queue
 
-1.11. **Run reflection with auto mode** (if enabled):
-   - Execute the reflection logic from `/reflect` command with `--auto` flag:
-     - Scan conversation for user correction patterns (same as reflect Phase 1)
+1.11. **Run reflection with auto mode**:
+   - Execute the reflection logic (auto mode):
+     - Scan conversation for user correction patterns
      - Filter for high-confidence corrections only
      - Skip interactive approval (auto mode)
    - For corrections with confidence >= `minConfidenceForAuto`:
@@ -129,7 +128,7 @@ Create a checkpoint of the current session:
    │  • {rule title}                                                 │
    │                                                                 │
    │  Lower-confidence (manual review needed): {N}                   │
-   │  Run /claude-harness:reflect to review these                    │
+   │  (Low-confidence rules queued for next checkpoint review)       │
    └─────────────────────────────────────────────────────────────────┘
    ```
 
@@ -157,8 +156,15 @@ Create a checkpoint of the current session:
 ## Phase 4: PR Management (if GitHub MCP available)
 
 4. If on a feature/fix branch and GitHub MCP is available:
+   - **First, parse owner/repo from git remote** (MANDATORY before any GitHub API calls):
+     ```bash
+     REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+     # SSH: git@github.com:owner/repo.git → owner, repo
+     # HTTPS: https://github.com/owner/repo.git → owner, repo
+     ```
+     CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
    - Check loop state type to determine if this is a feature or fix
-   - Check if PR exists for this branch
+   - Check if PR exists for this branch (use parsed owner/repo)
    - If no PR exists:
      - Create PR with descriptive title following conventional commits:
        - For features: `feat: <description>`
@@ -305,3 +311,33 @@ Create a checkpoint of the current session:
 
    - Write updated files
    - Report: "Persisted {N} agent results to procedural memory"
+
+## Phase 9: Context Management Recommendation
+
+9. Display context management recommendation:
+   ```
+   ┌─────────────────────────────────────────────────────────────────┐
+   │  ✅ CHECKPOINT COMPLETE                                         │
+   │     Progress saved to memory layers                             │
+   │     Commit: {hash}                                              │
+   │     PR: #{number} (if applicable)                               │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  💡 RECOMMENDED: Run /clear to reset context                    │
+   │                                                                 │
+   │     Your progress is preserved in:                              │
+   │     • claude-progress.json (session summary)                    │
+   │     • memory/working/context.json (working state)               │
+   │     • memory/episodic/decisions.json (decisions)                │
+   │     • memory/procedural/ (successes & failures)                 │
+   │     • memory/learned/rules.json (learned rules)                 │
+   │                                                                 │
+   │     Fresh context = better performance on next task.            │
+   │     Run /claude-harness:start after /clear to reload context.   │
+   └─────────────────────────────────────────────────────────────────┘
+   ```
+
+   **Why clear context?**
+   - Prevents "context rot" from accumulated irrelevant information
+   - Reduces token costs for subsequent work
+   - Improves Claude's focus on the next task
+   - Memory files preserve all important learnings

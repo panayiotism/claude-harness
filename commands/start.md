@@ -166,7 +166,7 @@ Before anything else, check if legacy root-level harness files need migration:
      │  • {rule.title}                                                 │
      │  • {rule.title}                                                 │
      ├─────────────────────────────────────────────────────────────────┤
-     │  {N} rules active | /claude-harness:reflect to add more         │
+     │  {N} rules active (auto-captured at checkpoint)                 │
      └─────────────────────────────────────────────────────────────────┘
      ```
 
@@ -211,7 +211,7 @@ Before anything else, check if legacy root-level harness files need migration:
      │  Last approach: {history[-1].approach}                         │
      │  Last result: {history[-1].result}                             │
      │                                                                │
-     │  Resume: /claude-harness:implement {feature}                   │
+     │  Resume: /claude-harness:do {feature}                          │
      └─────────────────────────────────────────────────────────────────┘
      ```
    - If `status` is "in_progress" and `type` is "fix":
@@ -225,7 +225,7 @@ Before anything else, check if legacy root-level harness files need migration:
      │  Last approach: {history[-1].approach}                         │
      │  Last result: {history[-1].result}                             │
      │                                                                │
-     │  Resume: /claude-harness:implement {feature}                   │
+     │  Resume: /claude-harness:do {feature}                          │
      └─────────────────────────────────────────────────────────────────┘
      ```
    - If `status` is "escalated":
@@ -263,13 +263,35 @@ Before anything else, check if legacy root-level harness files need migration:
 
 15. Check GitHub MCP connection status
 
-16. Fetch and display GitHub dashboard:
+16. **Parse repository owner and name from git remote** (MANDATORY before any GitHub API calls):
+    ```bash
+    # Get the remote URL
+    REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+
+    # Parse owner and repo from URL (handles both SSH and HTTPS formats)
+    # SSH format: git@github.com:owner/repo.git
+    # HTTPS format: https://github.com/owner/repo.git
+
+    if [[ "$REMOTE_URL" =~ git@github.com:([^/]+)/([^.]+) ]]; then
+      OWNER="${BASH_REMATCH[1]}"
+      REPO="${BASH_REMATCH[2]}"
+    elif [[ "$REMOTE_URL" =~ github.com/([^/]+)/([^/.]+) ]]; then
+      OWNER="${BASH_REMATCH[1]}"
+      REPO="${BASH_REMATCH[2]}"
+    fi
+    ```
+
+    **CRITICAL**: Always run `git remote get-url origin` and parse the actual URL.
+    NEVER guess, cache, or reuse owner/repo from previous sessions or other projects.
+    The URL parsing must happen fresh for every GitHub API call in the current working directory.
+
+17. Fetch and display GitHub dashboard (using parsed OWNER and REPO):
    - Open issues with "feature" label
    - Open PRs from feature branches
    - CI/CD status for open PRs
    - Cross-reference with .claude-harness/features/active.json
 
-17. Sync GitHub Issues with .claude-harness/features/active.json:
+18. Sync GitHub Issues with .claude-harness/features/active.json:
    - For each GitHub issue with "feature" label NOT in active.json:
      - Add new entry with issueNumber linked
    - For each feature in active.json with status="passing" or passes=true:
@@ -278,18 +300,18 @@ Before anything else, check if legacy root-level harness files need migration:
 
 ## Phase 5: Recommendations
 
-18. Report session summary:
+19. Report session summary:
     - Current state and blockers
     - Pending features and fixes prioritized
     - GitHub sync results
     - Recommended next action (in priority order):
-      1. **Active loop (fix)**: Resume with `/claude-harness:implement {fix-id}`
-      2. **Active loop (feature)**: Resume with `/claude-harness:implement {feature-id}`
+      1. **Active loop (fix)**: Resume with `/claude-harness:do {fix-id}`
+      2. **Active loop (feature)**: Resume with `/claude-harness:do {feature-id}`
       3. **Escalated loop**: Review history and provide guidance, or increase maxAttempts
-      4. **Pending fixes**: Resume fix with `/claude-harness:implement {fix-id}`
+      4. **Pending fixes**: Resume fix with `/claude-harness:do {fix-id}`
       5. **Pending handoffs**: Resume orchestration with `/claude-harness:orchestrate {feature-id}`
       6. **Pending features**: Start implementation:
-         - Simple feature: `/claude-harness:implement {feature-id}`
+         - Simple feature: `/claude-harness:do {feature-id}`
          - Complex feature: `/claude-harness:orchestrate {feature-id}`
-      7. **No features**: Add one with `/claude-harness:feature <description>`
-      8. **Create fix for completed feature**: `/claude-harness:fix {feature-id} "bug description"`
+      7. **No features**: Add one with `/claude-harness:do "description"`
+      8. **Create fix for completed feature**: `/claude-harness:do --fix {feature-id} "bug description"`
