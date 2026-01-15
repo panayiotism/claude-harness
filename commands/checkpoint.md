@@ -1,5 +1,6 @@
 ---
 description: Save session progress - commits, pushes, creates/updates PR, archives completed features
+argumentsPrompt: [--message "COMMIT_MESSAGE"]
 ---
 
 Create a checkpoint of the current session:

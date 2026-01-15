@@ -1,6 +1,6 @@
 ---
 description: Merge all PRs, auto-version, create release
-argumentsPrompt: Optional: specific version tag (e.g., v1.2.0). Defaults to auto-versioning.
+argumentsPrompt: [VERSION]
 ---
 
 Merge all open PRs, close related issues, create version tag and release:

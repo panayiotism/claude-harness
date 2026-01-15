@@ -1,6 +1,6 @@
 ---
-description: Unified workflow - create, plan, and implement features or fixes in one command
-argumentsPrompt: Feature description, feature ID, or --fix flag (e.g., "Add dark mode", "feature-001", "--fix feature-001 Bug description")
+description: Unified workflow - create, plan, and implement features or fixes
+argumentsPrompt: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "BUG" [--quick] [--auto] [--plan-only]
 ---
 
 Unified command that orchestrates the complete development workflow:
