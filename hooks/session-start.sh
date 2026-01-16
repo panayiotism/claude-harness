@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v3.8.4
+# Claude Harness SessionStart Hook v3.9.0
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 
@@ -49,6 +49,34 @@ elif [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
     # Check if migration to v3.0 is needed
     if [ ! -d "$HARNESS_DIR/memory" ] && [ -f "$HARNESS_DIR/feature-list.json" ]; then
         NEEDS_MIGRATION=true
+    fi
+fi
+
+# ============================================================================
+# WORKTREE DETECTION (v3.9.0)
+# ============================================================================
+
+# Detect if we're in a git worktree
+IS_WORKTREE=false
+MAIN_REPO_PATH=""
+WORKTREE_BRANCH=""
+
+GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+
+# If git-common-dir differs from .git, we're in a worktree
+if [ -n "$GIT_COMMON_DIR" ] && [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
+    IS_WORKTREE=true
+    # Extract main repo path from git-common-dir (remove trailing .git)
+    MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
+    MAIN_HARNESS_DIR="$MAIN_REPO_PATH/.claude-harness"
+    WORKTREE_BRANCH=$(git branch --show-current 2>/dev/null)
+
+    # Use main repo's shared state for features and memory
+    if [ -d "$MAIN_HARNESS_DIR" ]; then
+        FEATURES_FILE="$MAIN_HARNESS_DIR/features/active.json"
+        # Keep local session state in worktree
+        # HARNESS_DIR stays as the worktree's .claude-harness for sessions
     fi
 fi
 
@@ -295,6 +323,12 @@ if [ "$NEEDS_MIGRATION" = true ]; then
      🔄 v2.x detected - run /claude-harness:setup to upgrade to v3.0"
 fi
 
+# Add worktree notice if in a worktree
+if [ "$IS_WORKTREE" = true ]; then
+    USER_MSG="$USER_MSG
+     🌳 WORKTREE MODE: $WORKTREE_BRANCH (main: $MAIN_REPO_PATH)"
+fi
+
 # ============================================================================
 # BUILD CLAUDE CONTEXT
 # ============================================================================
@@ -304,6 +338,17 @@ CLAUDE_CONTEXT="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ===\n"
 # Add session info for parallel work streams
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
+
+# Add worktree context if in a worktree
+if [ "$IS_WORKTREE" = true ]; then
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== WORKTREE MODE (v3.9.0) ==="
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nBranch: $WORKTREE_BRANCH"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nMain Repo: $MAIN_REPO_PATH"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nShared State: $MAIN_HARNESS_DIR (features, memory)"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nLocal State: $HARNESS_DIR (sessions)"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nIMPORTANT: Read features/memory from main repo, write sessions locally."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWhen running /checkpoint, changes are pushed from this worktree."
+fi
 
 if [ "$IS_V3" = true ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== MEMORY ARCHITECTURE v3.0 ==="

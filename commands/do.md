@@ -1,11 +1,137 @@
 ---
 description: Unified workflow - create, plan, and implement features or fixes
-argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "BUG" [--quick] [--auto] [--plan-only]
+argument-hint: ["DESCRIPTION" | FEATURE-ID | (empty for interactive menu)] [--inline] [--quick] [--auto]
 ---
 
 Unified command that orchestrates the complete development workflow:
 
 Arguments: $ARGUMENTS
+
+## Phase 0: Interactive Selection (if no arguments)
+
+If `/do` is called without arguments, show an interactive menu of incomplete features:
+
+1. **Check for empty arguments**:
+   - If `$ARGUMENTS` is empty or whitespace-only, proceed with interactive selection
+   - Otherwise, skip to Phase 1 (Argument Parsing)
+
+2. **Detect worktree mode and set paths**:
+   ```bash
+   GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+   GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+
+   if [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
+       MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
+       FEATURES_FILE="${MAIN_REPO_PATH}/.claude-harness/features/active.json"
+   else
+       FEATURES_FILE=".claude-harness/features/active.json"
+   fi
+   ```
+
+3. **Read incomplete features and fixes**:
+   - Read `${FEATURES_FILE}`
+   - Filter `features` array where `status` is NOT "passing"
+   - Filter `fixes` array where `status` is NOT "passing"
+   - Combine into options list
+
+4. **Build options list for menu**:
+   - For each incomplete feature:
+     - Label: `{id}`
+     - Description: `{name} [{status}]`
+   - For each incomplete fix:
+     - Label: `{id}`
+     - Description: `{name} (fix for {linkedTo.featureId}) [{status}]`
+
+5. **Handle empty state**:
+   - If no incomplete features/fixes exist:
+     - Use **AskUserQuestion** with single-select:
+       - Question: "No pending features. What would you like to create?"
+       - Options:
+         - Label: "New feature", Description: "Create a new feature from description"
+         - Label: "New bug fix", Description: "Create a bug fix linked to an existing feature"
+     - If "New feature": Use **AskUserQuestion** to prompt for description
+     - If "New bug fix": Use **AskUserQuestion** to prompt for feature ID, then description
+     - Set `$ARGUMENTS` to the entered description or `--fix` command
+     - Continue to Phase 1
+
+6. **Show interactive selection menu**:
+
+   **CRITICAL: You MUST use `multiSelect: true` to allow parallel feature selection.**
+
+   - Use **AskUserQuestion** with these EXACT parameters:
+     - `multiSelect`: **MUST be `true`** (enables selecting multiple features for parallel worktrees)
+     - `question`: "Which feature(s) do you want to work on? Select multiple for parallel development."
+     - `header`: "Features"
+
+   Example:
+     ```json
+     {
+       "questions": [{
+         "question": "Which feature(s) do you want to work on? Select multiple for parallel development.",
+         "header": "Features",
+         "multiSelect": true,
+         "options": [
+           {"label": "feature-001", "description": "Add authentication [in_progress]"},
+           {"label": "feature-002", "description": "Dark mode support [pending]"},
+           {"label": "fix-feature-001-001", "description": "Token bug (fix for feature-001) [pending]"}
+         ]
+       }]
+     }
+     ```
+
+   **DO NOT use `multiSelect: false`** - this defeats the purpose of parallel development.
+
+   - Note: User can always select "Other" to create a new feature
+
+7. **Handle selection**:
+
+   **If user selects 1 feature/fix**:
+   - Set `$ARGUMENTS` to the selected ID
+   - Continue to Phase 1 (Argument Parsing)
+
+   **If user selects multiple features/fixes**:
+   - For each selected item, create worktree (if doesn't already exist):
+     a. Calculate worktree path: `../{repo-name}-{feature-id}/`
+     b. Check if worktree already exists (skip if so)
+     c. Run: `git worktree add <path> <branch>`
+     d. Initialize harness in worktree
+     e. Run environment setup (npm install, copy .env, etc.)
+     f. Register in `worktrees/registry.json`
+   - Display summary table:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  ✅ WORKTREES READY FOR SELECTED FEATURES                       │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Feature         Path                           Status          │
+     │  ─────────────────────────────────────────────────────────────  │
+     │  feature-001     ../myproject-feature-001/      ✅ Ready        │
+     │  feature-002     ../myproject-feature-002/      ✅ Created      │
+     │  fix-feature-001 ../myproject-fix-feature-001/  ✅ Ready        │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  🎯 NEXT STEPS:                                                 │
+     │                                                                 │
+     │  Open separate terminals for each feature:                      │
+     │                                                                 │
+     │  Terminal 1:                                                    │
+     │    cd ../myproject-feature-001 && claude                        │
+     │    /claude-harness:do feature-001                               │
+     │                                                                 │
+     │  Terminal 2:                                                    │
+     │    cd ../myproject-feature-002 && claude                        │
+     │    /claude-harness:do feature-002                               │
+     │                                                                 │
+     │  ... (one per selected feature)                                 │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+   - **STOP HERE** - User needs to open separate terminals
+   - Do NOT continue to Phase 1
+
+   **If user selects "Other"**:
+   - Use **AskUserQuestion** to prompt for new feature description
+   - Set `$ARGUMENTS` to the entered description
+   - Continue to Phase 1 (will create new feature)
+
+---
 
 ## Argument Parsing
 
@@ -18,6 +144,7 @@ Arguments: $ARGUMENTS
 
 2. Parse options:
    - `--fix <feature-id>`: Create bug fix linked to specified feature
+   - `--inline`: Skip worktree creation, work in current directory (for quick fixes)
    - `--quick`: Skip planning phase (for simple tasks)
    - `--auto`: No interactive prompts (full automation)
    - `--plan-only`: Stop after planning (review before implementation)
@@ -144,12 +271,76 @@ Arguments: $ARGUMENTS
    - Query procedural memory for original feature's learnings
    - Display fix context (past successes/failures for this feature)
 
-4. Interactive checkpoint (unless --auto):
+## Phase 1b: Worktree Creation (unless --inline)
+
+**By default, every new feature gets its own worktree for parallel work isolation.**
+
+4. If NOT --inline flag (default behavior):
+
+   **Step 4a: Calculate Worktree Path**
+   - Get repo name: `basename $(pwd)`
+   - Get feature slug from ID or branch name
+   - Calculate path: `../{repo-name}-{feature-id}/`
+
+   **Step 4b: Create Worktree**
+   - Run: `git worktree add <path> <branch>`
+   - If branch exists remotely, use: `git worktree add <path> <branch>`
+   - If branch was just created, use: `git worktree add <path> -b <branch>`
+
+   **Step 4c: Initialize Harness in Worktree**
+   - Create `.claude-harness/` directory in worktree
+   - Create `sessions/` subdirectory for session-scoped state
+   - DO NOT copy `features/` or `memory/` - read from main repo
+
+   **Step 4d: Environment Setup**
+   - Copy environment files from main repo:
+     - `.env`, `.env.local`, `.env.development.local` (if exist)
+     - `.claude/settings.local.json` (if exists)
+   - Detect and run package manager:
+     - `package.json` → `npm install`
+     - `requirements.txt` → `pip install -r requirements.txt`
+     - `Cargo.toml` → `cargo build`
+     - `go.mod` → `go mod download`
+
+   **Step 4e: Register Worktree**
+   - Read `.claude-harness/worktrees/registry.json` (create if missing)
+   - Add entry with featureId, branch, path, createdAt, status: "active"
+   - Write updated registry
+
+   **Step 4f: Display Instructions and STOP**
+   ```
+   ┌─────────────────────────────────────────────────────────────────┐
+   │  ✅ FEATURE CREATED WITH WORKTREE                               │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  Feature: {feature-id}                                          │
+   │  Name: {feature description}                                    │
+   │  Branch: {branch-name}                                          │
+   │  Issue: #{issue-number}                                         │
+   │  Worktree: {worktree-path}                                      │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  Environment Setup: ✅ Complete                                 │
+   │  • Copied .env files                                            │
+   │  • Ran npm install (if applicable)                              │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  🎯 NEXT STEPS (to continue implementation):                    │
+   │                                                                 │
+   │  1. Open new terminal                                           │
+   │  2. cd {worktree-path}                                          │
+   │  3. claude                                                      │
+   │  4. /claude-harness:do {feature-id}                             │
+   └─────────────────────────────────────────────────────────────────┘
+   ```
+   - **IMPORTANT**: STOP HERE when worktree is created
+   - Implementation must continue in the worktree directory
+   - User needs to start new Claude session in worktree
+
+5. If --inline flag (skip worktree):
    ```
    ┌─────────────────────────────────────────────────────────────────┐
    │  ✅ Feature Created: feature-012                                │
    │     Branch: feature/feature-012                                 │
    │     Issue: #42                                                  │
+   │     Mode: Inline (no worktree)                                  │
    ├─────────────────────────────────────────────────────────────────┤
    │  Continue to planning? [Y/n/skip]                               │
    └─────────────────────────────────────────────────────────────────┘
@@ -158,7 +349,7 @@ Arguments: $ARGUMENTS
    - n: Stop here, return control to user
    - skip: Skip planning, go directly to implementation
 
-5. Update workflow state in session-scoped loop file `.claude-harness/sessions/{session-id}/loop-state.json`:
+6. Update workflow state in session-scoped loop file `.claude-harness/sessions/{session-id}/loop-state.json`:
    **Note**: The session ID is provided by the SessionStart hook. All workflow state for this session should use the session directory.
    ```json
    {
@@ -367,11 +558,14 @@ Arguments: $ARGUMENTS
 
 | Command | Behavior |
 |---------|----------|
-| `/claude-harness:do "Add X"` | Full workflow with prompts |
-| `/claude-harness:do --fix feature-001 "Bug Y"` | Create bug fix linked to feature |
-| `/claude-harness:do feature-001` | Resume existing feature |
+| `/claude-harness:do` | **Interactive menu** - select from pending features (multi-select) |
+| `/claude-harness:do "Add X"` | Creates feature + worktree, pauses for user to enter worktree |
+| `/claude-harness:do --inline "Quick fix"` | Skip worktree, work in current directory |
+| `/claude-harness:do --fix feature-001 "Bug Y"` | Create bug fix linked to feature (also creates worktree) |
+| `/claude-harness:do feature-001` | Resume existing feature (in current directory or worktree) |
 | `/claude-harness:do fix-feature-001-001` | Resume existing fix |
 | `/claude-harness:do resume` | Resume last active workflow |
-| `/claude-harness:do --quick "Simple change"` | Skip planning phase |
+| `/claude-harness:do --quick "Simple change"` | Skip planning phase (still creates worktree) |
+| `/claude-harness:do --inline --quick "Tiny fix"` | No worktree + no planning (fastest) |
 | `/claude-harness:do --auto "Add Z"` | No prompts, full automation |
 | `/claude-harness:do --plan-only "Big feature"` | Plan only, implement later |

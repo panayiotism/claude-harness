@@ -35,7 +35,80 @@
       },
       "createdAt": "2026-01-15T18:00:00Z",
       "updatedAt": "2026-01-15T18:00:00Z"
+    },
+    {
+      "id": "feature-014",
+      "name": "Add dark mode toggle",
+      "description": "Add a dark mode toggle to the UI with system preference detection",
+      "priority": 2,
+      "status": "pending",
+      "verification": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": ["Toggle switches theme", "System preference detected on load"]
+      },
+      "relatedFiles": [],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-014"
+      },
+      "createdAt": "2026-01-16T14:00:00Z",
+      "updatedAt": "2026-01-16T14:00:00Z"
+    },
+    {
+      "id": "feature-015",
+      "name": "Export features to CSV",
+      "description": "Allow exporting the feature list to CSV format for reporting",
+      "priority": 3,
+      "status": "pending",
+      "verification": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": ["CSV file generated with all features", "Headers match schema"]
+      },
+      "relatedFiles": [],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-015"
+      },
+      "createdAt": "2026-01-16T14:00:00Z",
+      "updatedAt": "2026-01-16T14:00:00Z"
     }
   ],
-  "fixes": []
+  "fixes": [
+    {
+      "id": "fix-feature-013-001",
+      "name": "Session cleanup not triggering on Windows",
+      "description": "The SessionEnd hook doesn't clean up sessions properly on Windows WSL",
+      "linkedTo": {
+        "featureId": "feature-013",
+        "featureName": "Parallel Work Streams",
+        "issueNumber": 25
+      },
+      "type": "bugfix",
+      "status": "pending",
+      "verification": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": ["Sessions cleaned up on /clear in WSL"],
+        "inherited": true
+      },
+      "relatedFiles": ["hooks/session-end.sh"],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "fix/feature-013-session-cleanup"
+      },
+      "createdAt": "2026-01-16T14:00:00Z",
+      "updatedAt": "2026-01-16T14:00:00Z"
+    }
+  ]
 }

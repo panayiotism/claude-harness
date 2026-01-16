@@ -90,6 +90,15 @@
       "rationale": "Previous soft instructions were not being followed. CRITICAL + DO NOT SKIP ensures ephemeral files are properly gitignored",
       "alternatives": ["Keep as optional", "Only add to setup.sh"],
       "impact": "commands/setup.md"
+    },
+    {
+      "id": "dec-20260116-003",
+      "timestamp": "2026-01-16T16:50:00Z",
+      "feature": "feature-013",
+      "decision": "Add CRITICAL marker and explicit DO NOT warning for multiSelect requirement",
+      "rationale": "User reported that in plugin installations, the interactive menu only allowed single selection despite multiSelect: true in docs. More explicit instructions needed to ensure Claude follows the requirement.",
+      "alternatives": ["Keep subtle instruction", "Remove multi-select entirely"],
+      "impact": "commands/do.md"
     }
   ]
 }

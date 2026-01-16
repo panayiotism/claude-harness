@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v3.8
+# Claude Code Long-Running Agent Harness Setup v3.9
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v3.8 ==="
+echo "=== Claude Code Agent Harness Setup v3.9 ==="
 echo ""
 
 # Detect project info
@@ -329,6 +329,7 @@ mkdir -p .claude-harness/features/tests
 mkdir -p .claude-harness/agents
 mkdir -p .claude-harness/loops
 mkdir -p .claude-harness/sessions
+mkdir -p .claude-harness/worktrees
 
 # ============================================================================
 # 1. CLAUDE.md - Main context file
@@ -583,6 +584,15 @@ create_file ".claude-harness/loops/state.json" '{
   "history": [],
   "lastCheckpoint": null,
   "escalationRequested": false
+}'
+
+# ============================================================================
+# 9.5. WORKTREES: Registry for parallel development worktrees
+# ============================================================================
+
+create_file ".claude-harness/worktrees/registry.json" '{
+  "version": 1,
+  "worktrees": []
 }'
 
 # ============================================================================
@@ -1214,7 +1224,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v3.8.5 - Session Cleanup) ==="
+echo "=== Setup Complete (v3.9.0 - Git Worktree Support) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1239,6 +1249,8 @@ echo "  │   └── tests/"
 echo "  ├── agents/"
 echo "  │   ├── context.json"
 echo "  │   └── handoffs.json"
+echo "  ├── worktrees/"
+echo "  │   └── registry.json         (worktree tracking)"
 echo "  ├── loops/state.json"
 echo "  ├── sessions/               (gitignored, per-instance)"
 echo "  │   └── {uuid}/             (session-scoped state)"
@@ -1264,14 +1276,15 @@ echo "  2. Run /claude-harness:start to compile context and see status"
 echo "  3. Run /claude-harness:do \"feature description\" to create and implement features"
 echo "  4. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v3.8.5 Features:"
+echo "v3.9.0 Features:"
+echo "  • Git Worktree Support - True parallel development with isolated directories"
+echo "  • Auto-worktree for /do - Each new feature gets its own worktree by default"
+echo "  • --inline flag - Skip worktree for quick fixes in same directory"
+echo "  • /worktree command - Manage worktrees (create, list, remove)"
+echo "  • Worktree-aware /start - Detects worktree mode, loads shared state"
 echo "  • Automatic Session Cleanup - Old sessions cleaned on exit (PID-based)"
 echo "  • Parallel Work Streams - Multiple Claude instances on different features"
 echo "  • Session-Scoped State - Isolated state per instance (sessions/{uuid}/)"
-echo "  • Auto-gitignore - Ephemeral files automatically excluded"
-echo "  • Unified /claude-harness:do command - features AND fixes in one command"
-echo "  • Auto-reflect at checkpoint - learns from user corrections"
 echo "  • 5-Layer Memory Architecture (Working/Episodic/Semantic/Procedural/Learned)"
 echo "  • Failure Prevention (learns from mistakes)"
-echo "  • Context Compilation (fresh, relevant context each session)"
 echo ""

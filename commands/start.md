@@ -74,6 +74,53 @@ Before anything else, check if legacy root-level harness files need migration:
      ```
    - Report: "Created missing state file: {filename}"
 
+## Phase 0.5: Worktree Detection
+
+Before compiling context, detect if we're running in a git worktree and establish correct paths:
+
+1. **Detect worktree mode**:
+   ```bash
+   GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+   GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+
+   if [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
+       IS_WORKTREE=true
+       MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
+   else
+       IS_WORKTREE=false
+       MAIN_REPO_PATH="."
+   fi
+   ```
+
+2. **Set path variables based on mode**:
+   - **Shared state (read from main repo)**:
+     - `FEATURES_FILE="${MAIN_REPO_PATH}/.claude-harness/features/active.json"`
+     - `ARCHIVE_FILE="${MAIN_REPO_PATH}/.claude-harness/features/archive.json"`
+     - `MEMORY_DIR="${MAIN_REPO_PATH}/.claude-harness/memory/"`
+     - `WORKTREES_REGISTRY="${MAIN_REPO_PATH}/.claude-harness/worktrees/registry.json"`
+   - **Local state (read/write in current directory)**:
+     - `SESSION_DIR=".claude-harness/sessions/{session-id}/"`
+     - `LOCAL_HARNESS=".claude-harness/"`
+
+3. **Verify main repo harness exists** (if worktree):
+   - If `IS_WORKTREE=true` and `${MAIN_REPO_PATH}/.claude-harness/` doesn't exist:
+     - Display error: "Main repo harness not found. Run /claude-harness:setup in main repo first."
+     - Abort with instructions
+
+4. **Display worktree status** (if applicable):
+   ```
+   ┌─────────────────────────────────────────────────────────────────┐
+   │  🌳 WORKTREE MODE                                               │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  Branch: {current branch}                                       │
+   │  Main repo: {MAIN_REPO_PATH}                                    │
+   │  Shared state: features, memory (from main repo)                │
+   │  Local state: sessions (this worktree)                          │
+   └─────────────────────────────────────────────────────────────────┘
+   ```
+
+**Important**: All subsequent phases must use these path variables instead of hardcoded paths.
+
 ## Phase 1: Context Compilation (Memory System)
 
 **Session ID**: The SessionStart hook automatically generates a unique session ID and creates a session directory at `.claude-harness/sessions/{session-id}/`. All session-specific state files should use this directory. The session ID is provided in the hook output as `sessionId` and `sessionDir`.
@@ -81,22 +128,22 @@ Before anything else, check if legacy root-level harness files need migration:
 1. **Compile working context from memory layers**:
    - Get session directory from SessionStart hook output (`.claude-harness/sessions/{session-id}/`)
    - Clear/initialize session context file: `.claude-harness/sessions/{session-id}/context.json`
-   - Read `.claude-harness/features/active.json` (or legacy `feature-list.json`) to identify active feature
+   - Read `${FEATURES_FILE}` (uses MAIN_REPO_PATH in worktree mode) to identify active feature
 
 2. **Query procedural memory for failures to avoid**:
-   - Read `.claude-harness/memory/procedural/failures.json`
+   - Read `${MEMORY_DIR}/procedural/failures.json` (from main repo in worktree mode)
    - If active feature exists, filter entries where `feature` matches or `files` overlap with `relatedFiles`
    - Extract top 5 most recent relevant failures
    - Add to `relevantMemory.avoidApproaches` in working context
 
 3. **Query procedural memory for successful approaches**:
-   - Read `.claude-harness/memory/procedural/successes.json`
+   - Read `${MEMORY_DIR}/procedural/successes.json` (from main repo in worktree mode)
    - Filter entries for similar file patterns or feature types
    - Extract top 5 most relevant successes
    - Add to `relevantMemory.projectPatterns` in working context
 
 4. **Query episodic memory for recent decisions**:
-   - Read `.claude-harness/memory/episodic/decisions.json`
+   - Read `${MEMORY_DIR}/episodic/decisions.json` (from main repo in worktree mode)
    - Get entries from last 7 days or last 20 entries (whichever is smaller)
    - Add to `relevantMemory.recentDecisions` in working context
 
@@ -146,7 +193,7 @@ Before anything else, check if legacy root-level harness files need migration:
 ## Phase 1.6: Load Learned Rules
 
 6.5. **Load and display learned rules from user corrections**:
-   - Read `.claude-harness/memory/learned/rules.json`
+   - Read `${MEMORY_DIR}/learned/rules.json` (from main repo in worktree mode)
    - If file exists and has active rules (`rules` array with `active: true`):
 
    - Filter rules for current context:
@@ -209,11 +256,11 @@ Before anything else, check if legacy root-level harness files need migration:
 
 9. Read `.claude-harness/claude-progress.json` for session context
 
-10. Read `.claude-harness/features/active.json` (or legacy `feature-list.json`) to identify next priority
-   - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" .claude-harness/features/active.json` to see pending features
+10. Read `${FEATURES_FILE}` (or legacy `feature-list.json`) to identify next priority
+   - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" ${FEATURES_FILE}` to see pending features
    - Run `/claude-harness:checkpoint` to auto-archive completed features and reduce file size
 
-11. Optionally check `.claude-harness/features/archive.json` (or legacy `feature-archive.json`) to see completed feature count/history
+11. Optionally check `${ARCHIVE_FILE}` (or legacy `feature-archive.json`) to see completed feature count/history
 
 ## Phase 3: Loop & Orchestration State
 
@@ -253,7 +300,7 @@ Before anything else, check if legacy root-level harness files need migration:
      - Recommend: increase maxAttempts or provide guidance
 
 12b. **Check pending fixes**:
-   - Read `.claude-harness/features/active.json`
+   - Read `${FEATURES_FILE}` (from main repo in worktree mode)
    - Check `fixes` array for entries with `status` != "passing"
    - If pending fixes exist:
      ```
@@ -275,7 +322,7 @@ Before anything else, check if legacy root-level harness files need migration:
    - If active orchestration exists, recommend: "Run `/claude-harness:orchestrate {feature-id}` to resume"
 
 14. Check procedural memory hotspots:
-   - Read `.claude-harness/memory/procedural/patterns.json` if it exists
+   - Read `${MEMORY_DIR}/procedural/patterns.json` if it exists (from main repo in worktree mode)
    - Report any `codebaseInsights.hotspots` that may affect current work
    - Show success/failure rates if significant history exists
 
@@ -309,9 +356,9 @@ Before anything else, check if legacy root-level harness files need migration:
    - Open issues with "feature" label
    - Open PRs from feature branches
    - CI/CD status for open PRs
-   - Cross-reference with .claude-harness/features/active.json
+   - Cross-reference with `${FEATURES_FILE}`
 
-18. Sync GitHub Issues with .claude-harness/features/active.json:
+18. Sync GitHub Issues with `${FEATURES_FILE}`:
    - For each GitHub issue with "feature" label NOT in active.json:
      - Add new entry with issueNumber linked
    - For each feature in active.json with status="passing" or passes=true:

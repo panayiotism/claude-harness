@@ -1,6 +1,6 @@
 # Claude Code Long-Running Agent Harness
 
-A Claude Code plugin for automated, context-preserving coding sessions with **4-layer memory architecture**, failure prevention, test-driven features, GitHub integration, and multi-agent orchestration.
+A Claude Code plugin for automated, context-preserving coding sessions with **5-layer memory architecture**, failure prevention, test-driven features, GitHub integration, **git worktree support for parallel development**, and multi-agent orchestration.
 
 Based on [Anthropic's engineering article](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) and enhanced with patterns from:
 - [Context-Engine](https://github.com/zeddy89/Context-Engine) - Memory architecture
@@ -17,13 +17,15 @@ claude plugin install claude-harness github:panayiotism/claude-harness
 cd your-project && claude
 /claude-harness:setup
 
-# One command does it all: create → plan → implement → checkpoint
+# One command does it all: create → worktree → plan → implement → checkpoint
 /claude-harness:do "Add user authentication with JWT tokens"
+# Creates worktree at ../your-project-feature-XXX/ (isolated working directory)
+# Then gives you instructions to continue in the new worktree
 ```
 
-The `/do` command chains all steps automatically with interactive checkpoints. Use `--quick` to skip planning for simple tasks, or `--auto` for full automation.
+The `/do` command chains all steps automatically with interactive checkpoints. By default, each new feature gets its own git worktree for true parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
 
-### Complete Workflow (7 Commands Total)
+### Complete Workflow (8 Commands Total)
 
 ```bash
 # 1. SETUP (one-time)
@@ -32,11 +34,11 @@ The `/do` command chains all steps automatically with interactive checkpoints. U
 # 2. START SESSION
 /claude-harness:start                    # Compile context, show status
 
-# 3. DEVELOPMENT - Features and Fixes
-/claude-harness:do "Add authentication"  # New feature (full workflow)
+# 3. DEVELOPMENT - Features and Fixes (auto-creates worktree by default)
+/claude-harness:do "Add authentication"  # New feature + worktree (default)
+/claude-harness:do --inline "Quick fix"  # Skip worktree, work in current dir
 /claude-harness:do --fix feature-001 "Token bug"  # Bug fix linked to feature
 /claude-harness:do feature-001           # Resume existing feature/fix
-/claude-harness:do --quick "Simple fix"  # Skip planning for simple tasks
 
 # 3b. TDD DEVELOPMENT - Test-Driven (tests first)
 /claude-harness:do-tdd "Add authentication"  # TDD: write tests BEFORE code
@@ -44,10 +46,14 @@ The `/do` command chains all steps automatically with interactive checkpoints. U
 # 4. MANUAL CHECKPOINT (optional - /do includes checkpoint)
 /claude-harness:checkpoint               # Commit, push, create PR
 
-# 5. ADVANCED - Multi-agent (for complex features)
+# 5. WORKTREE MANAGEMENT
+/claude-harness:worktree list            # Show all worktrees
+/claude-harness:worktree remove feature-001  # Clean up after merge
+
+# 6. ADVANCED - Multi-agent (for complex features)
 /claude-harness:orchestrate feature-001  # Spawn specialized agent team
 
-# 6. RELEASE
+# 7. RELEASE
 /claude-harness:merge                    # Merge all PRs, auto-version, release
 ```
 
@@ -61,12 +67,20 @@ The `/do` command chains all steps automatically with interactive checkpoints. U
 
 /do              → UNIFIED WORKFLOW (handles features AND fixes):
                    1. Creates feature/fix (GitHub issue + branch)
-                   2. Plans implementation (checks past failures)
-                   3. Agentic loop until verification passes
-                   4. Auto-reflects on user corrections
-                   5. Commits, pushes, creates PR
-                   Options: --quick (skip planning), --auto (no prompts)
+                   2. Creates worktree at ../project-feature-XXX/ (default)
+                   3. Pauses with instructions to enter worktree
+                   4. (In worktree) Plans implementation (checks past failures)
+                   5. Agentic loop until verification passes
+                   6. Auto-reflects on user corrections
+                   7. Commits, pushes, creates PR
+                   Options: --inline (skip worktree), --quick (skip planning)
                    Resume: /do feature-001 or /do resume
+
+/worktree        → WORKTREE MANAGEMENT:
+                   list - Show all worktrees and their status
+                   create - Create worktree for existing feature
+                   remove - Clean up worktree after merge
+                   prune - Clean up stale worktree references
 
 /do-tdd          → TDD WORKFLOW (tests first):
                    1. Creates feature/fix (same as /do)
@@ -96,8 +110,43 @@ The `/do` command chains all steps automatically with interactive checkpoints. U
 │   ├── procedural/  → Append-only success/failure logs (never repeat mistakes)
 │   └── learned/     → Rules from user corrections (self-improving)
 ├── features/        → Shared feature registry (active.json, archive.json)
+├── worktrees/       → Worktree registry for parallel development
+│   └── registry.json→ Tracks all active worktrees
 └── sessions/        → Per-session state (gitignored, enables parallel work)
     └── {uuid}/      → Each Claude instance gets isolated loop/context state
+```
+
+### Git Worktree Support (v3.9)
+
+True parallel development: each feature gets its own isolated working directory.
+
+```
+~/dev/project/                    # Main repo (shared state)
+~/dev/project-feature-014/        # Worktree for feature-014
+~/dev/project-feature-015/        # Worktree for feature-015
+```
+
+**Why worktrees?**
+- Multiple Claude instances can work on different features simultaneously
+- No branch checkout conflicts (each worktree has its own branch)
+- Shared .git database (space-efficient, no sync issues)
+- Industry standard (used by incident.io, Cursor, etc.)
+
+**Workflow:**
+```bash
+# In main repo: create feature (auto-creates worktree)
+/claude-harness:do "Add authentication"
+# → Creates worktree at ../project-feature-XXX/
+# → Displays instructions to enter worktree
+
+# Open new terminal, enter worktree
+cd ../project-feature-XXX
+claude
+/claude-harness:do feature-XXX   # Resume implementation
+
+# After merge, clean up
+cd ../project
+/claude-harness:worktree remove feature-XXX
 ```
 
 ### Session Cleanup (Automatic)
@@ -116,18 +165,31 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v3.6.0 (Memory Architecture)     │
+│                  CLAUDE HARNESS v3.9.0 (Memory Architecture)     │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
 ├─────────────────────────────────────────────────────────────────┤
 │  /claude-harness:setup          Initialize harness (one-time)   │
 │  /claude-harness:start          Compile context + GitHub sync   │
-│  /claude-harness:do             Unified workflow (features+fixes)│
+│  /claude-harness:do             Unified workflow (auto-worktree)│
 │  /claude-harness:do-tdd         TDD workflow (tests first)      │
 │  /claude-harness:checkpoint     Commit + persist memory         │
+│  /claude-harness:worktree       Manage worktrees (list/remove)  │
 │  /claude-harness:orchestrate    Spawn multi-agent team          │
 │  /claude-harness:merge          Merge PRs + auto-version        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+When in a worktree:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🌳 WORKTREE MODE                                               │
+├─────────────────────────────────────────────────────────────────┤
+│  Branch: feature/feature-014                                    │
+│  Main repo: ../project/                                         │
+│  Shared state: features, memory (from main repo)                │
+│  Local state: sessions (this worktree)                          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -135,6 +197,7 @@ Shows:
 - **Feature status**: P (Pending) / WIP (Work-in-progress) / Tests (Needs tests)
 - **Memory stats**: Decisions recorded, failures to avoid, successes to reuse
 - **Failure prevention**: If failures exist, warns before implementing
+- **Worktree mode**: If running in worktree, shows main repo location
 
 ## v3.0 Memory Architecture
 
@@ -313,15 +376,16 @@ Successful Patterns to Use:
 
 Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 
-## Commands Reference (7 Total)
+## Commands Reference (8 Total)
 
 | Command | Purpose |
 |---------|---------|
 | `/claude-harness:setup` | Initialize harness in project (one-time) |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
-| **`/claude-harness:do`** | **Unified workflow**: features AND fixes |
+| **`/claude-harness:do`** | **Unified workflow**: features AND fixes (auto-worktree) |
 | **`/claude-harness:do-tdd`** | **TDD workflow**: tests first, then implement |
 | `/claude-harness:checkpoint` | Manual commit + push + PR |
+| `/claude-harness:worktree` | Manage worktrees (list, create, remove, prune) |
 | `/claude-harness:orchestrate <id>` | Spawn multi-agent team (advanced) |
 | `/claude-harness:merge` | Merge all PRs, auto-version, release |
 
@@ -329,7 +393,8 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 
 | Syntax | Behavior |
 |--------|----------|
-| `/do "Add feature"` | Full workflow with interactive prompts |
+| `/do "Add feature"` | Full workflow with worktree (default) |
+| `/do --inline "Quick fix"` | Skip worktree, work in current directory |
 | `/do --fix feature-001 "Bug"` | Create bug fix linked to feature |
 | `/do feature-001` | Resume existing feature |
 | `/do fix-feature-001-001` | Resume existing fix |
@@ -337,6 +402,16 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/do --quick "Simple change"` | Skip planning phase |
 | `/do --auto "Add Y"` | No prompts, full automation |
 | `/do --plan-only "Big feature"` | Plan only, implement later |
+
+### `/worktree` Command Options
+
+| Syntax | Behavior |
+|--------|----------|
+| `/worktree list` | Show all worktrees and their status |
+| `/worktree create feature-XXX` | Create worktree for existing feature |
+| `/worktree remove feature-XXX` | Remove worktree after merge |
+| `/worktree remove feature-XXX --force` | Force remove even with uncommitted changes |
+| `/worktree prune` | Clean up stale worktree references |
 
 ### `/do-tdd` Command Options
 
@@ -387,8 +462,12 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 ├── agents/
 │   ├── context.json              # Orchestration state
 │   └── handoffs.json             # Agent handoff queue
+├── worktrees/
+│   └── registry.json             # Worktree tracking for parallel dev
 ├── loops/
 │   └── state.json                # Agentic loop state
+├── sessions/                     # Per-session state (gitignored)
+│   └── {uuid}/                   # Isolated loop/context per session
 ├── config.json                   # Plugin configuration
 └── claude-progress.json          # Session summary
 ```
@@ -631,6 +710,9 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.9.2** | **Fix Multi-Select in Interactive Menu**: Made `multiSelect: true` requirement more explicit in `/do` Phase 0 documentation. Added CRITICAL marker and "DO NOT use multiSelect: false" warning to ensure parallel feature selection works correctly. |
+| **3.9.1** | **Interactive Feature Selection**: Running `/do` without arguments now shows an interactive menu of pending features with multi-select checkboxes. Select one to resume, select multiple to create worktrees for parallel development, or choose "Other" to create a new feature. |
+| **3.9.0** | **Git Worktree Support**: True parallel development with isolated working directories. `/do` now auto-creates worktrees by default (use `--inline` to skip). New `/worktree` command for managing worktrees (list, create, remove, prune). All commands are worktree-aware, reading shared state (features, memory) from main repo while keeping session state local. Industry-standard approach used by incident.io and others. |
 | **3.8.6** | **Fix SessionEnd Hook for Plugin Installations**: SessionEnd hook now uses `hooks/hooks.json` (plugin configuration) instead of `.claude/settings.json` (project configuration). This ensures automatic session cleanup works in all projects where the plugin is installed, not just the plugin's own repo. |
 | **3.8.5** | **Automatic Session Cleanup**: Added `SessionEnd` hook that automatically cleans up inactive session directories when Claude exits. Uses PID-based detection to preserve active parallel sessions while removing stale ones. Prevents disk bloat from accumulated sessions. |
 | **3.8.4** | **Enforce Gitignore in /setup**: Made Phase 3 (gitignore update) MANDATORY with explicit instructions. Marked as CRITICAL with "DO NOT SKIP" to ensure ephemeral patterns are always added. |
