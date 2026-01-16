@@ -710,6 +710,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.9.6** | **Remote Branch Cleanup in Merge**: `/merge` command now explicitly deletes remote branches after PR merge using `git push origin --delete {branch}`. Phase 4 clarified to include both remote and local deletion, Phase 7 adds verification step, Phase 8 reports both local and remote deletions. |
 | **3.9.2** | **Fix Multi-Select in Interactive Menu**: Made `multiSelect: true` requirement more explicit in `/do` Phase 0 documentation. Added CRITICAL marker and "DO NOT use multiSelect: false" warning to ensure parallel feature selection works correctly. |
 | **3.9.1** | **Interactive Feature Selection**: Running `/do` without arguments now shows an interactive menu of pending features with multi-select checkboxes. Select one to resume, select multiple to create worktrees for parallel development, or choose "Other" to create a new feature. |
 | **3.9.0** | **Git Worktree Support**: True parallel development with isolated working directories. `/do` now auto-creates worktrees by default (use `--inline` to skip). New `/worktree` command for managing worktrees (list, create, remove, prune). All commands are worktree-aware, reading shared state (features, memory) from main repo while keeping session state local. Industry-standard approach used by incident.io and others. |
