@@ -97,7 +97,7 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
      d. Initialize harness in worktree
      e. Run environment setup (npm install, copy .env, etc.)
      f. Register in `worktrees/registry.json`
-   - Display summary table:
+   - Display worktree creation summary:
      ```
      ┌─────────────────────────────────────────────────────────────────┐
      │  ✅ WORKTREES READY FOR SELECTED FEATURES                       │
@@ -105,26 +105,77 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
      │  Feature         Path                           Status          │
      │  ─────────────────────────────────────────────────────────────  │
      │  feature-001     ../myproject-feature-001/      ✅ Ready        │
-     │  feature-002     ../myproject-feature-002/      ✅ Created      │
-     │  fix-feature-001 ../myproject-fix-feature-001/  ✅ Ready        │
-     ├─────────────────────────────────────────────────────────────────┤
-     │  🎯 NEXT STEPS:                                                 │
-     │                                                                 │
-     │  Open separate terminals for each feature:                      │
-     │                                                                 │
-     │  Terminal 1:                                                    │
-     │    cd ../myproject-feature-001 && claude                        │
-     │    /claude-harness:do feature-001                               │
-     │                                                                 │
-     │  Terminal 2:                                                    │
-     │    cd ../myproject-feature-002 && claude                        │
-     │    /claude-harness:do feature-002                               │
-     │                                                                 │
-     │  ... (one per selected feature)                                 │
+     │  feature-002     ../myproject-feature-002/      ✅ Ready        │
      └─────────────────────────────────────────────────────────────────┘
      ```
-   - **STOP HERE** - User needs to open separate terminals
-   - Do NOT continue to Phase 1
+
+   **Step 7a: Spawn Parallel Subagents (AUTOMATIC)**
+
+   For each worktree, spawn a background subagent using the **Task tool**:
+
+   - Use a **single message with multiple Task tool calls** (one per feature)
+   - Each Task call parameters:
+     - `subagent_type`: "general-purpose"
+     - `run_in_background`: true
+     - `description`: "Implement {feature-id}"
+     - `prompt`: Use the template below
+
+   **Subagent prompt template**:
+   ```
+   You are implementing a feature in a parallel development session.
+
+   ## Context
+   - Feature ID: {feature-id}
+   - Feature Name: {feature-name}
+   - Worktree Path: {worktree-absolute-path}
+   - Branch: {branch-name}
+
+   ## Instructions
+   1. Change to the worktree directory:
+      cd {worktree-absolute-path}
+
+   2. Read feature details:
+      Read .claude-harness/features/active.json to get full feature specification
+
+   3. Implement the feature:
+      - Analyze requirements and plan implementation
+      - Write the code (follow existing patterns in codebase)
+      - Run verification commands (build, test, lint, typecheck)
+      - Fix any issues until all verifications pass
+
+   4. Commit and push:
+      - Stage all changes: git add -A
+      - Commit with message: feat({feature-id}): {feature-name}
+      - Push to remote: git push -u origin {branch-name}
+
+   5. Create/update PR if GitHub MCP available
+
+   ## Report
+   When complete, report:
+   - Status: success/failure
+   - Files changed (list)
+   - PR number (if created)
+   - Any blockers or issues encountered
+   ```
+
+   - Display spawning status:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  🚀 PARALLEL SUBAGENTS SPAWNED                                  │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Feature         Worktree Path                    Task ID       │
+     │  ─────────────────────────────────────────────────────────────  │
+     │  feature-001     ../myproject-feature-001/        {task-id-1}   │
+     │  feature-002     ../myproject-feature-002/        {task-id-2}   │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Agents running in background.                                  │
+     │  Check progress: /tasks or use TaskOutput tool                  │
+     │  Results will be in each worktree's PR when complete.          │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+
+   - **Return control to user** - agents continue working in background
+   - Do NOT continue to Phase 1 (subagents handle their own workflows)
 
    **If user selects "Other"**:
    - Use **AskUserQuestion** to prompt for new feature description

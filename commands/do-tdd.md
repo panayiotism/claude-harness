@@ -107,7 +107,7 @@ If `/do-tdd` is called without arguments, show an interactive menu of incomplete
      d. Initialize harness in worktree
      e. Run environment setup (npm install, copy .env, etc.)
      f. Register in `worktrees/registry.json`
-   - Display summary table:
+   - Display worktree creation summary:
      ```
      ┌─────────────────────────────────────────────────────────────────┐
      │  ✅ WORKTREES READY FOR SELECTED FEATURES (TDD MODE)            │
@@ -115,26 +115,92 @@ If `/do-tdd` is called without arguments, show an interactive menu of incomplete
      │  Feature         Path                           Status          │
      │  ─────────────────────────────────────────────────────────────  │
      │  feature-001     ../myproject-feature-001/      ✅ Ready        │
-     │  feature-002     ../myproject-feature-002/      ✅ Created      │
-     │  fix-feature-001 ../myproject-fix-feature-001/  ✅ Ready        │
-     ├─────────────────────────────────────────────────────────────────┤
-     │  🎯 NEXT STEPS (TDD workflow in each worktree):                 │
-     │                                                                 │
-     │  Open separate terminals for each feature:                      │
-     │                                                                 │
-     │  Terminal 1:                                                    │
-     │    cd ../myproject-feature-001 && claude                        │
-     │    /claude-harness:do-tdd feature-001                           │
-     │                                                                 │
-     │  Terminal 2:                                                    │
-     │    cd ../myproject-feature-002 && claude                        │
-     │    /claude-harness:do-tdd feature-002                           │
-     │                                                                 │
-     │  ... (one per selected feature)                                 │
+     │  feature-002     ../myproject-feature-002/      ✅ Ready        │
      └─────────────────────────────────────────────────────────────────┘
      ```
-   - **STOP HERE** - User needs to open separate terminals
-   - Do NOT continue to Phase 1
+
+   **Step 7a: Spawn Parallel TDD Subagents (AUTOMATIC)**
+
+   For each worktree, spawn a background subagent using the **Task tool**:
+
+   - Use a **single message with multiple Task tool calls** (one per feature)
+   - Each Task call parameters:
+     - `subagent_type`: "general-purpose"
+     - `run_in_background`: true
+     - `description`: "TDD implement {feature-id}"
+     - `prompt`: Use the template below
+
+   **TDD Subagent prompt template**:
+   ```
+   You are implementing a feature using TDD (Test-Driven Development) in a parallel development session.
+
+   ## Context
+   - Feature ID: {feature-id}
+   - Feature Name: {feature-name}
+   - Worktree Path: {worktree-absolute-path}
+   - Branch: {branch-name}
+   - Mode: TDD (Red-Green-Refactor)
+
+   ## TDD Instructions
+   1. Change to the worktree directory:
+      cd {worktree-absolute-path}
+
+   2. Read feature details:
+      Read .claude-harness/features/active.json to get full feature specification
+
+   3. RED PHASE - Write failing tests FIRST:
+      - Create test files before any implementation
+      - Tests should define expected behavior
+      - Run tests to confirm they FAIL (this is correct)
+
+   4. GREEN PHASE - Write minimal implementation:
+      - Write just enough code to make tests pass
+      - Don't over-engineer, keep it simple
+      - Run tests to confirm they PASS
+
+   5. REFACTOR PHASE - Improve code quality:
+      - Clean up code while keeping tests green
+      - Remove duplication, improve naming
+      - Run tests after each change
+
+   6. Run all verification commands (build, test, lint, typecheck)
+
+   7. Commit and push:
+      - Stage all changes: git add -A
+      - Commit with message: feat({feature-id}): {feature-name} [TDD]
+      - Push to remote: git push -u origin {branch-name}
+
+   8. Create/update PR if GitHub MCP available
+
+   ## Report
+   When complete, report:
+   - Status: success/failure
+   - TDD phases completed: RED/GREEN/REFACTOR
+   - Test files created (list)
+   - Implementation files changed (list)
+   - PR number (if created)
+   - Any blockers or issues encountered
+   ```
+
+   - Display spawning status:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  🚀 PARALLEL TDD SUBAGENTS SPAWNED                              │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Feature         Worktree Path                    Task ID       │
+     │  ─────────────────────────────────────────────────────────────  │
+     │  feature-001     ../myproject-feature-001/        {task-id-1}   │
+     │  feature-002     ../myproject-feature-002/        {task-id-2}   │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  🧪 TDD Mode: Agents will write tests FIRST                     │
+     │  Agents running in background.                                  │
+     │  Check progress: /tasks or use TaskOutput tool                  │
+     │  Results will be in each worktree's PR when complete.          │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+
+   - **Return control to user** - agents continue working in background
+   - Do NOT continue to Phase 1 (subagents handle their own TDD workflows)
 
    **If user selects "Other"**:
    - Use **AskUserQuestion** to prompt for new TDD feature description
