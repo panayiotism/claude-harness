@@ -631,6 +631,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.8.6** | **Fix SessionEnd Hook for Plugin Installations**: SessionEnd hook now uses `hooks/hooks.json` (plugin configuration) instead of `.claude/settings.json` (project configuration). This ensures automatic session cleanup works in all projects where the plugin is installed, not just the plugin's own repo. |
 | **3.8.5** | **Automatic Session Cleanup**: Added `SessionEnd` hook that automatically cleans up inactive session directories when Claude exits. Uses PID-based detection to preserve active parallel sessions while removing stale ones. Prevents disk bloat from accumulated sessions. |
 | **3.8.4** | **Enforce Gitignore in /setup**: Made Phase 3 (gitignore update) MANDATORY with explicit instructions. Marked as CRITICAL with "DO NOT SKIP" to ensure ephemeral patterns are always added. |
 | **3.8.3** | **Add Gitignore to /setup Command**: The `/claude-harness:setup` command now includes Phase 3 to update project `.gitignore` with harness ephemeral patterns (sessions/, compaction-backups/, working/). |

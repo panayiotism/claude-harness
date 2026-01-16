@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/session-end.sh"
+            "command": "$CLAUDE_PLUGIN_ROOT/hooks/session-end.sh"
           }
         ]
       }

@@ -1,27 +1,27 @@
 {
-  "lastUpdated": "2026-01-16T10:05:00Z",
+  "lastUpdated": "2026-01-16T10:15:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Session checkpoint - feature-013 ready for merge (v3.8.5)",
+    "summary": "Fixed SessionEnd hook for plugin installations - v3.8.6",
     "completedTasks": [
-      "Ran /start initialization and compiled memory context",
-      "Verified feature-013 implementation is complete",
-      "Confirmed PR #26 is ready for merge",
-      "Session state working correctly with unique session ID"
+      "Diagnosed SessionEnd hook not working in plugin installations",
+      "Added SessionEnd to hooks/hooks.json (plugin hook config)",
+      "Uses ${CLAUDE_PLUGIN_ROOT} to reference plugin directory",
+      "Bumped version to 3.8.6"
     ],
     "blockers": [],
     "nextSteps": [
-      "Merge PR #26 with /claude-harness:merge",
-      "Close issue #25 automatically via PR merge"
+      "Commit and push changes",
+      "Test in production project after pull"
     ]
   },
   "recentChanges": [
+    "v3.8.6: Fix SessionEnd hook - use hooks/hooks.json for plugin installations",
     "v3.8.5: Automatic session cleanup via SessionEnd hook (PID-based)",
     "v3.8.4: Enforce gitignore in /setup command with MANDATORY phase",
     "v3.8.3: Add gitignore phase to /setup command",
     "v3.8.2: Fix setup.sh heredoc syntax error",
-    "v3.8.1: Add gitignore patterns to setup.sh",
-    "v3.8.0: Parallel Work Streams - Session-Scoped State"
+    "v3.8.1: Add gitignore patterns to setup.sh"
   ],
   "knownIssues": [],
   "environmentState": {
