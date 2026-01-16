@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v3.8.0
+# Claude Harness SessionStart Hook v3.8.4
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 
@@ -11,7 +11,7 @@ if [ ! -d "$HARNESS_DIR" ]; then
 fi
 
 # ============================================================================
-# SESSION MANAGEMENT (v3.8.0 - Parallel Work Streams)
+# SESSION MANAGEMENT (v3.8.4 - Parallel Work Streams)
 # ============================================================================
 
 # Generate unique session ID (UUID or fallback)
@@ -94,7 +94,7 @@ if [ -d "$HARNESS_DIR/memory" ]; then
     FEATURES_FILE="$HARNESS_DIR/features/active.json"
     AGENT_FILE="$HARNESS_DIR/agents/context.json"
 
-    # Session-scoped files (v3.8.0 - parallel work streams)
+    # Session-scoped files (v3.8.4 - parallel work streams)
     # First check if session-specific files exist, fallback to legacy paths
     if [ -d "$SESSION_DIR" ]; then
         LOOP_FILE="$SESSION_DIR/loop-state.json"

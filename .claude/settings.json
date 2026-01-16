@@ -120,7 +120,6 @@
       "Bash(chmod 777 /:*)",
       "Bash(chmod -R 777:*)",
       "Bash(chown -R:*)",
-      "Bash(:(){ :|:& };:)",
       "Bash(eval:*)",
       "Bash(exec:*)",
       "Bash(source /etc:*)",

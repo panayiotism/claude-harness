@@ -1,7 +1,8 @@
 .claude/settings.local.json
-claude-progress.json
 *.log
 .DS_Store
 
-# Session-specific state (ephemeral, per-Claude-instance)
+# Claude Harness - Ephemeral/Per-Session State
 .claude-harness/sessions/
+.claude-harness/memory/compaction-backups/
+.claude-harness/memory/working/

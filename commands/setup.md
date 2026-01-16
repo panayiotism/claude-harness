@@ -88,7 +88,35 @@ If no `.claude-harness/` directory exists, create full v3.0 structure:
 
 **File contents - see schemas below**
 
-## Phase 3: Update Plugin Version
+## Phase 3: Update Project .gitignore (MANDATORY)
+
+**CRITICAL**: You MUST update the project's `.gitignore` to exclude harness ephemeral files. This prevents uncommitted file clutter after `/checkpoint`.
+
+**Execute these steps:**
+
+1. Read the current `.gitignore` file (create if missing)
+
+2. Check if `.claude-harness/sessions/` pattern exists in the file
+
+3. If the pattern is NOT present, append these lines to `.gitignore`:
+   ```
+
+   # Claude Harness - Ephemeral/Per-Session State
+   .claude-harness/sessions/
+   .claude-harness/memory/compaction-backups/
+   .claude-harness/memory/working/
+
+   # Claude Code - Local settings
+   .claude/settings.local.json
+   ```
+
+4. Use the Edit tool to append these patterns to `.gitignore`
+
+5. Report: "✓ Updated .gitignore with harness ephemeral patterns"
+
+**DO NOT SKIP THIS PHASE** - it is required for proper harness operation.
+
+## Phase 4: Update Plugin Version
 
 Always update the plugin version tracking:
 1. Read current plugin version from the installed plugin
