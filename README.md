@@ -89,13 +89,26 @@ The `/do` command chains all steps automatically with interactive checkpoints. U
 ### v3.0 Memory Architecture
 
 ```
-.claude-harness/memory/
-├── working/     → Rebuilt each session (fresh, relevant context)
-├── episodic/    → Rolling window of 50 recent decisions
-├── semantic/    → Persistent project architecture & patterns
-├── procedural/  → Append-only success/failure logs (never repeat mistakes)
-└── learned/     → Rules from user corrections (self-improving)
+.claude-harness/
+├── memory/
+│   ├── episodic/    → Rolling window of 50 recent decisions
+│   ├── semantic/    → Persistent project architecture & patterns
+│   ├── procedural/  → Append-only success/failure logs (never repeat mistakes)
+│   └── learned/     → Rules from user corrections (self-improving)
+├── features/        → Shared feature registry (active.json, archive.json)
+└── sessions/        → Per-session state (gitignored, enables parallel work)
+    └── {uuid}/      → Each Claude instance gets isolated loop/context state
 ```
+
+### Session Cleanup (Automatic)
+
+Session directories are automatically cleaned up when Claude exits. The `SessionEnd` hook detects inactive sessions by checking their PID:
+
+- **Active sessions** (PID still running) are preserved
+- **Inactive sessions** (PID no longer running) are deleted
+- **Current session** is never deleted during its own exit
+
+This ensures parallel Claude instances don't interfere with each other while preventing disk bloat from accumulated sessions.
 
 ## Session Start Hook
 
@@ -618,6 +631,12 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.8.5** | **Automatic Session Cleanup**: Added `SessionEnd` hook that automatically cleans up inactive session directories when Claude exits. Uses PID-based detection to preserve active parallel sessions while removing stale ones. Prevents disk bloat from accumulated sessions. |
+| **3.8.4** | **Enforce Gitignore in /setup**: Made Phase 3 (gitignore update) MANDATORY with explicit instructions. Marked as CRITICAL with "DO NOT SKIP" to ensure ephemeral patterns are always added. |
+| **3.8.3** | **Add Gitignore to /setup Command**: The `/claude-harness:setup` command now includes Phase 3 to update project `.gitignore` with harness ephemeral patterns (sessions/, compaction-backups/, working/). |
+| **3.8.2** | **Fix setup.sh Syntax Error**: Fixed heredoc quoting issue that prevented `setup.sh` from running. The init.sh content now uses proper quoted heredoc (`<<'EOF'`) to preserve special characters. |
+| **3.8.1** | **Fix Uncommitted Harness Files**: `setup.sh` now automatically adds gitignore patterns to target projects. Prevents ephemeral files (sessions/, compaction-backups/, working/) from appearing as uncommitted after checkpoint. |
+| **3.8.0** | **Parallel Work Streams**: Session-scoped state enables multiple Claude instances to work on different features simultaneously without conflicts. Each session gets unique ID and isolated state directory (`.claude-harness/sessions/{id}/`). Sessions are gitignored, shared state (features, memory) remains committed. |
 | **3.7.1** | **Fix Missing Learned Rules**: Fixed error when reading `.claude-harness/memory/learned/rules.json` on installations from pre-v3.6. `/start` Phase 0 now creates the file if missing. |
 | **3.7.0** | **TDD Enforcement Command**: New `/claude-harness:do-tdd` command for test-driven development. Enforces RED-GREEN-REFACTOR workflow, blocks implementation until tests exist. Keeps `/do` unchanged for backward compatibility. |
 | **3.6.7** | **Fix GitHub Repo Detection**: Added explicit `git remote get-url origin` parsing instructions to all commands that use GitHub MCP. Prevents Claude from guessing or caching wrong owner/repo values from previous sessions. |

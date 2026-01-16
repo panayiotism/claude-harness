@@ -72,6 +72,24 @@
       "rationale": "Squash merge keeps main branch clean with one commit per feature. Preserves full history in PR for reference.",
       "alternatives": ["Merge commit", "Rebase and merge"],
       "impact": "Git history on main branch"
+    },
+    {
+      "id": "dec-20260116-001",
+      "timestamp": "2026-01-16T07:15:00Z",
+      "feature": "feature-013",
+      "decision": "Use quoted heredoc for init.sh content in setup.sh",
+      "rationale": "Single quotes inside single-quoted string caused syntax error. Quoted heredoc (<<'EOF') preserves all special characters including single quotes",
+      "alternatives": ["Escape quotes manually", "Use different delimiter syntax"],
+      "impact": "setup.sh"
+    },
+    {
+      "id": "dec-20260116-002",
+      "timestamp": "2026-01-16T07:15:00Z",
+      "feature": "feature-013",
+      "decision": "Make gitignore update MANDATORY in /setup command",
+      "rationale": "Previous soft instructions were not being followed. CRITICAL + DO NOT SKIP ensures ephemeral files are properly gitignored",
+      "alternatives": ["Keep as optional", "Only add to setup.sh"],
+      "impact": "commands/setup.md"
     }
   ]
 }
