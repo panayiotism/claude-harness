@@ -781,6 +781,57 @@ create_file ".claude-harness/init.sh" "$INIT_CONTENT"
 chmod +x .claude-harness/init.sh 2>/dev/null || true
 
 # ============================================================================
+# 12.5. hooks/ directory - Session hooks
+# ============================================================================
+
+mkdir -p hooks
+
+# Session End Hook - Clean up inactive session directories
+SESSION_END_HOOK=$(cat <<'SESSIONENDEOF'
+#!/bin/bash
+# Session End Hook - Clean up inactive session directories
+# Runs automatically when a Claude Code session ends
+# Only removes sessions where the PID is no longer running (inactive)
+
+HARNESS_DIR="${CLAUDE_PROJECT_DIR:-.}/.claude-harness"
+SESSIONS_DIR="$HARNESS_DIR/sessions"
+
+# Exit if no sessions directory
+[ -d "$SESSIONS_DIR" ] || exit 0
+
+# Get current session ID from stdin (JSON input from SessionEnd hook)
+INPUT=$(cat)
+CURRENT_SESSION=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+
+# Iterate through all session directories
+for session_dir in "$SESSIONS_DIR"/*/; do
+  [ -d "$session_dir" ] || continue
+
+  session_id=$(basename "$session_dir")
+  session_file="$session_dir/session.json"
+
+  # Skip current session (the one that's ending)
+  [ "$session_id" = "$CURRENT_SESSION" ] && continue
+
+  # Skip if no session.json (malformed session)
+  [ -f "$session_file" ] || continue
+
+  # Get PID from session.json
+  pid=$(jq -r '.pid // empty' "$session_file" 2>/dev/null)
+
+  # If no PID or PID is not running, session is inactive - delete it
+  if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+    rm -rf "$session_dir"
+  fi
+done
+
+exit 0
+SESSIONENDEOF
+)
+create_file "hooks/session-end.sh" "$SESSION_END_HOOK"
+chmod +x hooks/session-end.sh 2>/dev/null || true
+
+# ============================================================================
 # 13. .claude directory structure
 # ============================================================================
 
@@ -791,6 +842,18 @@ mkdir -p .claude/commands
 # ============================================================================
 
 create_file ".claude/settings.local.json" '{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/session-end.sh"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(./.claude-harness/init.sh)",
@@ -1151,7 +1214,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v3.8 - Parallel Sessions + Gitignore Fix) ==="
+echo "=== Setup Complete (v3.8.5 - Session Cleanup) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1201,7 +1264,8 @@ echo "  2. Run /claude-harness:start to compile context and see status"
 echo "  3. Run /claude-harness:do \"feature description\" to create and implement features"
 echo "  4. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v3.8 Features:"
+echo "v3.8.5 Features:"
+echo "  • Automatic Session Cleanup - Old sessions cleaned on exit (PID-based)"
 echo "  • Parallel Work Streams - Multiple Claude instances on different features"
 echo "  • Session-Scoped State - Isolated state per instance (sessions/{uuid}/)"
 echo "  • Auto-gitignore - Ephemeral files automatically excluded"

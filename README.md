@@ -100,6 +100,16 @@ The `/do` command chains all steps automatically with interactive checkpoints. U
     └── {uuid}/      → Each Claude instance gets isolated loop/context state
 ```
 
+### Session Cleanup (Automatic)
+
+Session directories are automatically cleaned up when Claude exits. The `SessionEnd` hook detects inactive sessions by checking their PID:
+
+- **Active sessions** (PID still running) are preserved
+- **Inactive sessions** (PID no longer running) are deleted
+- **Current session** is never deleted during its own exit
+
+This ensures parallel Claude instances don't interfere with each other while preventing disk bloat from accumulated sessions.
+
 ## Session Start Hook
 
 When you start Claude Code in a harness-enabled project:
@@ -621,6 +631,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **3.8.5** | **Automatic Session Cleanup**: Added `SessionEnd` hook that automatically cleans up inactive session directories when Claude exits. Uses PID-based detection to preserve active parallel sessions while removing stale ones. Prevents disk bloat from accumulated sessions. |
 | **3.8.4** | **Enforce Gitignore in /setup**: Made Phase 3 (gitignore update) MANDATORY with explicit instructions. Marked as CRITICAL with "DO NOT SKIP" to ensure ephemeral patterns are always added. |
 | **3.8.3** | **Add Gitignore to /setup Command**: The `/claude-harness:setup` command now includes Phase 3 to update project `.gitignore` with harness ephemeral patterns (sessions/, compaction-backups/, working/). |
 | **3.8.2** | **Fix setup.sh Syntax Error**: Fixed heredoc quoting issue that prevented `setup.sh` from running. The init.sh content now uses proper quoted heredoc (`<<'EOF'`) to preserve special characters. |
