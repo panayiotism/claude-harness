@@ -350,7 +350,7 @@ $SCRIPTS
 On every session start:
 1. Run \`pwd\` to confirm working directory
 2. Run \`/claude-harness:start\` to compile working context
-3. Read \`.claude-harness/memory/working/context.json\` for computed context
+3. Read \`.claude-harness/sessions/{session-id}/context.json\` for computed context
 4. Check \`.claude-harness/features/active.json\` for current priorities
 
 ## Development Rules
@@ -368,10 +368,10 @@ On every session start:
 - Typecheck: \`${TYPECHECK_CMD:-npx tsc --noEmit}\`
 
 ## Progress Tracking
-See: \`.claude-harness/memory/working/context.json\` and \`.claude-harness/features/active.json\`
+See: \`.claude-harness/sessions/{session-id}/context.json\` and \`.claude-harness/features/active.json\`
 
 ## Memory Architecture (v3.0)
-- \`memory/working/\` - Current session context (rebuilt each session)
+- \`sessions/{session-id}/\` - Current session context (per-session, gitignored)
 - \`memory/episodic/\` - Recent decisions (rolling window)
 - \`memory/semantic/\` - Project knowledge (persistent)
 - \`memory/procedural/\` - Success/failure patterns (append-only)
@@ -870,7 +870,7 @@ Check if legacy files exist and migrate them:
 2. v2.x structure -> v3.0 memory architecture (if needed)
 
 ## Phase 1: Context Compilation
-1. Clear .claude-harness/memory/working/context.json
+1. Clear session context (.claude-harness/sessions/{session-id}/context.json)
 2. Load active feature from .claude-harness/features/active.json
 3. Query episodic memory for recent relevant decisions
 4. Query semantic memory for project patterns
@@ -878,12 +878,12 @@ Check if legacy files exist and migrate them:
    - Failures to avoid (similar file patterns)
    - Successful approaches to reuse
 6. Compute relevance scores, keep top entries
-7. Write compiled context to working/context.json
+7. Write compiled context to sessions/{session-id}/context.json
 8. Log compilation decisions
 
 ## Phase 2: Local Status
 1. Execute `./.claude-harness/init.sh` to see environment status
-2. Read `.claude-harness/memory/working/context.json` for compiled context
+2. Read compiled context from session-scoped context (.claude-harness/sessions/{session-id}/context.json)
 3. Read `.claude-harness/features/active.json` to identify next priority
 
 ## Phase 3: Orchestration State

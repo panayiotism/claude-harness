@@ -314,7 +314,7 @@ Same as `/do` command - see `commands/do.md` for full details.
 ## Phase 2: Planning (unless --quick)
 
 6. Load context:
-   - Read compiled context from `.claude-harness/memory/working/context.json`
+   - Read compiled context from `.claude-harness/sessions/{session-id}/context.json`
    - Read semantic memory for project architecture
    - Query procedural memory for past failures/successes on similar work
 
