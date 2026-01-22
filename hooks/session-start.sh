@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v3.9.0
+# Claude Harness SessionStart Hook v4.0.0
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 
@@ -53,7 +53,7 @@ elif [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
 fi
 
 # ============================================================================
-# WORKTREE DETECTION (v3.9.0)
+# WORKTREE DETECTION (v4.0.0)
 # ============================================================================
 
 # Detect if we're in a git worktree
@@ -341,7 +341,7 @@ CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_
 
 # Add worktree context if in a worktree
 if [ "$IS_WORKTREE" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== WORKTREE MODE (v3.9.0) ==="
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== WORKTREE MODE (v4.0.0) ==="
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nBranch: $WORKTREE_BRANCH"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nMain Repo: $MAIN_REPO_PATH"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nShared State: $MAIN_HARNESS_DIR (features, memory)"

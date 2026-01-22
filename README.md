@@ -25,14 +25,19 @@ cd your-project && claude
 
 The `/do` command chains all steps automatically with interactive checkpoints. By default, each new feature gets its own git worktree for true parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
 
-### Complete Workflow (8 Commands Total)
+### Complete Workflow (9 Commands Total)
 
 ```bash
 # 1. SETUP (one-time)
-/claude-harness:setup                    # Initialize harness in project
+/claude-harness:setup                              # Initialize harness in project
 
 # 2. START SESSION
-/claude-harness:start                    # Compile context, show status
+/claude-harness:start                              # Compile context, show status
+
+# 2b. PRD BOOTSTRAP (for new projects)
+/claude-harness:prd-breakdown "Your PRD..."        # Analyze PRD → extract atomic features
+/claude-harness:prd-breakdown --file ./docs/prd.md # Read PRD from file
+/claude-harness:prd-breakdown --url https://github.com/.../issues/42  # Fetch from GitHub
 
 # 3. DEVELOPMENT - Features and Fixes (auto-creates worktree by default)
 /claude-harness:do "Add authentication"  # New feature + worktree (default)
@@ -116,7 +121,7 @@ The `/do` command chains all steps automatically with interactive checkpoints. B
     └── {uuid}/      → Each Claude instance gets isolated loop/context state
 ```
 
-### Git Worktree Support (v3.9)
+### Git Worktree Support (v3.9+) & PRD Analysis (v4.0)
 
 True parallel development: each feature gets its own isolated working directory.
 
@@ -165,7 +170,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v3.9.0 (Memory Architecture)     │
+│                  CLAUDE HARNESS v4.0.0 (PRD Analysis + Worktree)  │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -740,10 +745,12 @@ claude mcp add github -s user
 
 ## Changelog
 
+> **v4.0.0 Release Notes**: See [RELEASES/v4.0.0.md](./RELEASES/v4.0.0.md) for full details on PRD analysis features.
 > **v3.0.0 Release Notes**: See [RELEASE-NOTES-v3.0.0.md](./RELEASE-NOTES-v3.0.0.md) for full details with architecture diagrams.
 
 | Version | Changes |
 |---------|---------|
+| **4.0.0** | **PRD Analysis & Decomposition**: New `/claude-harness:prd-breakdown` command analyzes Product Requirements Documents using 3 parallel subagents (Product Analyst, Architect, QA Lead). Automatically decomposes PRDs into atomic features with dependencies, priorities, and acceptance criteria. Supports inline PRD, file-based, GitHub issues, or interactive input. Essential for bootstrapping feature lists in new projects. Version bumped across all files (setup.sh, plugin.json, hooks, README). See [RELEASES/v4.0.0.md](./RELEASES/v4.0.0.md). |
 | **3.9.6** | **Remote Branch Cleanup in Merge**: `/merge` command now explicitly deletes remote branches after PR merge using `git push origin --delete {branch}`. Phase 4 clarified to include both remote and local deletion, Phase 7 adds verification step, Phase 8 reports both local and remote deletions. |
 | **3.9.2** | **Fix Multi-Select in Interactive Menu**: Made `multiSelect: true` requirement more explicit in `/do` Phase 0 documentation. Added CRITICAL marker and "DO NOT use multiSelect: false" warning to ensure parallel feature selection works correctly. |
 | **3.9.1** | **Interactive Feature Selection**: Running `/do` without arguments now shows an interactive menu of pending features with multi-select checkboxes. Select one to resume, select multiple to create worktrees for parallel development, or choose "Other" to create a new feature. |

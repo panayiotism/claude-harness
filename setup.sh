@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v3.9
+# Claude Code Long-Running Agent Harness Setup v4.0
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v3.9 ==="
+echo "=== Claude Code Agent Harness Setup v4.0 ==="
 echo ""
 
 # Detect project info
@@ -1248,7 +1248,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v3.9.0 - Git Worktree Support) ==="
+echo "=== Setup Complete (v4.0.0 - PRD Analysis + Git Worktree) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1300,7 +1300,12 @@ echo "  2. Run /claude-harness:start to compile context and see status"
 echo "  3. Run /claude-harness:do \"feature description\" to create and implement features"
 echo "  4. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v3.9.0 Features:"
+echo "v4.0.0 Features:"
+echo "  • PRD Analysis (/prd-breakdown) - Analyze Product Requirements Documents"
+echo "  • Multi-agent Decomposition - Product Analyst, Architect, QA Lead work in parallel"
+echo "  • Smart Feature Generation - Extracts requirements, resolves dependencies, assigns priorities"
+echo "  • PRD Bootstrap - Quickly create feature lists for new projects"
+echo "  • Flexible Input - Inline PRD, file-based, GitHub issues, or interactive paste"
 echo "  • Git Worktree Support - True parallel development with isolated directories"
 echo "  • Auto-worktree for /do - Each new feature gets its own worktree by default"
 echo "  • --inline flag - Skip worktree for quick fixes in same directory"
