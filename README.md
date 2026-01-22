@@ -35,10 +35,11 @@ The `/do` command chains all steps automatically with interactive checkpoints. B
 /claude-harness:start                              # Compile context, show status
 
 # 2b. PRD BOOTSTRAP (for new projects)
-/claude-harness:prd-breakdown "Your PRD..."        # Analyze inline PRD → extract atomic features
-/claude-harness:prd-breakdown @./docs/prd.md      # Read PRD from file (@ syntax)
-/claude-harness:prd-breakdown --file ./docs/prd.md # Read PRD from file (--flag syntax)
-/claude-harness:prd-breakdown --url https://github.com/.../issues/42  # Fetch from GitHub
+/claude-harness:prd-breakdown "Your PRD..."                           # Analyze inline PRD → extract atomic features
+/claude-harness:prd-breakdown @./docs/prd.md                         # Read PRD from file (@ syntax)
+/claude-harness:prd-breakdown --file ./docs/prd.md                   # Read PRD from file (--flag syntax)
+/claude-harness:prd-breakdown --url https://github.com/.../issues/42 # Fetch from GitHub
+/claude-harness:prd-breakdown @./prd.md --create-issues --auto       # Full automation: create features + GitHub issues
 
 # 3. DEVELOPMENT - Features and Fixes (auto-creates worktree by default)
 /claude-harness:do "Add authentication"  # New feature + worktree (default)
@@ -451,6 +452,8 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/prd-breakdown --analyze-only` | Run analysis without creating features |
 | `/prd-breakdown --auto` | No prompts, create all features |
 | `/prd-breakdown --max-features 10` | Limit to 10 highest-priority features |
+| `/prd-breakdown @./prd.md --create-issues` | Create GitHub issues for each feature |
+| `/prd-breakdown @./prd.md --create-issues --auto` | Full automation: analyze, create features AND GitHub issues |
 
 **PRD Breakdown Workflow:**
 ```
@@ -465,7 +468,30 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
   • Generate acceptance criteria
 📋 Review        → Preview breakdown, select features to create
 ✅ Create        → Add features to active.json with PRD metadata
+🔗 Issues (opt)  → Create GitHub issues for tracking (--create-issues flag)
 ```
+
+#### Auto-Creating GitHub Issues from PRD
+
+When using the `--create-issues` flag, the `/prd-breakdown` command will automatically create one GitHub issue per generated feature:
+
+```bash
+/prd-breakdown @./prd.md --create-issues              # Manual review then create issues
+/prd-breakdown @./prd.md --create-issues --auto       # Fully automated
+```
+
+Each issue will:
+- Contain the feature description and acceptance criteria
+- Be labeled with `feature` and `prd-generated` tags
+- Be linked to the feature in `.claude-harness/features/active.json` (stored in `github.issueNumber`)
+- Be assigned the PRD breakdown ID for traceability across sessions
+
+This is useful when you want to:
+- Create a complete GitHub-tracked backlog from a PRD
+- Ensure every generated feature has an issue for team visibility
+- Maintain bidirectional links between PRD decomposition and issue tracking
+
+**Note**: Requires GitHub MCP integration to be configured in Claude Code.
 
 ## v3.0 Directory Structure
 

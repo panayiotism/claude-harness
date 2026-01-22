@@ -137,7 +137,7 @@ Arguments: $ARGUMENTS
 
 ## Phase 3: Feature Review & Creation
 
-12. **Generate preview** showing:
+12. **Generate preview** showing (skip if `--auto` flag provided):
     - Total PRD sections analyzed
     - Functional requirements extracted
     - Features to create (grouped by priority)
@@ -204,9 +204,47 @@ Arguments: $ARGUMENTS
         }
         ```
 
+## Phase 3.5: GitHub Issue Creation (if --create-issues flag provided)
+
+15. **Create GitHub issues for generated features** (only if `--create-issues` flag was provided):
+    - For each created feature:
+      1. Build GitHub issue payload:
+         ```json
+         {
+           "title": "{feature.name}",
+           "body": "## Description\n{feature.description}\n\n## Acceptance Criteria\n{bulleted acceptance criteria}\n\n## Priority\nLevel {feature.priority}",
+           "labels": ["feature", "prd-generated"],
+           "milestone": null
+         }
+         ```
+
+      2. Create issue using Claude Code's GitHub MCP:
+         - Parse GitHub owner/repo from `git remote get-url origin`
+         - Call `mcp__github__create_issue` function
+         - Handle failures gracefully (log warning, continue with other features)
+
+      3. Update feature metadata with issue number:
+         - Set `github.issueNumber` to created issue number
+         - Update `prdMetadata.createdViaFlag` to `"--create-issues"`
+         - Save updated `.claude-harness/features/active.json`
+
+      4. Report results:
+         ```
+         ✓ Created GitHub issues for {N} features:
+           - #{issue-num}: {feature-name}
+           - #{issue-num}: {feature-name}
+           ...
+         ```
+
+    - **Error Handling**:
+      - GitHub MCP unavailable → Log warning, skip issue creation but continue
+      - Permission denied → Log error for specific feature, continue with others
+      - API rate limit → Add 500ms delay between requests
+      - Network error → Retry 3x with exponential backoff
+
 ## Phase 4: Summary & Next Steps
 
-15. **Report completion**:
+16. **Report completion**:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │  ✅ FEATURES CREATED FROM PRD                                   │
@@ -228,21 +266,49 @@ Arguments: $ARGUMENTS
     └─────────────────────────────────────────────────────────────────┘
     ```
 
-16. **Interactive menu** (if user doesn't select all):
+17. **Interactive menu** (if user doesn't select all):
     - Use AskUserQuestion with multi-select: true
     - Show pending features from breakdown
     - Allow user to start implementing any features
 
 ## Command Options
 
+### Flags
+
+**--create-issues**
+- Create GitHub issues for each generated feature automatically
+- One issue created per feature with description and acceptance criteria
+- Issues labeled with `feature` and `prd-generated`
+- Features linked with `github.issueNumber` in harness tracking
+- Requires: GitHub MCP integration configured
+- Behavior: No confirmation prompt (full automation)
+- Example: `/prd-breakdown @./prd.md --create-issues --auto`
+
+**--analyze-only**
+- Run PRD analysis without creating features
+- Useful for review before committing to features
+
+**--auto**
+- Skip feature review confirmation prompt
+- Create all extracted features automatically
+- Can be combined with `--create-issues` for full automation
+
+**--max-features N**
+- Limit feature creation to top N features by priority
+- Useful for phased rollout
+
+### Usage Examples
+
 ```bash
-/claude-harness:prd-breakdown "Detailed PRD markdown here..."     # Inline PRD
-/claude-harness:prd-breakdown @./docs/prd.md                     # File reference (@ syntax)
-/claude-harness:prd-breakdown --file ./docs/prd.md               # File flag
-/claude-harness:prd-breakdown --url https://github.com/.../42    # GitHub issue
-/claude-harness:prd-breakdown --analyze-only                     # Analysis without feature creation
-/claude-harness:prd-breakdown --auto                             # No prompts, create all features
-/claude-harness:prd-breakdown --max-features 10                  # Limit to 10 top features
+/claude-harness:prd-breakdown "Detailed PRD markdown here..."           # Inline PRD
+/claude-harness:prd-breakdown @./docs/prd.md                           # File reference
+/claude-harness:prd-breakdown --file ./docs/prd.md                     # File flag
+/claude-harness:prd-breakdown --url https://github.com/.../issues/42  # GitHub issue
+/claude-harness:prd-breakdown --analyze-only                           # Analysis only
+/claude-harness:prd-breakdown --auto                                   # No prompts
+/claude-harness:prd-breakdown --max-features 10                        # Top 10 only
+/claude-harness:prd-breakdown @./prd.md --create-issues               # Create issues
+/claude-harness:prd-breakdown @./prd.md --create-issues --auto        # Full automation
 ```
 
 ### Syntax Variations
@@ -253,6 +319,8 @@ Arguments: $ARGUMENTS
 | `/prd-breakdown @path/to/file.md` | Read PRD from file (@ prefix) |
 | `/prd-breakdown --file path/to/file.md` | Read PRD from file (--flag syntax) |
 | `/prd-breakdown --url https://...` | Fetch PRD from GitHub issue |
+| `/prd-breakdown @file.md --create-issues` | Analyze PRD and create GitHub issues for features |
+| `/prd-breakdown @file.md --create-issues --auto` | Full automation: analyze, create features, create issues |
 | (no args) | Prompt user for interactive input |
 
 ## Error Handling
@@ -266,6 +334,10 @@ Arguments: $ARGUMENTS
 | Invalid markdown | Parse as plaintext, still extract |
 | Feature ID collision | Use timestamp suffix for uniqueness |
 | Dependency cycle | Report error, suggest manual ordering |
+| --create-issues but no GitHub MCP | Log warning, create features without issues |
+| Issue creation permission denied | Log error for feature, continue with others |
+| Issue creation rate limit | Add 500ms delay between requests, continue |
+| Issue creation network error | Retry 3x with exponential backoff |
 
 ## Integration with Other Commands
 
