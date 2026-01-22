@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v4.0 ==="
+echo "=== Claude Code Agent Harness Setup v4.1 ==="
 echo ""
 
 # Detect project info
@@ -319,7 +319,6 @@ echo ""
 # CREATE v3.0 DIRECTORY STRUCTURE
 # ============================================================================
 
-mkdir -p .claude-harness/memory/working
 mkdir -p .claude-harness/memory/episodic
 mkdir -p .claude-harness/memory/semantic
 mkdir -p .claude-harness/memory/procedural
@@ -327,10 +326,10 @@ mkdir -p .claude-harness/memory/learned
 mkdir -p .claude-harness/impact
 mkdir -p .claude-harness/features/tests
 mkdir -p .claude-harness/agents
-mkdir -p .claude-harness/loops
 mkdir -p .claude-harness/sessions
 mkdir -p .claude-harness/worktrees
 mkdir -p .claude-harness/prd
+# Note: memory/working and loops are session-scoped, not created at setup
 
 # ============================================================================
 # 1. CLAUDE.md - Main context file
@@ -380,26 +379,10 @@ See: \`.claude-harness/memory/working/context.json\` and \`.claude-harness/featu
 "
 
 # ============================================================================
-# 2. MEMORY LAYER: Working Context (rebuilt each session)
+# 2. MEMORY LAYER: Working Context (session-scoped, no longer created here)
 # ============================================================================
-
-create_file ".claude-harness/memory/working/context.json" '{
-  "version": 3,
-  "computedAt": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-  "sessionId": null,
-  "activeFeature": null,
-  "relevantMemory": {
-    "recentDecisions": [],
-    "projectPatterns": [],
-    "avoidApproaches": []
-  },
-  "currentTask": {
-    "description": null,
-    "files": [],
-    "acceptanceCriteria": []
-  },
-  "compilationLog": []
-}'
+# Session-scoped working context is created by SessionStart hook at:
+# .claude-harness/sessions/{session-id}/context.json
 
 # ============================================================================
 # 3. MEMORY LAYER: Episodic Memory (rolling window of decisions)
@@ -581,34 +564,10 @@ create_file ".claude-harness/prd/subagent-prompts.json" '{
 }'
 
 # ============================================================================
-# 9. LOOPS: Agentic loop state
+# 9. LOOPS: Agentic loop state (session-scoped, no longer created here)
 # ============================================================================
-
-create_file ".claude-harness/loops/state.json" '{
-  "version": 3,
-  "feature": null,
-  "featureName": null,
-  "type": "feature",
-  "linkedTo": {
-    "featureId": null,
-    "featureName": null
-  },
-  "status": "idle",
-  "attempt": 0,
-  "maxAttempts": 10,
-  "startedAt": null,
-  "lastAttemptAt": null,
-  "verification": {
-    "build": "'$BUILD_CMD'",
-    "tests": "'$TEST_CMD'",
-    "lint": "'$LINT_CMD'",
-    "typecheck": "'$TYPECHECK_CMD'",
-    "custom": []
-  },
-  "history": [],
-  "lastCheckpoint": null,
-  "escalationRequested": false
-}'
+# Agentic loop state is now session-scoped, created by SessionStart hook at:
+# .claude-harness/sessions/{session-id}/loop-state.json
 
 # ============================================================================
 # 9.5. WORKTREES: Registry for parallel development worktrees

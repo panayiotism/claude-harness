@@ -65,30 +65,44 @@ If no `.claude-harness/` directory exists, create full v3.0 structure:
 ```
 .claude-harness/
 ├── memory/
-│   ├── working/context.json
-│   ├── episodic/decisions.json
-│   ├── semantic/architecture.json
-│   └── procedural/
-│       ├── failures.json
-│       ├── successes.json
-│       └── patterns.json
-├── prd/
-│   └── subagent-prompts.json
+│   ├── episodic/decisions.json       (persistent - rolling window of decisions)
+│   ├── semantic/
+│   │   ├── architecture.json
+│   │   ├── entities.json
+│   │   └── constraints.json
+│   ├── procedural/
+│   │   ├── failures.json
+│   │   ├── successes.json
+│   │   └── patterns.json
+│   ├── learned/
+│   │   └── rules.json
+│   └── compaction-backups/           (gitignored)
 ├── features/
-│   └── active.json
+│   ├── active.json                   (feature tracking)
+│   └── archive.json                  (completed features)
+├── agents/
+│   └── context.json                  (orchestration state)
 ├── impact/
 │   └── dependency-graph.json
-├── agents/
-│   └── context.json
-├── loops/
-│   └── state.json
-├── feature-list.json (backward compat)
-├── feature-archive.json
+├── prd/
+│   └── subagent-prompts.json
+├── sessions/                         (gitignored - per-session state)
+├── loops/                            (legacy fallback - gitignored)
+├── .plugin-version
 ├── claude-progress.json
 └── init.sh
 ```
 
-**File contents - see schemas below**
+## Session-Scoped State (Created at Runtime)
+
+The following files are **session-specific** and **created at runtime** by the SessionStart hook when you run `/claude-harness:start`. They are **gitignored** and ephemeral:
+
+- `.claude-harness/sessions/{session-id}/`
+  - `session.json` - Session metadata (start time, branch, context)
+  - `context.json` - Working context (no longer in `memory/working/`)
+  - `loop-state.json` - Agentic loop state (no longer in `loops/`)
+
+These files enable **parallel development**: multiple `/start` commands in different worktrees each get their own isolated session state without conflicts.
 
 ## Phase 3: Update Project .gitignore (MANDATORY)
 
