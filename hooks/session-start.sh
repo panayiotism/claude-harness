@@ -1,7 +1,7 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v3.7.1
+# Claude Harness SessionStart Hook v4.0.0
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
-# Enhanced with memory layer awareness and context compilation
+# Enhanced with session-scoped state for parallel work streams
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
@@ -9,6 +9,27 @@ HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 if [ ! -d "$HARNESS_DIR" ]; then
     exit 0
 fi
+
+# ============================================================================
+# SESSION MANAGEMENT (v3.8.4 - Parallel Work Streams)
+# ============================================================================
+
+# Generate unique session ID (UUID or fallback)
+SESSION_ID=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "sess-$(date +%s%N | sha256sum | head -c 16)")
+SESSION_DIR="$HARNESS_DIR/sessions/$SESSION_ID"
+
+# Create session directory
+mkdir -p "$SESSION_DIR"
+
+# Write session info file
+cat > "$SESSION_DIR/session.json" << SESSIONEOF
+{
+  "id": "$SESSION_ID",
+  "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "pid": "$$",
+  "workingDir": "$CLAUDE_PROJECT_DIR"
+}
+SESSIONEOF
 
 # Get plugin version
 PLUGIN_VERSION=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
@@ -28,6 +49,34 @@ elif [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
     # Check if migration to v3.0 is needed
     if [ ! -d "$HARNESS_DIR/memory" ] && [ -f "$HARNESS_DIR/feature-list.json" ]; then
         NEEDS_MIGRATION=true
+    fi
+fi
+
+# ============================================================================
+# WORKTREE DETECTION (v4.0.0)
+# ============================================================================
+
+# Detect if we're in a git worktree
+IS_WORKTREE=false
+MAIN_REPO_PATH=""
+WORKTREE_BRANCH=""
+
+GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+
+# If git-common-dir differs from .git, we're in a worktree
+if [ -n "$GIT_COMMON_DIR" ] && [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
+    IS_WORKTREE=true
+    # Extract main repo path from git-common-dir (remove trailing .git)
+    MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
+    MAIN_HARNESS_DIR="$MAIN_REPO_PATH/.claude-harness"
+    WORKTREE_BRANCH=$(git branch --show-current 2>/dev/null)
+
+    # Use main repo's shared state for features and memory
+    if [ -d "$MAIN_HARNESS_DIR" ]; then
+        FEATURES_FILE="$MAIN_HARNESS_DIR/features/active.json"
+        # Keep local session state in worktree
+        # HARNESS_DIR stays as the worktree's .claude-harness for sessions
     fi
 fi
 
@@ -69,11 +118,20 @@ if [ -d "$HARNESS_DIR/memory" ]; then
         RULES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/learned/rules.json" 2>/dev/null || echo "0")
     fi
 
-    # Features from new location
+    # Features from new location (shared across sessions)
     FEATURES_FILE="$HARNESS_DIR/features/active.json"
-    LOOP_FILE="$HARNESS_DIR/loops/state.json"
     AGENT_FILE="$HARNESS_DIR/agents/context.json"
-    WORKING_FILE="$HARNESS_DIR/memory/working/context.json"
+
+    # Session-scoped files (v3.8.4 - parallel work streams)
+    # First check if session-specific files exist, fallback to legacy paths
+    if [ -d "$SESSION_DIR" ]; then
+        LOOP_FILE="$SESSION_DIR/loop-state.json"
+        WORKING_FILE="$SESSION_DIR/context.json"
+    else
+        # Fallback to legacy paths for backward compatibility
+        LOOP_FILE="$HARNESS_DIR/loops/state.json"
+        WORKING_FILE="$HARNESS_DIR/memory/working/context.json"
+    fi
 else
     IS_V3=false
     # Fallback to v2.x locations
@@ -228,13 +286,14 @@ elif [ "$IS_V3" = true ]; then
 │  $STATUS_PADDED│
 │  $MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:setup          Initialize harness (one-time)   │
-│  /claude-harness:start          Compile context + GitHub sync   │
-│  /claude-harness:do             Unified workflow (features+fixes)│
-│  /claude-harness:do-tdd         TDD workflow (tests first)      │
-│  /claude-harness:checkpoint     Commit + persist memory         │
-│  /claude-harness:orchestrate    Spawn multi-agent team          │
-│  /claude-harness:merge          Merge PRs + auto-version        │
+│  /claude-harness:setup         Initialize harness (one-time)  │
+│  /claude-harness:start         Compile context + GitHub sync   │
+│  /claude-harness:prd-breakdown Analyze PRD → extract features  │
+│  /claude-harness:do            Unified workflow (features+fixes)│
+│  /claude-harness:do-tdd        TDD workflow (tests first)       │
+│  /claude-harness:checkpoint    Commit + persist memory          │
+│  /claude-harness:orchestrate   Spawn multi-agent team           │
+│  /claude-harness:merge         Merge PRs + auto-version         │
 └─────────────────────────────────────────────────────────────────┘"
 else
     # v2.x display
@@ -265,14 +324,35 @@ if [ "$NEEDS_MIGRATION" = true ]; then
      🔄 v2.x detected - run /claude-harness:setup to upgrade to v3.0"
 fi
 
+# Add worktree notice if in a worktree
+if [ "$IS_WORKTREE" = true ]; then
+    USER_MSG="$USER_MSG
+     🌳 WORKTREE MODE: $WORKTREE_BRANCH (main: $MAIN_REPO_PATH)"
+fi
+
 # ============================================================================
 # BUILD CLAUDE CONTEXT
 # ============================================================================
 
 CLAUDE_CONTEXT="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ===\n"
 
+# Add session info for parallel work streams
+CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
+CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
+
+# Add worktree context if in a worktree
+if [ "$IS_WORKTREE" = true ]; then
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== WORKTREE MODE (v4.0.0) ==="
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nBranch: $WORKTREE_BRANCH"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nMain Repo: $MAIN_REPO_PATH"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nShared State: $MAIN_HARNESS_DIR (features, memory)"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nLocal State: $HARNESS_DIR (sessions)"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nIMPORTANT: Read features/memory from main repo, write sessions locally."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWhen running /checkpoint, changes are pushed from this worktree."
+fi
+
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n=== MEMORY ARCHITECTURE v3.0 ==="
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== MEMORY ARCHITECTURE v3.0 ==="
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEpisodic Memory: $EPISODIC_COUNT decisions recorded"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nProcedural Memory: $FAILURES_COUNT failures, $SUCCESSES_COUNT successes"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nLearned Rules: $RULES_COUNT rules from user corrections"
@@ -327,7 +407,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.7.1 WORKFLOW (7 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:do - Unified workflow (features AND fixes)\n4. /claude-harness:do-tdd - TDD workflow (tests first)\n5. /claude-harness:checkpoint - Manual commit + push + PR\n6. /claude-harness:orchestrate - Multi-agent team (advanced)\n7. /claude-harness:merge - Merge PRs, auto-version, release"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.8 WORKFLOW (7 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:do - Unified workflow (features AND fixes)\n4. /claude-harness:do-tdd - TDD workflow (tests first)\n5. /claude-harness:checkpoint - Manual commit + push + PR\n6. /claude-harness:orchestrate - Multi-agent team (advanced)\n7. /claude-harness:merge - Merge PRs, auto-version, release\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi
@@ -347,6 +427,8 @@ cat << EOF
   "systemMessage": "$USER_MSG_ESCAPED",
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
+    "sessionId": "$SESSION_ID",
+    "sessionDir": "$SESSION_DIR",
     "additionalContext": "$CLAUDE_CONTEXT_ESCAPED"
   }
 }

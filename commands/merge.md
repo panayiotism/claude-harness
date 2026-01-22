@@ -56,7 +56,9 @@ Requires GitHub MCP to be configured.
    - For fix PRs:
      - Close the fix issue
      - Add comment to original feature issue: "Related fix merged: #{fix-issue} - {description}"
-   - Delete the source branch
+   - Delete the source branch (both remote and local):
+     - Remote: `git push origin --delete {branch}`
+     - Local: `git branch -D {branch}` (if exists)
    - Update `.claude-harness/features/active.json`:
      - For features: Set status="passing" in features array
      - For fixes: Set status="passing" in fixes array
@@ -99,6 +101,7 @@ Requires GitHub MCP to be configured.
 7. Cleanup:
    - Prune local branches: `git fetch --prune`
    - Delete local feature branches that were merged
+   - Verify remote branches were deleted (list any that remain)
    - Switch to main/master branch
    - Pull latest: `git pull`
 
@@ -107,7 +110,7 @@ Requires GitHub MCP to be configured.
 8. Report summary:
    - PRs merged (with commit hashes)
    - Issues closed
-   - Branches deleted
+   - Branches deleted (local and remote)
    - Version tag created (if any)
    - Release URL (if created)
    - Any failures or skipped items

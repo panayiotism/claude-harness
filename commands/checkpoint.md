@@ -5,9 +5,39 @@ argument-hint: "[--message COMMIT_MESSAGE]"
 
 Create a checkpoint of the current session:
 
+## Phase 0: Worktree Detection
+
+Before any checkpoint operations, detect if we're running in a git worktree:
+
+1. **Detect worktree mode**:
+   ```bash
+   GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+   GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+
+   if [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
+       IS_WORKTREE=true
+       MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
+   else
+       IS_WORKTREE=false
+       MAIN_REPO_PATH="."
+   fi
+   ```
+
+2. **Set path variables**:
+   - **Shared state (write to main repo)**:
+     - `FEATURES_FILE="${MAIN_REPO_PATH}/.claude-harness/features/active.json"`
+     - `ARCHIVE_FILE="${MAIN_REPO_PATH}/.claude-harness/features/archive.json"`
+     - `MEMORY_DIR="${MAIN_REPO_PATH}/.claude-harness/memory/"`
+     - `PROGRESS_FILE="${MAIN_REPO_PATH}/.claude-harness/claude-progress.json"`
+   - **Local state (read/write in current directory)**:
+     - `SESSION_DIR=".claude-harness/sessions/{session-id}/"`
+     - `LOCAL_HARNESS=".claude-harness/"`
+
+**Important**: Use these path variables throughout all phases for shared vs local state.
+
 ## Phase 1: Update Progress
 
-1. Update `.claude-harness/claude-progress.json` with:
+1. Update `${PROGRESS_FILE}` (main repo in worktree mode) with:
    - Summary of what was accomplished this session
    - Any blockers encountered
    - Recommended next steps
@@ -15,8 +45,10 @@ Create a checkpoint of the current session:
 
 ## Phase 1.5: Capture Working Context
 
-1.5. Update `.claude-harness/working-context.json` with current working state:
-   - Read `.claude-harness/features/active.json` (or legacy `feature-list.json`) to identify active feature (first with passes=false)
+**Session Paths**: All session-specific state uses `.claude-harness/sessions/{session-id}/`. The session ID is provided by the SessionStart hook.
+
+1.5. Update session-scoped working context `.claude-harness/sessions/{session-id}/working-context.json` with current working state:
+   - Read `${FEATURES_FILE}` (from main repo in worktree mode) to identify active feature (first with passes=false)
    - Set `activeFeature` to the feature ID and `summary` to feature name
    - Populate `workingFiles` from:
      - Feature's `relatedFiles` array
@@ -58,7 +90,7 @@ Create a checkpoint of the current session:
 ## Phase 1.6: Persist to Memory Layers
 
 1.6. **Persist session decisions to episodic memory**:
-   - Read `.claude-harness/memory/episodic/decisions.json`
+   - Read `${MEMORY_DIR}/episodic/decisions.json` (from main repo in worktree mode)
    - For each key decision made during this session:
      - Append new entry:
        ```json
@@ -77,7 +109,7 @@ Create a checkpoint of the current session:
    - Report: "Recorded {N} decisions to episodic memory"
 
 1.7. **Update semantic memory with discovered patterns**:
-   - Read `.claude-harness/memory/semantic/architecture.json`
+   - Read `${MEMORY_DIR}/semantic/architecture.json` (from main repo in worktree mode)
    - Update based on work done this session:
      - Add new file paths to `structure.entryPoints`, `structure.components`, etc.
      - Update `patterns.naming` with discovered naming conventions
@@ -87,13 +119,13 @@ Create a checkpoint of the current session:
    - Write updated file
 
 1.8. **Update semantic entities (if new concepts discovered)**:
-   - Read `.claude-harness/memory/semantic/entities.json`
+   - Read `${MEMORY_DIR}/semantic/entities.json` (from main repo in worktree mode)
    - For new concepts/entities discovered:
      - Append entry with name, type, location, relationships
    - Write updated file
 
 1.9. **Update procedural patterns**:
-   - Read `.claude-harness/memory/procedural/patterns.json`
+   - Read `${MEMORY_DIR}/procedural/patterns.json` (from main repo in worktree mode)
    - Extract reusable patterns from this session:
      - Code patterns that worked well
      - Naming conventions used
@@ -114,7 +146,7 @@ Create a checkpoint of the current session:
      - Filter for high-confidence corrections only
      - Skip interactive approval (auto mode)
    - For corrections with confidence >= `minConfidenceForAuto`:
-     - Auto-approve and save to `memory/learned/rules.json`
+     - Auto-approve and save to `${MEMORY_DIR}/learned/rules.json`
    - For lower confidence corrections:
      - Add to queue for manual review (don't save)
 
@@ -146,7 +178,8 @@ Create a checkpoint of the current session:
 3. ALWAYS commit changes:
    - Stage all modified files (except secrets/env files)
    - Check loop state to determine commit prefix:
-     - Read `.claude-harness/loops/state.json` (or legacy `loop-state.json`)
+     - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
+     - If session file doesn't exist, check legacy: `.claude-harness/loops/state.json`
      - If `type` is "fix": Use `fix({linkedTo.featureId}): <description>` prefix
      - If `type` is "feature" or undefined: Use `feat({feature-id}): <description>` prefix
    - Write descriptive commit message summarizing the work
@@ -189,8 +222,8 @@ Create a checkpoint of the current session:
      - Review status
      - Merge conflicts
    - Update tracking:
-     - For features: Update `.claude-harness/features/active.json` features array with prNumber
-     - For fixes: Update `.claude-harness/features/active.json` fixes array with prNumber
+     - For features: Update `${FEATURES_FILE}` features array with prNumber
+     - For fixes: Update `${FEATURES_FILE}` fixes array with prNumber
    - Report PR URL and status
 
    **PR Title Convention (Conventional Commits):**
@@ -212,7 +245,8 @@ Create a checkpoint of the current session:
 ## Phase 6: Clear Loop State (if feature/fix completed)
 
 6. If an agentic loop just completed successfully:
-   - Read `.claude-harness/loops/state.json` (or legacy `loop-state.json`)
+   - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
+   - If session file doesn't exist, check legacy: `.claude-harness/loops/state.json`
    - If `status` is "completed" and matches current feature/fix:
      - Reset loop state to idle:
        ```json
@@ -238,16 +272,17 @@ Create a checkpoint of the current session:
        ```
      - Report: "Loop completed and reset" (indicate if it was a feature or fix)
    - If loop is still in progress, preserve state for session continuity
+   - **Optional session cleanup**: If feature is archived and session is complete, the session directory `.claude-harness/sessions/{session-id}/` can be removed (it's gitignored anyway)
 
 ## Phase 7: Archive Completed Features and Fixes
 
 7. Archive completed features and fixes:
-   - Read `.claude-harness/features/active.json` (or legacy `feature-list.json`)
+   - Read `${FEATURES_FILE}` (from main repo in worktree mode)
 
    **Archive features:**
    - Find all features with status="passing" or passes=true
    - If any completed features exist:
-     - Read `.claude-harness/features/archive.json` (create if missing with `{"version":3,"archived":[],"archivedFixes":[]}`)
+     - Read `${ARCHIVE_FILE}` (create if missing with `{"version":3,"archived":[],"archivedFixes":[]}`)
      - Add archivedAt timestamp to each completed feature
      - Append completed features to the `archived[]` array
      - Remove completed features from features array
@@ -261,7 +296,29 @@ Create a checkpoint of the current session:
      - Remove completed fixes from fixes array
    - Report: "Archived X completed fixes"
 
-   - Write updated `.claude-harness/features/active.json` and `.claude-harness/features/archive.json`
+   - Write updated `${FEATURES_FILE}` and `${ARCHIVE_FILE}` (to main repo in worktree mode)
+
+## Phase 7.5: Worktree Cleanup Prompt (if in worktree and feature archived)
+
+7.5. If `IS_WORKTREE=true` and the current feature was just archived:
+   - Get current branch: `git branch --show-current`
+   - Extract feature ID from branch name (e.g., `feature/feature-014` → `feature-014`)
+   - If the archived features include this feature ID:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  🌳 WORKTREE CLEANUP                                           │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Feature {feature-id} has been archived.                       │
+     │  This worktree can be removed when you're done.                │
+     │                                                                │
+     │  To clean up:                                                  │
+     │  1. Exit this session: /clear or exit                         │
+     │  2. Return to main repo: cd {MAIN_REPO_PATH}                   │
+     │  3. Remove worktree: /claude-harness:worktree remove {id}      │
+     │                                                                │
+     │  Or continue working here if you need to make more changes.    │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
 
 ## Phase 8: Persist Orchestration Memory
 
@@ -271,7 +328,7 @@ Create a checkpoint of the current session:
 
    - For each entry in `agentResults`:
      - If status is "completed":
-       - Add to `.claude-harness/memory/procedural/successes.json`:
+       - Add to `${MEMORY_DIR}/procedural/successes.json`:
          ```json
          {
            "id": "{uuid}",
@@ -284,7 +341,7 @@ Create a checkpoint of the current session:
          }
          ```
      - If status is "failed":
-       - Add to `.claude-harness/memory/procedural/failures.json`:
+       - Add to `${MEMORY_DIR}/procedural/failures.json`:
          ```json
          {
            "id": "{uuid}",
@@ -299,10 +356,10 @@ Create a checkpoint of the current session:
          ```
 
    - If `sharedState.discoveredPatterns` has new entries:
-     - Merge into `.claude-harness/memory/procedural/patterns.json`
+     - Merge into `${MEMORY_DIR}/procedural/patterns.json`
 
    - If `architecturalDecisions` has entries:
-     - Persist to `.claude-harness/memory/episodic/decisions.json`
+     - Persist to `${MEMORY_DIR}/episodic/decisions.json`
 
    - Clear `agentResults` array (already persisted to memory)
    - Clear `pendingHandoffs` if all work is complete
@@ -326,7 +383,7 @@ Create a checkpoint of the current session:
    │                                                                 │
    │     Your progress is preserved in:                              │
    │     • claude-progress.json (session summary)                    │
-   │     • memory/working/context.json (working state)               │
+   │     • sessions/{id}/context.json (session working state)        │
    │     • memory/episodic/decisions.json (decisions)                │
    │     • memory/procedural/ (successes & failures)                 │
    │     • memory/learned/rules.json (learned rules)                 │

@@ -1,4 +1,16 @@
 {
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PLUGIN_ROOT/hooks/session-end.sh"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(git status:*)",
@@ -120,7 +132,6 @@
       "Bash(chmod 777 /:*)",
       "Bash(chmod -R 777:*)",
       "Bash(chown -R:*)",
-      "Bash(:(){ :|:& };:)",
       "Bash(eval:*)",
       "Bash(exec:*)",
       "Bash(source /etc:*)",

@@ -11,7 +11,7 @@ Claude Code plugin for automated, context-preserving coding sessions with 5-laye
 ## Session Startup Protocol
 On every session start:
 1. Run `pwd` to confirm working directory
-2. Read `.claude-harness/memory/working/context.json` for active working state (if exists)
+2. Read `.claude-harness/sessions/{session-id}/context.json` for active working state (if exists)
 3. Read `.claude-harness/claude-progress.json` for context
 4. Run `git log --oneline -5` to see recent changes
 5. Check `.claude-harness/features/active.json` for current priorities

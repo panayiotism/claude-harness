@@ -1,0 +1,38 @@
+{
+  "lastUpdated": "2026-01-22T12:00:00Z",
+  "currentProject": "claude-harness",
+  "lastSession": {
+    "summary": "Add PRD analysis command with multi-agent decomposition - v4.0.0",
+    "completedTasks": [
+      "Created /prd-breakdown command with 4-phase workflow",
+      "Implemented 3 subagent templates (Product Analyst, Architect, QA Lead)",
+      "Added PRD input detection (inline, file, GitHub, interactive)",
+      "Implemented atomic feature decomposition and generation",
+      "Updated all version references to v4.0.0",
+      "Updated README TL;DR section with new command",
+      "Updated changelog and documentation"
+    ],
+    "blockers": [],
+    "nextSteps": [
+      "Test /prd-breakdown with real PRDs",
+      "Verify subagent analysis quality",
+      "Consider PRD diffing for future versions"
+    ]
+  },
+  "recentChanges": [
+    "v4.0.0: PRD analysis command - decompose requirements into atomic features (3 parallel subagents)",
+    "v3.9.6: Remote branch cleanup after PR merge",
+    "v3.9.5: Auto-spawn subagents for multi-feature worktrees",
+    "v3.9.4: Interactive menu when no arguments provided",
+    "v3.9.3: Untrack ephemeral harness files from git index",
+    "v3.9.2: Enforce multiSelect: true in interactive menu"
+  ],
+  "knownIssues": [],
+  "environmentState": {
+    "devServerRunning": false,
+    "lastSuccessfulBuild": null,
+    "lastTypeCheck": null
+  },
+  "lastCompaction": "2026-01-16T13:01:16.000Z",
+  "compactionCount": 2
+}

@@ -1,6 +1,6 @@
 ---
 description: TDD workflow - write tests first, then implement (test-driven development)
-argument-hint: "DESCRIPTION" | FEATURE-ID [--quick] [--auto] [--plan-only]
+argument-hint: ["DESCRIPTION" | FEATURE-ID | (empty for interactive menu)] [--quick] [--auto] [--plan-only]
 ---
 
 TDD-enforced development workflow. Requires writing failing tests BEFORE implementation code.
@@ -16,6 +16,198 @@ Arguments: $ARGUMENTS
 │  3. REFACTOR: Improve code while keeping tests green            │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+## Phase 0: Interactive Selection (if no arguments)
+
+If `/do-tdd` is called without arguments, show an interactive menu of incomplete features:
+
+1. **Check for empty arguments**:
+   - If `$ARGUMENTS` is empty or whitespace-only, proceed with interactive selection
+   - Otherwise, skip to Phase 1 (Argument Parsing)
+
+2. **Detect worktree mode and set paths**:
+   ```bash
+   GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+   GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+
+   if [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
+       MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
+       FEATURES_FILE="${MAIN_REPO_PATH}/.claude-harness/features/active.json"
+   else
+       FEATURES_FILE=".claude-harness/features/active.json"
+   fi
+   ```
+
+3. **Read incomplete features and fixes**:
+   - Read `${FEATURES_FILE}`
+   - Filter `features` array where `status` is NOT "passing"
+   - Filter `fixes` array where `status` is NOT "passing"
+   - Combine into options list
+
+4. **Build options list for menu**:
+   - For each incomplete feature:
+     - Label: `{id}`
+     - Description: `{name} [{status}]` + " [TDD]" if `tdd: true`
+   - For each incomplete fix:
+     - Label: `{id}`
+     - Description: `{name} (fix for {linkedTo.featureId}) [{status}]`
+
+5. **Handle empty state**:
+   - If no incomplete features/fixes exist:
+     - Use **AskUserQuestion** with single-select:
+       - Question: "No pending features. What would you like to create? (TDD mode)"
+       - Options:
+         - Label: "New feature", Description: "Create a new TDD feature from description"
+         - Label: "New bug fix", Description: "Create a TDD bug fix linked to an existing feature"
+     - If "New feature": Use **AskUserQuestion** to prompt for description
+     - If "New bug fix": Use **AskUserQuestion** to prompt for feature ID, then description
+     - Set `$ARGUMENTS` to the entered description or `--fix` command
+     - Continue to Phase 1
+
+6. **Show interactive selection menu**:
+
+   **CRITICAL: You MUST use `multiSelect: true` to allow parallel feature selection.**
+
+   - Use **AskUserQuestion** with these EXACT parameters:
+     - `multiSelect`: **MUST be `true`** (enables selecting multiple features for parallel worktrees)
+     - `question`: "Which feature(s) do you want to work on with TDD? Select multiple for parallel development."
+     - `header`: "TDD Features"
+
+   Example:
+     ```json
+     {
+       "questions": [{
+         "question": "Which feature(s) do you want to work on with TDD? Select multiple for parallel development.",
+         "header": "TDD Features",
+         "multiSelect": true,
+         "options": [
+           {"label": "feature-001", "description": "Add authentication [in_progress] [TDD]"},
+           {"label": "feature-002", "description": "Dark mode support [pending]"},
+           {"label": "fix-feature-001-001", "description": "Token bug (fix for feature-001) [pending]"}
+         ]
+       }]
+     }
+     ```
+
+   **DO NOT use `multiSelect: false`** - this defeats the purpose of parallel development.
+
+   - Note: User can always select "Other" to create a new TDD feature
+
+7. **Handle selection**:
+
+   **If user selects 1 feature/fix**:
+   - Set `$ARGUMENTS` to the selected ID
+   - Continue to Phase 1 (Argument Parsing)
+
+   **If user selects multiple features/fixes**:
+   - For each selected item, create worktree (if doesn't already exist):
+     a. Calculate worktree path: `../{repo-name}-{feature-id}/`
+     b. Check if worktree already exists (skip if so)
+     c. Run: `git worktree add <path> <branch>`
+     d. Initialize harness in worktree
+     e. Run environment setup (npm install, copy .env, etc.)
+     f. Register in `worktrees/registry.json`
+   - Display worktree creation summary:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  ✅ WORKTREES READY FOR SELECTED FEATURES (TDD MODE)            │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Feature         Path                           Status          │
+     │  ─────────────────────────────────────────────────────────────  │
+     │  feature-001     ../myproject-feature-001/      ✅ Ready        │
+     │  feature-002     ../myproject-feature-002/      ✅ Ready        │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+
+   **Step 7a: Spawn Parallel TDD Subagents (AUTOMATIC)**
+
+   For each worktree, spawn a background subagent using the **Task tool**:
+
+   - Use a **single message with multiple Task tool calls** (one per feature)
+   - Each Task call parameters:
+     - `subagent_type`: "general-purpose"
+     - `run_in_background`: true
+     - `description`: "TDD implement {feature-id}"
+     - `prompt`: Use the template below
+
+   **TDD Subagent prompt template**:
+   ```
+   You are implementing a feature using TDD (Test-Driven Development) in a parallel development session.
+
+   ## Context
+   - Feature ID: {feature-id}
+   - Feature Name: {feature-name}
+   - Worktree Path: {worktree-absolute-path}
+   - Branch: {branch-name}
+   - Mode: TDD (Red-Green-Refactor)
+
+   ## TDD Instructions
+   1. Change to the worktree directory:
+      cd {worktree-absolute-path}
+
+   2. Read feature details:
+      Read .claude-harness/features/active.json to get full feature specification
+
+   3. RED PHASE - Write failing tests FIRST:
+      - Create test files before any implementation
+      - Tests should define expected behavior
+      - Run tests to confirm they FAIL (this is correct)
+
+   4. GREEN PHASE - Write minimal implementation:
+      - Write just enough code to make tests pass
+      - Don't over-engineer, keep it simple
+      - Run tests to confirm they PASS
+
+   5. REFACTOR PHASE - Improve code quality:
+      - Clean up code while keeping tests green
+      - Remove duplication, improve naming
+      - Run tests after each change
+
+   6. Run all verification commands (build, test, lint, typecheck)
+
+   7. Commit and push:
+      - Stage all changes: git add -A
+      - Commit with message: feat({feature-id}): {feature-name} [TDD]
+      - Push to remote: git push -u origin {branch-name}
+
+   8. Create/update PR if GitHub MCP available
+
+   ## Report
+   When complete, report:
+   - Status: success/failure
+   - TDD phases completed: RED/GREEN/REFACTOR
+   - Test files created (list)
+   - Implementation files changed (list)
+   - PR number (if created)
+   - Any blockers or issues encountered
+   ```
+
+   - Display spawning status:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  🚀 PARALLEL TDD SUBAGENTS SPAWNED                              │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Feature         Worktree Path                    Task ID       │
+     │  ─────────────────────────────────────────────────────────────  │
+     │  feature-001     ../myproject-feature-001/        {task-id-1}   │
+     │  feature-002     ../myproject-feature-002/        {task-id-2}   │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  🧪 TDD Mode: Agents will write tests FIRST                     │
+     │  Agents running in background.                                  │
+     │  Check progress: /tasks or use TaskOutput tool                  │
+     │  Results will be in each worktree's PR when complete.          │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+
+   - **Return control to user** - agents continue working in background
+   - Do NOT continue to Phase 1 (subagents handle their own TDD workflows)
+
+   **If user selects "Other"**:
+   - Use **AskUserQuestion** to prompt for new TDD feature description
+   - Set `$ARGUMENTS` to the entered description
+   - Continue to Phase 1 (will create new TDD feature)
+
+---
 
 ## Argument Parsing
 
@@ -122,7 +314,7 @@ Same as `/do` command - see `commands/do.md` for full details.
 ## Phase 2: Planning (unless --quick)
 
 6. Load context:
-   - Read compiled context from `.claude-harness/memory/working/context.json`
+   - Read compiled context from `.claude-harness/sessions/{session-id}/context.json`
    - Read semantic memory for project architecture
    - Query procedural memory for past failures/successes on similar work
 
@@ -443,6 +635,7 @@ Same as `/do` command - see `commands/do.md` for full details.
 
 | Command | Behavior |
 |---------|----------|
+| `/claude-harness:do-tdd` | **Interactive menu** - select from pending features (multi-select) |
 | `/claude-harness:do-tdd "Add X"` | Full TDD workflow (tests first) |
 | `/claude-harness:do-tdd --fix feature-001 "Bug Y"` | TDD bug fix |
 | `/claude-harness:do-tdd feature-001` | Resume TDD feature |

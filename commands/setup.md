@@ -65,30 +65,74 @@ If no `.claude-harness/` directory exists, create full v3.0 structure:
 ```
 .claude-harness/
 ├── memory/
-│   ├── working/context.json
-│   ├── episodic/decisions.json
-│   ├── semantic/architecture.json
-│   └── procedural/
-│       ├── failures.json
-│       ├── successes.json
-│       └── patterns.json
+│   ├── episodic/decisions.json       (persistent - rolling window of decisions)
+│   ├── semantic/
+│   │   ├── architecture.json
+│   │   ├── entities.json
+│   │   └── constraints.json
+│   ├── procedural/
+│   │   ├── failures.json
+│   │   ├── successes.json
+│   │   └── patterns.json
+│   ├── learned/
+│   │   └── rules.json
+│   └── compaction-backups/           (gitignored)
 ├── features/
-│   └── active.json
+│   ├── active.json                   (feature tracking)
+│   └── archive.json                  (completed features)
+├── agents/
+│   └── context.json                  (orchestration state)
 ├── impact/
 │   └── dependency-graph.json
-├── agents/
-│   └── context.json
-├── loops/
-│   └── state.json
-├── feature-list.json (backward compat)
-├── feature-archive.json
+├── prd/
+│   └── subagent-prompts.json
+├── sessions/                         (gitignored - per-session state)
+├── loops/                            (legacy fallback - gitignored)
+├── .plugin-version
 ├── claude-progress.json
 └── init.sh
 ```
 
-**File contents - see schemas below**
+## Session-Scoped State (Created at Runtime)
 
-## Phase 3: Update Plugin Version
+The following files are **session-specific** and **created at runtime** by the SessionStart hook when you run `/claude-harness:start`. They are **gitignored** and ephemeral:
+
+- `.claude-harness/sessions/{session-id}/`
+  - `session.json` - Session metadata (start time, branch, context)
+  - `context.json` - Working context (no longer in `memory/working/`)
+  - `loop-state.json` - Agentic loop state (no longer in `loops/`)
+
+These files enable **parallel development**: multiple `/start` commands in different worktrees each get their own isolated session state without conflicts.
+
+## Phase 3: Update Project .gitignore (MANDATORY)
+
+**CRITICAL**: You MUST update the project's `.gitignore` to exclude harness ephemeral files. This prevents uncommitted file clutter after `/checkpoint`.
+
+**Execute these steps:**
+
+1. Read the current `.gitignore` file (create if missing)
+
+2. Check if `.claude-harness/sessions/` pattern exists in the file
+
+3. If the pattern is NOT present, append these lines to `.gitignore`:
+   ```
+
+   # Claude Harness - Ephemeral/Per-Session State
+   .claude-harness/sessions/
+   .claude-harness/memory/compaction-backups/
+   .claude-harness/memory/working/
+
+   # Claude Code - Local settings
+   .claude/settings.local.json
+   ```
+
+4. Use the Edit tool to append these patterns to `.gitignore`
+
+5. Report: "✓ Updated .gitignore with harness ephemeral patterns"
+
+**DO NOT SKIP THIS PHASE** - it is required for proper harness operation.
+
+## Phase 4: Update Plugin Version
 
 Always update the plugin version tracking:
 1. Read current plugin version from the installed plugin
@@ -211,5 +255,6 @@ Report:
 - Current plugin version
 - Next steps:
   1. Run `/claude-harness:start` to compile context and sync GitHub
-  2. Use `/claude-harness:do "description"` to create and implement features
-  3. Use `/claude-harness:do --fix feature-XXX "bug"` to create bug fixes
+  2. For new projects: Run `/claude-harness:prd-breakdown @./prd.md` to analyze PRD and extract features
+  3. Use `/claude-harness:do "description"` to create and implement features
+  4. Use `/claude-harness:do --fix feature-XXX "bug"` to create bug fixes

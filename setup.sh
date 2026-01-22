@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v3.6
+# Claude Code Long-Running Agent Harness Setup v4.0
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v3.6 ==="
+echo "=== Claude Code Agent Harness Setup v4.1 ==="
 echo ""
 
 # Detect project info
@@ -319,7 +319,6 @@ echo ""
 # CREATE v3.0 DIRECTORY STRUCTURE
 # ============================================================================
 
-mkdir -p .claude-harness/memory/working
 mkdir -p .claude-harness/memory/episodic
 mkdir -p .claude-harness/memory/semantic
 mkdir -p .claude-harness/memory/procedural
@@ -327,7 +326,10 @@ mkdir -p .claude-harness/memory/learned
 mkdir -p .claude-harness/impact
 mkdir -p .claude-harness/features/tests
 mkdir -p .claude-harness/agents
-mkdir -p .claude-harness/loops
+mkdir -p .claude-harness/sessions
+mkdir -p .claude-harness/worktrees
+mkdir -p .claude-harness/prd
+# Note: memory/working and loops are session-scoped, not created at setup
 
 # ============================================================================
 # 1. CLAUDE.md - Main context file
@@ -348,7 +350,7 @@ $SCRIPTS
 On every session start:
 1. Run \`pwd\` to confirm working directory
 2. Run \`/claude-harness:start\` to compile working context
-3. Read \`.claude-harness/memory/working/context.json\` for computed context
+3. Read \`.claude-harness/sessions/{session-id}/context.json\` for computed context
 4. Check \`.claude-harness/features/active.json\` for current priorities
 
 ## Development Rules
@@ -366,10 +368,10 @@ On every session start:
 - Typecheck: \`${TYPECHECK_CMD:-npx tsc --noEmit}\`
 
 ## Progress Tracking
-See: \`.claude-harness/memory/working/context.json\` and \`.claude-harness/features/active.json\`
+See: \`.claude-harness/sessions/{session-id}/context.json\` and \`.claude-harness/features/active.json\`
 
 ## Memory Architecture (v3.0)
-- \`memory/working/\` - Current session context (rebuilt each session)
+- \`sessions/{session-id}/\` - Current session context (per-session, gitignored)
 - \`memory/episodic/\` - Recent decisions (rolling window)
 - \`memory/semantic/\` - Project knowledge (persistent)
 - \`memory/procedural/\` - Success/failure patterns (append-only)
@@ -377,26 +379,10 @@ See: \`.claude-harness/memory/working/context.json\` and \`.claude-harness/featu
 "
 
 # ============================================================================
-# 2. MEMORY LAYER: Working Context (rebuilt each session)
+# 2. MEMORY LAYER: Working Context (session-scoped, no longer created here)
 # ============================================================================
-
-create_file ".claude-harness/memory/working/context.json" '{
-  "version": 3,
-  "computedAt": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-  "sessionId": null,
-  "activeFeature": null,
-  "relevantMemory": {
-    "recentDecisions": [],
-    "projectPatterns": [],
-    "avoidApproaches": []
-  },
-  "currentTask": {
-    "description": null,
-    "files": [],
-    "acceptanceCriteria": []
-  },
-  "compilationLog": []
-}'
+# Session-scoped working context is created by SessionStart hook at:
+# .claude-harness/sessions/{session-id}/context.json
 
 # ============================================================================
 # 3. MEMORY LAYER: Episodic Memory (rolling window of decisions)
@@ -555,33 +541,41 @@ create_file ".claude-harness/agents/handoffs.json" '{
 }'
 
 # ============================================================================
-# 9. LOOPS: Agentic loop state
+# 8.5. PRD: Product Requirements Document analysis
 # ============================================================================
 
-create_file ".claude-harness/loops/state.json" '{
-  "version": 3,
-  "feature": null,
-  "featureName": null,
-  "type": "feature",
-  "linkedTo": {
-    "featureId": null,
-    "featureName": null
-  },
-  "status": "idle",
-  "attempt": 0,
-  "maxAttempts": 10,
-  "startedAt": null,
-  "lastAttemptAt": null,
-  "verification": {
-    "build": "'$BUILD_CMD'",
-    "tests": "'$TEST_CMD'",
-    "lint": "'$LINT_CMD'",
-    "typecheck": "'$TYPECHECK_CMD'",
-    "custom": []
-  },
-  "history": [],
-  "lastCheckpoint": null,
-  "escalationRequested": false
+create_file ".claude-harness/prd/subagent-prompts.json" '{
+  "version": 1,
+  "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+  "prompts": {
+    "productAnalyst": {
+      "role": "Product Analyst",
+      "responsibility": "Extract and structure product requirements, user personas, and business goals"
+    },
+    "architect": {
+      "role": "Architect",
+      "responsibility": "Assess technical feasibility, implementation order, risks"
+    },
+    "qaLead": {
+      "role": "QA Lead",
+      "responsibility": "Define acceptance criteria, test scenarios, verification approach"
+    }
+  }
+}'
+
+# ============================================================================
+# 9. LOOPS: Agentic loop state (session-scoped, no longer created here)
+# ============================================================================
+# Agentic loop state is now session-scoped, created by SessionStart hook at:
+# .claude-harness/sessions/{session-id}/loop-state.json
+
+# ============================================================================
+# 9.5. WORKTREES: Registry for parallel development worktrees
+# ============================================================================
+
+create_file ".claude-harness/worktrees/registry.json" '{
+  "version": 1,
+  "worktrees": []
 }'
 
 # ============================================================================
@@ -648,7 +642,9 @@ create_file ".claude-harness/claude-progress.json" '{
 # 12. init.sh (inside .claude-harness for organization)
 # ============================================================================
 
-create_file ".claude-harness/init.sh" '#!/bin/bash
+# Use heredoc with quoted delimiter to preserve all special characters
+INIT_CONTENT=$(cat <<'INITEOF'
+#!/bin/bash
 # Development Environment Initializer (v3.0)
 
 echo "=== Dev Environment Setup (v3.0 Memory Architecture) ==="
@@ -671,7 +667,7 @@ echo "=== Memory Layers Status ==="
 
 # Working context
 if [ -f ".claude-harness/memory/working/context.json" ]; then
-    computed=$(grep -o "\"computedAt\":\"[^\"]*\"" .claude-harness/memory/working/context.json 2>/dev/null | cut -d'"' -f4)
+    computed=$(grep -o '"computedAt":"[^"]*"' .claude-harness/memory/working/context.json 2>/dev/null | cut -d'"' -f4)
     echo "Working Context: Last compiled $computed"
 else
     echo "Working Context: Not initialized"
@@ -679,7 +675,7 @@ fi
 
 # Episodic memory
 if [ -f ".claude-harness/memory/episodic/decisions.json" ]; then
-    count=$(grep -c "\"id\":" .claude-harness/memory/episodic/decisions.json 2>/dev/null || echo "0")
+    count=$(grep -c '"id":' .claude-harness/memory/episodic/decisions.json 2>/dev/null || echo "0")
     echo "Episodic Memory: $count decisions recorded"
 else
     echo "Episodic Memory: Not initialized"
@@ -687,8 +683,8 @@ fi
 
 # Procedural memory
 if [ -f ".claude-harness/memory/procedural/failures.json" ]; then
-    failures=$(grep -c "\"id\":" .claude-harness/memory/procedural/failures.json 2>/dev/null || echo "0")
-    successes=$(grep -c "\"id\":" .claude-harness/memory/procedural/successes.json 2>/dev/null || echo "0")
+    failures=$(grep -c '"id":' .claude-harness/memory/procedural/failures.json 2>/dev/null || echo "0")
+    successes=$(grep -c '"id":' .claude-harness/memory/procedural/successes.json 2>/dev/null || echo "0")
     echo "Procedural Memory: $failures failures, $successes successes recorded"
 else
     echo "Procedural Memory: Not initialized"
@@ -698,9 +694,9 @@ fi
 echo ""
 echo "=== Features Status ==="
 if [ -f ".claude-harness/features/active.json" ]; then
-    pending=$(grep -c "\"status\":\"pending\"" .claude-harness/features/active.json 2>/dev/null || echo "0")
-    in_progress=$(grep -c "\"status\":\"in_progress\"" .claude-harness/features/active.json 2>/dev/null || echo "0")
-    needs_tests=$(grep -c "\"status\":\"needs_tests\"" .claude-harness/features/active.json 2>/dev/null || echo "0")
+    pending=$(grep -c '"status":"pending"' .claude-harness/features/active.json 2>/dev/null || echo "0")
+    in_progress=$(grep -c '"status":"in_progress"' .claude-harness/features/active.json 2>/dev/null || echo "0")
+    needs_tests=$(grep -c '"status":"needs_tests"' .claude-harness/features/active.json 2>/dev/null || echo "0")
     echo "Pending: $pending | In Progress: $in_progress | Needs Tests: $needs_tests"
 else
     echo "No features file found"
@@ -708,7 +704,7 @@ fi
 
 # Archived features
 if [ -f ".claude-harness/features/archive.json" ]; then
-    archived=$(grep -c "\"id\":" .claude-harness/features/archive.json 2>/dev/null || echo "0")
+    archived=$(grep -c '"id":' .claude-harness/features/archive.json 2>/dev/null || echo "0")
     echo "Archived: $archived completed features"
 fi
 
@@ -716,12 +712,12 @@ fi
 echo ""
 echo "=== Agentic Loop State ==="
 if [ -f ".claude-harness/loops/state.json" ]; then
-    status=$(grep -o "\"status\":\"[^\"]*\"" .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
-    feature=$(grep -o "\"feature\":\"[^\"]*\"" .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
-    looptype=$(grep -o "\"type\":\"[^\"]*\"" .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
-    linkedFeature=$(grep -o "\"featureId\":\"[^\"]*\"" .claude-harness/loops/state.json 2>/dev/null | head -1 | cut -d'"' -f4)
+    status=$(grep -o '"status":"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
+    feature=$(grep -o '"feature":"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
+    looptype=$(grep -o '"type":"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
+    linkedFeature=$(grep -o '"featureId":"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | head -1 | cut -d'"' -f4)
     if [ "$status" != "idle" ] && [ -n "$feature" ]; then
-        attempt=$(grep -o "\"attempt\":[0-9]*" .claude-harness/loops/state.json 2>/dev/null | cut -d':' -f2)
+        attempt=$(grep -o '"attempt":[0-9]*' .claude-harness/loops/state.json 2>/dev/null | cut -d':' -f2)
         if [ "$looptype" = "fix" ]; then
             echo "ACTIVE FIX: $feature (attempt $attempt, status: $status)"
             echo "Linked to: $linkedFeature"
@@ -737,7 +733,7 @@ fi
 
 # Pending fixes
 if [ -f ".claude-harness/features/active.json" ]; then
-    pendingFixes=$(grep -c "\"type\":\"bugfix\"" .claude-harness/features/active.json 2>/dev/null || echo "0")
+    pendingFixes=$(grep -c '"type":"bugfix"' .claude-harness/features/active.json 2>/dev/null || echo "0")
     if [ "$pendingFixes" != "0" ]; then
         echo ""
         echo "Pending fixes: $pendingFixes"
@@ -748,14 +744,14 @@ fi
 echo ""
 echo "=== Orchestration State ==="
 if [ -f ".claude-harness/agents/context.json" ]; then
-    session=$(grep -o "\"activeFeature\":\"[^\"]*\"" .claude-harness/agents/context.json 2>/dev/null | cut -d'"' -f4)
+    session=$(grep -o '"activeFeature":"[^"]*"' .claude-harness/agents/context.json 2>/dev/null | cut -d'"' -f4)
     if [ -n "$session" ]; then
         echo "Active orchestration: $session"
         echo "Run /claude-harness:orchestrate to resume"
     else
         echo "No active orchestration"
     fi
-    handoffs=$(grep -c "\"from\":" .claude-harness/agents/handoffs.json 2>/dev/null || echo "0")
+    handoffs=$(grep -c '"from":' .claude-harness/agents/handoffs.json 2>/dev/null || echo "0")
     if [ "$handoffs" != "0" ]; then
         echo "Pending handoffs: $handoffs"
     fi
@@ -764,7 +760,7 @@ else
 fi
 
 echo ""
-echo "=== Environment Ready (v3.6) ==="
+echo "=== Environment Ready (v3.8) ==="
 echo "Commands (6 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
@@ -772,8 +768,61 @@ echo "  /claude-harness:do          - Unified workflow (features + fixes)"
 echo "  /claude-harness:checkpoint  - Save progress, persist memory"
 echo "  /claude-harness:orchestrate - Spawn multi-agent team"
 echo "  /claude-harness:merge       - Merge PRs, auto-version, release"
-'
+INITEOF
+)
+create_file ".claude-harness/init.sh" "$INIT_CONTENT"
 chmod +x .claude-harness/init.sh 2>/dev/null || true
+
+# ============================================================================
+# 12.5. hooks/ directory - Session hooks
+# ============================================================================
+
+mkdir -p hooks
+
+# Session End Hook - Clean up inactive session directories
+SESSION_END_HOOK=$(cat <<'SESSIONENDEOF'
+#!/bin/bash
+# Session End Hook - Clean up inactive session directories
+# Runs automatically when a Claude Code session ends
+# Only removes sessions where the PID is no longer running (inactive)
+
+HARNESS_DIR="${CLAUDE_PROJECT_DIR:-.}/.claude-harness"
+SESSIONS_DIR="$HARNESS_DIR/sessions"
+
+# Exit if no sessions directory
+[ -d "$SESSIONS_DIR" ] || exit 0
+
+# Get current session ID from stdin (JSON input from SessionEnd hook)
+INPUT=$(cat)
+CURRENT_SESSION=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+
+# Iterate through all session directories
+for session_dir in "$SESSIONS_DIR"/*/; do
+  [ -d "$session_dir" ] || continue
+
+  session_id=$(basename "$session_dir")
+  session_file="$session_dir/session.json"
+
+  # Skip current session (the one that's ending)
+  [ "$session_id" = "$CURRENT_SESSION" ] && continue
+
+  # Skip if no session.json (malformed session)
+  [ -f "$session_file" ] || continue
+
+  # Get PID from session.json
+  pid=$(jq -r '.pid // empty' "$session_file" 2>/dev/null)
+
+  # If no PID or PID is not running, session is inactive - delete it
+  if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+    rm -rf "$session_dir"
+  fi
+done
+
+exit 0
+SESSIONENDEOF
+)
+create_file "hooks/session-end.sh" "$SESSION_END_HOOK"
+chmod +x hooks/session-end.sh 2>/dev/null || true
 
 # ============================================================================
 # 13. .claude directory structure
@@ -786,6 +835,18 @@ mkdir -p .claude/commands
 # ============================================================================
 
 create_file ".claude/settings.local.json" '{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/session-end.sh"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(./.claude-harness/init.sh)",
@@ -809,7 +870,7 @@ Check if legacy files exist and migrate them:
 2. v2.x structure -> v3.0 memory architecture (if needed)
 
 ## Phase 1: Context Compilation
-1. Clear .claude-harness/memory/working/context.json
+1. Clear session context (.claude-harness/sessions/{session-id}/context.json)
 2. Load active feature from .claude-harness/features/active.json
 3. Query episodic memory for recent relevant decisions
 4. Query semantic memory for project patterns
@@ -817,12 +878,12 @@ Check if legacy files exist and migrate them:
    - Failures to avoid (similar file patterns)
    - Successful approaches to reuse
 6. Compute relevance scores, keep top entries
-7. Write compiled context to working/context.json
+7. Write compiled context to sessions/{session-id}/context.json
 8. Log compilation decisions
 
 ## Phase 2: Local Status
 1. Execute `./.claude-harness/init.sh` to see environment status
-2. Read `.claude-harness/memory/working/context.json` for compiled context
+2. Read compiled context from session-scoped context (.claude-harness/sessions/{session-id}/context.json)
 3. Read `.claude-harness/features/active.json` to identify next priority
 
 ## Phase 3: Orchestration State
@@ -1082,11 +1143,62 @@ Run `/claude-harness:checkpoint` after to commit changes.
 ' "command"
 
 # ============================================================================
+# 23. Update project .gitignore with harness ephemeral patterns
+# ============================================================================
+
+update_gitignore() {
+    local GITIGNORE_FILE=".gitignore"
+    local PATTERNS=(
+        "# Claude Harness - Ephemeral/Per-Session State"
+        ".claude-harness/sessions/"
+        ".claude-harness/memory/compaction-backups/"
+        ".claude-harness/memory/working/"
+        ""
+        "# Claude Code - Local settings"
+        ".claude/settings.local.json"
+    )
+
+    # Create .gitignore if it doesn't exist
+    if [ ! -f "$GITIGNORE_FILE" ]; then
+        touch "$GITIGNORE_FILE"
+        echo "  [CREATE] $GITIGNORE_FILE"
+    fi
+
+    local ADDED=0
+    for pattern in "${PATTERNS[@]}"; do
+        # Skip comments and empty lines for existence check
+        if [[ "$pattern" == "#"* ]] || [[ -z "$pattern" ]]; then
+            # Always add comments/empty lines if they don't exist as-is
+            if ! grep -Fxq "$pattern" "$GITIGNORE_FILE" 2>/dev/null; then
+                echo "$pattern" >> "$GITIGNORE_FILE"
+            fi
+            continue
+        fi
+
+        # Check if pattern already exists (use fixed string match, not regex)
+        # Remove trailing slash for comparison
+        local pattern_base="${pattern%/}"
+        if ! grep -Fq "$pattern_base" "$GITIGNORE_FILE" 2>/dev/null; then
+            echo "$pattern" >> "$GITIGNORE_FILE"
+            ADDED=$((ADDED + 1))
+        fi
+    done
+
+    if [ $ADDED -gt 0 ]; then
+        echo "  [UPDATE] $GITIGNORE_FILE (added $ADDED harness patterns)"
+    else
+        echo "  [SKIP] $GITIGNORE_FILE (patterns already present)"
+    fi
+}
+
+update_gitignore
+
+# ============================================================================
 # 24. Record plugin version for update detection
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.4.0")
+PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "4.1.0")
 echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
 echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 
@@ -1095,7 +1207,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v3.6 - Command Consolidation) ==="
+echo "=== Setup Complete (v4.1.0 - PRD Auto-Issue Creation + GitHub Integration) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1120,7 +1232,11 @@ echo "  │   └── tests/"
 echo "  ├── agents/"
 echo "  │   ├── context.json"
 echo "  │   └── handoffs.json"
+echo "  ├── worktrees/"
+echo "  │   └── registry.json         (worktree tracking)"
 echo "  ├── loops/state.json"
+echo "  ├── sessions/               (gitignored, per-instance)"
+echo "  │   └── {uuid}/             (session-scoped state)"
 echo "  └── config.json"
 echo ""
 echo "Commands (6 total):"
@@ -1143,13 +1259,23 @@ echo "  2. Run /claude-harness:start to compile context and see status"
 echo "  3. Run /claude-harness:do \"feature description\" to create and implement features"
 echo "  4. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v3.6 Features:"
-echo "  • Command Consolidation - 6 commands instead of 13"
-echo "  • Unified /claude-harness:do command - features AND fixes in one command"
-echo "  • Auto-reflect at checkpoint - learns from user corrections"
-echo "  • Safe Permissions - Run without --dangerously-skip-permissions"
+echo "v4.1.0 Features (NEW):"
+echo "  • Auto-Create GitHub Issues from PRD - --create-issues flag to generate issues for features"
+echo ""
+echo "v4.0.0+ Features (Existing):"
+echo "  • PRD Analysis (/prd-breakdown) - Analyze Product Requirements Documents"
+echo "  • Multi-agent Decomposition - Product Analyst, Architect, QA Lead work in parallel"
+echo "  • Smart Feature Generation - Extracts requirements, resolves dependencies, assigns priorities"
+echo "  • PRD Bootstrap - Quickly create feature lists for new projects"
+echo "  • Flexible Input - Inline PRD, file-based, GitHub issues, or interactive paste"
+echo "  • Git Worktree Support - True parallel development with isolated directories"
+echo "  • Auto-worktree for /do - Each new feature gets its own worktree by default"
+echo "  • --inline flag - Skip worktree for quick fixes in same directory"
+echo "  • /worktree command - Manage worktrees (create, list, remove)"
+echo "  • Worktree-aware /start - Detects worktree mode, loads shared state"
+echo "  • Automatic Session Cleanup - Old sessions cleaned on exit (PID-based)"
+echo "  • Parallel Work Streams - Multiple Claude instances on different features"
+echo "  • Session-Scoped State - Isolated state per instance (sessions/{uuid}/)"
 echo "  • 5-Layer Memory Architecture (Working/Episodic/Semantic/Procedural/Learned)"
 echo "  • Failure Prevention (learns from mistakes)"
-echo "  • Impact Analysis (warns about breaking changes)"
-echo "  • Context Compilation (fresh, relevant context each session)"
 echo ""
