@@ -330,6 +330,7 @@ mkdir -p .claude-harness/agents
 mkdir -p .claude-harness/loops
 mkdir -p .claude-harness/sessions
 mkdir -p .claude-harness/worktrees
+mkdir -p .claude-harness/prd
 
 # ============================================================================
 # 1. CLAUDE.md - Main context file
@@ -554,6 +555,29 @@ create_file ".claude-harness/agents/context.json" '{
 create_file ".claude-harness/agents/handoffs.json" '{
   "version": 3,
   "queue": []
+}'
+
+# ============================================================================
+# 8.5. PRD: Product Requirements Document analysis
+# ============================================================================
+
+create_file ".claude-harness/prd/subagent-prompts.json" '{
+  "version": 1,
+  "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+  "prompts": {
+    "productAnalyst": {
+      "role": "Product Analyst",
+      "responsibility": "Extract and structure product requirements, user personas, and business goals"
+    },
+    "architect": {
+      "role": "Architect",
+      "responsibility": "Assess technical feasibility, implementation order, risks"
+    },
+    "qaLead": {
+      "role": "QA Lead",
+      "responsibility": "Define acceptance criteria, test scenarios, verification approach"
+    }
+  }
 }'
 
 # ============================================================================

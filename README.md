@@ -172,6 +172,7 @@ When you start Claude Code in a harness-enabled project:
 ├─────────────────────────────────────────────────────────────────┤
 │  /claude-harness:setup          Initialize harness (one-time)   │
 │  /claude-harness:start          Compile context + GitHub sync   │
+│  /claude-harness:prd-breakdown  Analyze PRD → extract features  │
 │  /claude-harness:do             Unified workflow (auto-worktree)│
 │  /claude-harness:do-tdd         TDD workflow (tests first)      │
 │  /claude-harness:checkpoint     Commit + persist memory         │
@@ -376,12 +377,13 @@ Successful Patterns to Use:
 
 Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 
-## Commands Reference (8 Total)
+## Commands Reference (9 Total)
 
 | Command | Purpose |
 |---------|---------|
 | `/claude-harness:setup` | Initialize harness in project (one-time) |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
+| **`/claude-harness:prd-breakdown`** | **PRD Analysis**: Decompose PRD into atomic features |
 | **`/claude-harness:do`** | **Unified workflow**: features AND fixes (auto-worktree) |
 | **`/claude-harness:do-tdd`** | **TDD workflow**: tests first, then implement |
 | `/claude-harness:checkpoint` | Manual commit + push + PR |
@@ -432,6 +434,32 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 🔄 REFACTOR → Improve code while keeping tests green
 ```
 
+### `/prd-breakdown` Command Options
+
+| Syntax | Behavior |
+|--------|----------|
+| `/prd-breakdown "Your PRD markdown..."` | Analyze inline PRD |
+| `/prd-breakdown --file ./docs/prd.md` | Read PRD from file (or `./.claude-harness/prd.md`) |
+| `/prd-breakdown --url https://github.com/org/repo/issues/42` | Fetch PRD from GitHub issue |
+| `/prd-breakdown --analyze-only` | Run analysis without creating features |
+| `/prd-breakdown --auto` | No prompts, create all features |
+| `/prd-breakdown --max-features 10` | Limit to 10 highest-priority features |
+
+**PRD Breakdown Workflow:**
+```
+📄 Input         → Read PRD from inline, file, or GitHub
+🔍 Analyze       → 3 parallel subagents analyze requirements
+  • Product Analyst: Extracts business goals, requirements, personas
+  • Architect: Assesses feasibility, tech stack, dependencies, risks
+  • QA Lead: Defines acceptance criteria, test scenarios, verification
+🎯 Decompose     → Transform requirements into atomic features
+  • Resolve dependencies (topological sort)
+  • Assign priorities (MVP first)
+  • Generate acceptance criteria
+📋 Review        → Preview breakdown, select features to create
+✅ Create        → Add features to active.json with PRD metadata
+```
+
 ## v3.0 Directory Structure
 
 ```
@@ -464,6 +492,12 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 │   └── handoffs.json             # Agent handoff queue
 ├── worktrees/
 │   └── registry.json             # Worktree tracking for parallel dev
+├── prd/                          # PRD analysis and decomposition
+│   ├── input.md                  # Original PRD document
+│   ├── metadata.json             # PRD metadata and hash
+│   ├── analysis.json             # Subagent analysis results
+│   ├── breakdown.json            # Decomposed features
+│   └── subagent-prompts.json     # Reusable subagent prompts
 ├── loops/
 │   └── state.json                # Agentic loop state
 ├── sessions/                     # Per-session state (gitignored)
