@@ -35,8 +35,9 @@ The `/do` command chains all steps automatically with interactive checkpoints. B
 /claude-harness:start                              # Compile context, show status
 
 # 2b. PRD BOOTSTRAP (for new projects)
-/claude-harness:prd-breakdown "Your PRD..."        # Analyze PRD → extract atomic features
-/claude-harness:prd-breakdown --file ./docs/prd.md # Read PRD from file
+/claude-harness:prd-breakdown "Your PRD..."        # Analyze inline PRD → extract atomic features
+/claude-harness:prd-breakdown @./docs/prd.md      # Read PRD from file (@ syntax)
+/claude-harness:prd-breakdown --file ./docs/prd.md # Read PRD from file (--flag syntax)
 /claude-harness:prd-breakdown --url https://github.com/.../issues/42  # Fetch from GitHub
 
 # 3. DEVELOPMENT - Features and Fixes (auto-creates worktree by default)
@@ -444,7 +445,8 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | Syntax | Behavior |
 |--------|----------|
 | `/prd-breakdown "Your PRD markdown..."` | Analyze inline PRD |
-| `/prd-breakdown --file ./docs/prd.md` | Read PRD from file (or `./.claude-harness/prd.md`) |
+| `/prd-breakdown @./docs/prd.md` | Read PRD from file (@ syntax - preferred) |
+| `/prd-breakdown --file ./docs/prd.md` | Read PRD from file (--flag syntax) |
 | `/prd-breakdown --url https://github.com/org/repo/issues/42` | Fetch PRD from GitHub issue |
 | `/prd-breakdown --analyze-only` | Run analysis without creating features |
 | `/prd-breakdown --auto` | No prompts, create all features |

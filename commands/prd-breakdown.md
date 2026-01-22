@@ -1,6 +1,6 @@
 ---
 description: Analyze PRD and break down into atomic features for harness tracking
-argument-hint: "[PRD-TEXT | --file PATH | --url GITHUB-ISSUE]"
+argument-hint: "[PRD-TEXT | @FILE | --file PATH | --url GITHUB-ISSUE]"
 ---
 
 Analyze a Product Requirements Document (PRD) and decompose it into atomic features that integrate with the claude-harness workflow.
@@ -10,9 +10,11 @@ Arguments: $ARGUMENTS
 ## Phase 0: PRD Input Detection & Storage
 
 1. **Detect PRD source** (in priority order):
-   - If arguments provided → treat as inline PRD markdown
-   - Else if file `./.claude-harness/prd.md` exists → read from file
+   - If arguments start with `@` → treat as file reference (e.g., `@./docs/prd.md`)
    - Else if `--url` flag provided → fetch from GitHub issue
+   - Else if `--file` flag provided → read from specified file path
+   - Else if file `./.claude-harness/prd.md` exists → read from file
+   - Else if arguments provided → treat as inline PRD markdown
    - Else → prompt user for interactive input
 
 2. **Validate PRD format**:
@@ -234,13 +236,24 @@ Arguments: $ARGUMENTS
 ## Command Options
 
 ```bash
-/claude-harness:prd-breakdown "Detailed PRD markdown here..."
-/claude-harness:prd-breakdown --file ./docs/prd.md
-/claude-harness:prd-breakdown --url https://github.com/owner/repo/issues/42
-/claude-harness:prd-breakdown --analyze-only      # Run analysis but don't create features
-/claude-harness:prd-breakdown --auto              # No prompts, create all features
-/claude-harness:prd-breakdown --max-features 10   # Limit to 10 top features
+/claude-harness:prd-breakdown "Detailed PRD markdown here..."     # Inline PRD
+/claude-harness:prd-breakdown @./docs/prd.md                     # File reference (@ syntax)
+/claude-harness:prd-breakdown --file ./docs/prd.md               # File flag
+/claude-harness:prd-breakdown --url https://github.com/.../42    # GitHub issue
+/claude-harness:prd-breakdown --analyze-only                     # Analysis without feature creation
+/claude-harness:prd-breakdown --auto                             # No prompts, create all features
+/claude-harness:prd-breakdown --max-features 10                  # Limit to 10 top features
 ```
+
+### Syntax Variations
+
+| Syntax | Behavior |
+|--------|----------|
+| `/prd-breakdown "markdown text"` | Treat argument as inline PRD content |
+| `/prd-breakdown @path/to/file.md` | Read PRD from file (@ prefix) |
+| `/prd-breakdown --file path/to/file.md` | Read PRD from file (--flag syntax) |
+| `/prd-breakdown --url https://...` | Fetch PRD from GitHub issue |
+| (no args) | Prompt user for interactive input |
 
 ## Error Handling
 
