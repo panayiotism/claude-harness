@@ -286,14 +286,14 @@ elif [ "$IS_V3" = true ]; then
 │  $STATUS_PADDED│
 │  $MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:setup          Initialize harness (one-time)   │
-│  /claude-harness:start          Compile context + GitHub sync   │
-│  /claude-harness:prd-breakdown  Analyze PRD → extract features  │
-│  /claude-harness:do             Unified workflow (features+fixes)│
-│  /claude-harness:do-tdd         TDD workflow (tests first)      │
-│  /claude-harness:checkpoint     Commit + persist memory         │
-│  /claude-harness:orchestrate    Spawn multi-agent team          │
-│  /claude-harness:merge          Merge PRs + auto-version        │
+│  /claude-harness:setup         Initialize harness (one-time)  │
+│  /claude-harness:start         Compile context + GitHub sync   │
+│  /claude-harness:prd-breakdown Analyze PRD → extract features  │
+│  /claude-harness:do            Unified workflow (features+fixes)│
+│  /claude-harness:do-tdd        TDD workflow (tests first)       │
+│  /claude-harness:checkpoint    Commit + persist memory          │
+│  /claude-harness:orchestrate   Spawn multi-agent team           │
+│  /claude-harness:merge         Merge PRs + auto-version         │
 └─────────────────────────────────────────────────────────────────┘"
 else
     # v2.x display
