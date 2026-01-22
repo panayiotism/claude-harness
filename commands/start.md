@@ -29,7 +29,16 @@ Before anything else, check if legacy root-level harness files need migration:
      - `mv init.sh .claude-harness/`
    - Report to user: "Migrated harness files to .claude-harness/ directory"
 
-3. If `.claude-harness/` already exists, skip migration (assume already migrated)
+3. If `.claude-harness/` already exists, check for feature file migration:
+   - If `feature-list.json` OR `feature-archive.json` exist at root level:
+     - Create `.claude-harness/features/` directory if needed: `mkdir -p .claude-harness/features/`
+     - Migrate files with renaming:
+       - `mv feature-list.json .claude-harness/features/active.json` (if exists)
+       - `mv feature-archive.json .claude-harness/features/archive.json` (if exists)
+     - Also check for old files in `.claude-harness/` root:
+       - `mv .claude-harness/feature-list.json .claude-harness/features/active.json` (if exists)
+       - `mv .claude-harness/feature-archive.json .claude-harness/features/archive.json` (if exists)
+     - Report to user: "Migrated feature files to .claude-harness/features/ with updated names"
 
 4. **Create missing state files** (for plugin updates):
    - Check if each required state file exists, create with defaults if missing:
