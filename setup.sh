@@ -1198,7 +1198,7 @@ update_gitignore
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "3.4.0")
+PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "4.1.0")
 echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
 echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 
