@@ -377,8 +377,9 @@ Before compiling context, detect if we're running in a git worktree and establis
       3. **Escalated loop**: Review history and provide guidance, or increase maxAttempts
       4. **Pending fixes**: Resume fix with `/claude-harness:do {fix-id}`
       5. **Pending handoffs**: Resume orchestration with `/claude-harness:orchestrate {feature-id}`
-      6. **Pending features**: Start implementation:
+      6. **No features (new project)**: Bootstrap with `/claude-harness:prd-breakdown @./prd.md` to analyze PRD and extract features
+      7. **Pending features**: Start implementation:
          - Simple feature: `/claude-harness:do {feature-id}`
          - Complex feature: `/claude-harness:orchestrate {feature-id}`
-      7. **No features**: Add one with `/claude-harness:do "description"`
-      8. **Create fix for completed feature**: `/claude-harness:do --fix {feature-id} "bug description"`
+      8. **No features (existing project)**: Add one with `/claude-harness:do "description"`
+      9. **Create fix for completed feature**: `/claude-harness:do --fix {feature-id} "bug description"`

@@ -72,6 +72,8 @@ If no `.claude-harness/` directory exists, create full v3.0 structure:
 │       ├── failures.json
 │       ├── successes.json
 │       └── patterns.json
+├── prd/
+│   └── subagent-prompts.json
 ├── features/
 │   └── active.json
 ├── impact/
@@ -239,5 +241,6 @@ Report:
 - Current plugin version
 - Next steps:
   1. Run `/claude-harness:start` to compile context and sync GitHub
-  2. Use `/claude-harness:do "description"` to create and implement features
-  3. Use `/claude-harness:do --fix feature-XXX "bug"` to create bug fixes
+  2. For new projects: Run `/claude-harness:prd-breakdown @./prd.md` to analyze PRD and extract features
+  3. Use `/claude-harness:do "description"` to create and implement features
+  4. Use `/claude-harness:do --fix feature-XXX "bug"` to create bug fixes
