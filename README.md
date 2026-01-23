@@ -61,7 +61,7 @@ The `/do` command chains all steps automatically with interactive checkpoints. B
 /claude-harness:orchestrate feature-001  # Spawn specialized agent team
 
 # 7. RELEASE
-/claude-harness:merge                    # Merge all PRs, auto-version, release
+/claude-harness:merge                    # Merge all PRs, close issues
 ```
 
 ### What Happens Behind the Scenes
@@ -103,8 +103,8 @@ The `/do` command chains all steps automatically with interactive checkpoints. B
 /orchestrate     → Spawns specialized agent team for complex features
 
 /merge           → Merges PRs in dependency order
-                   Auto-versions (MAJOR/MINOR/PATCH based on changes)
-                   Creates GitHub release with notes
+                   Closes linked issues
+                   Cleans up branches
 ```
 
 ### v3.0 Memory Architecture
@@ -185,7 +185,7 @@ When you start Claude Code in a harness-enabled project:
 │  /claude-harness:checkpoint     Commit + persist memory         │
 │  /claude-harness:worktree       Manage worktrees (list/remove)  │
 │  /claude-harness:orchestrate    Spawn multi-agent team          │
-│  /claude-harness:merge          Merge PRs + auto-version        │
+│  /claude-harness:merge          Merge PRs + close issues        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -396,7 +396,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/claude-harness:checkpoint` | Manual commit + push + PR |
 | `/claude-harness:worktree` | Manage worktrees (list, create, remove, prune) |
 | `/claude-harness:orchestrate <id>` | Spawn multi-agent team (advanced) |
-| `/claude-harness:merge` | Merge all PRs, auto-version, release |
+| `/claude-harness:merge` | Merge all PRs, close issues |
 
 ### `/do` Command Options
 
@@ -778,6 +778,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **4.2.0** | **Simplified /merge Command**: Removed version tagging and GitHub release creation from `/merge` command since git tag operations are not directly supported by GitHub MCP. The command now focuses on merging PRs, closing issues, and cleaning up branches. Version tagging should be done manually using git commands or GitHub's release UI. |
 | **4.1.0** | **Auto-Create GitHub Issues from PRD**: New `--create-issues` flag on `/prd-breakdown` command automatically creates one GitHub issue per generated feature. Designed for explicit opt-in (not automatic) with full automation once flag is used. Issues include feature description, acceptance criteria, and priority metadata. Labeled with `feature` and `prd-generated` tags. Gracefully degrades if GitHub MCP unavailable. Enables teams to go from PRD → features → tracked backlog in one command. See [RELEASES/v4.1.0.md](./RELEASES/v4.1.0.md). |
 | **4.0.0** | **PRD Analysis & Decomposition**: New `/claude-harness:prd-breakdown` command analyzes Product Requirements Documents using 3 parallel subagents (Product Analyst, Architect, QA Lead). Automatically decomposes PRDs into atomic features with dependencies, priorities, and acceptance criteria. Supports inline PRD, file-based, GitHub issues, or interactive input. Essential for bootstrapping feature lists in new projects. Version bumped across all files (setup.sh, plugin.json, hooks, README). See [RELEASES/v4.0.0.md](./RELEASES/v4.0.0.md). |
 | **3.9.6** | **Remote Branch Cleanup in Merge**: `/merge` command now explicitly deletes remote branches after PR merge using `git push origin --delete {branch}`. Phase 4 clarified to include both remote and local deletion, Phase 7 adds verification step, Phase 8 reports both local and remote deletions. |

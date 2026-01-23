@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v4.0.0
+# Claude Harness SessionStart Hook v4.2.0
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 
@@ -293,7 +293,7 @@ elif [ "$IS_V3" = true ]; then
 │  /claude-harness:do-tdd        TDD workflow (tests first)       │
 │  /claude-harness:checkpoint    Commit + persist memory          │
 │  /claude-harness:orchestrate   Spawn multi-agent team           │
-│  /claude-harness:merge         Merge PRs + auto-version         │
+│  /claude-harness:merge         Merge PRs + close issues         │
 └─────────────────────────────────────────────────────────────────┘"
 else
     # v2.x display
@@ -308,7 +308,7 @@ else
 │  /claude-harness:do          Unified workflow (features+fixes)  │
 │  /claude-harness:orchestrate Spawn multi-agent team             │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
-│  /claude-harness:merge       Merge PRs + create release         │
+│  /claude-harness:merge       Merge PRs + close issues           │
 └─────────────────────────────────────────────────────────────────┘"
 fi
 
@@ -407,7 +407,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v3.8 WORKFLOW (7 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:do - Unified workflow (features AND fixes)\n4. /claude-harness:do-tdd - TDD workflow (tests first)\n5. /claude-harness:checkpoint - Manual commit + push + PR\n6. /claude-harness:orchestrate - Multi-agent team (advanced)\n7. /claude-harness:merge - Merge PRs, auto-version, release\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v4.2 WORKFLOW (7 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:do - Unified workflow (features AND fixes)\n4. /claude-harness:do-tdd - TDD workflow (tests first)\n5. /claude-harness:checkpoint - Manual commit + push + PR\n6. /claude-harness:orchestrate - Multi-agent team (advanced)\n7. /claude-harness:merge - Merge PRs, close issues\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi

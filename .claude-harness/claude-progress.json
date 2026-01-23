@@ -1,31 +1,30 @@
 {
-  "lastUpdated": "2026-01-22T12:00:00Z",
+  "lastUpdated": "2026-01-23T16:30:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Add PRD analysis command with multi-agent decomposition - v4.0.0",
+    "summary": "Remove version tag creation from /merge command - v4.2.0",
     "completedTasks": [
-      "Created /prd-breakdown command with 4-phase workflow",
-      "Implemented 3 subagent templates (Product Analyst, Architect, QA Lead)",
-      "Added PRD input detection (inline, file, GitHub, interactive)",
-      "Implemented atomic feature decomposition and generation",
-      "Updated all version references to v4.0.0",
-      "Updated README TL;DR section with new command",
-      "Updated changelog and documentation"
+      "Removed Phase 5 (Version Tagging) from merge.md",
+      "Removed Phase 6 (Release Notes) from merge.md",
+      "Updated Phase numbers (Cleanup → 5, Report Summary → 6)",
+      "Updated README documentation (workflow, commands, changelog)",
+      "Updated setup.sh version and descriptions",
+      "Updated hooks/session-start.sh descriptions",
+      "Updated plugin.json version to 4.2.0"
     ],
     "blockers": [],
     "nextSteps": [
-      "Test /prd-breakdown with real PRDs",
-      "Verify subagent analysis quality",
-      "Consider PRD diffing for future versions"
+      "Create PR for feature-016",
+      "Test /merge command without version tagging"
     ]
   },
   "recentChanges": [
+    "v4.2.0: Simplified /merge - removed version tagging (use git/GitHub UI directly)",
+    "v4.1.0: Auto-create GitHub issues from PRD analysis",
     "v4.0.0: PRD analysis command - decompose requirements into atomic features (3 parallel subagents)",
     "v3.9.6: Remote branch cleanup after PR merge",
     "v3.9.5: Auto-spawn subagents for multi-feature worktrees",
-    "v3.9.4: Interactive menu when no arguments provided",
-    "v3.9.3: Untrack ephemeral harness files from git index",
-    "v3.9.2: Enforce multiSelect: true in interactive menu"
+    "v3.9.4: Interactive menu when no arguments provided"
   ],
   "knownIssues": [],
   "environmentState": {

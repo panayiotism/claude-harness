@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v4.1 ==="
+echo "=== Claude Code Agent Harness Setup v4.2 ==="
 echo ""
 
 # Detect project info
@@ -767,7 +767,7 @@ echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
 echo "  /claude-harness:do          - Unified workflow (features + fixes)"
 echo "  /claude-harness:checkpoint  - Save progress, persist memory"
 echo "  /claude-harness:orchestrate - Spawn multi-agent team"
-echo "  /claude-harness:merge       - Merge PRs, auto-version, release"
+echo "  /claude-harness:merge       - Merge PRs, close issues"
 INITEOF
 )
 create_file ".claude-harness/init.sh" "$INIT_CONTENT"
@@ -1198,7 +1198,7 @@ update_gitignore
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "4.1.0")
+PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "4.2.0")
 echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
 echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 
@@ -1207,7 +1207,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v4.1.0 - PRD Auto-Issue Creation + GitHub Integration) ==="
+echo "=== Setup Complete (v4.2.0 - Simplified Merge Command) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1259,8 +1259,8 @@ echo "  2. Run /claude-harness:start to compile context and see status"
 echo "  3. Run /claude-harness:do \"feature description\" to create and implement features"
 echo "  4. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v4.1.0 Features (NEW):"
-echo "  • Auto-Create GitHub Issues from PRD - --create-issues flag to generate issues for features"
+echo "v4.2.0 Features (NEW):"
+echo "  • Simplified /merge command - removed version tagging (use git/GitHub UI directly)"
 echo ""
 echo "v4.0.0+ Features (Existing):"
 echo "  • PRD Analysis (/prd-breakdown) - Analyze Product Requirements Documents"
