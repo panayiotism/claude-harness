@@ -2,41 +2,6 @@
   "version": 1,
   "features": [
     {
-      "id": "feature-013",
-      "name": "Parallel Work Streams - Session-Scoped State",
-      "description": "Enable multiple Claude sessions to work in parallel on different features without state file conflicts by implementing session-scoped state directories",
-      "priority": 1,
-      "status": "passing",
-      "verification": {
-        "build": null,
-        "tests": null,
-        "lint": null,
-        "typecheck": null,
-        "custom": [
-          "Two parallel /start commands get different session IDs",
-          "Two parallel /do commands don't conflict on loop state",
-          "/checkpoint merges learnings without conflicts"
-        ]
-      },
-      "relatedFiles": [
-        "commands/start.md",
-        "commands/do.md",
-        "commands/checkpoint.md",
-        "hooks/session-start.sh",
-        "setup.sh",
-        ".gitignore",
-        ".claude-plugin/plugin.json",
-        "README.md"
-      ],
-      "github": {
-        "issueNumber": 25,
-        "prNumber": 26,
-        "branch": "feature/feature-013"
-      },
-      "createdAt": "2026-01-15T18:00:00Z",
-      "updatedAt": "2026-01-15T18:00:00Z"
-    },
-    {
       "id": "feature-014",
       "name": "Add dark mode toggle",
       "description": "Add a dark mode toggle to the UI with system preference detection",
@@ -79,36 +44,6 @@
       },
       "createdAt": "2026-01-16T14:00:00Z",
       "updatedAt": "2026-01-16T14:00:00Z"
-    },
-    {
-      "id": "feature-016",
-      "name": "Remove version tag creation from /merge command",
-      "description": "Remove version tagging and release creation from /merge since git tag operations are not directly supported by GitHub MCP",
-      "priority": 1,
-      "status": "passing",
-      "verification": {
-        "build": null,
-        "tests": null,
-        "lint": null,
-        "typecheck": null,
-        "custom": [
-          "/merge command no longer attempts to create version tags",
-          "/merge command no longer attempts to create GitHub releases",
-          "Documentation updated"
-        ]
-      },
-      "relatedFiles": [
-        "commands/merge.md",
-        "README.md",
-        ".claude-plugin/plugin.json"
-      ],
-      "github": {
-        "issueNumber": 27,
-        "prNumber": 28,
-        "branch": "feature/feature-016"
-      },
-      "createdAt": "2026-01-23T16:20:00Z",
-      "updatedAt": "2026-01-23T16:25:00Z"
     }
   ],
   "fixes": [
