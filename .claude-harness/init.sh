@@ -15,8 +15,6 @@ echo ""
 echo "=== Pending Features ==="
 if [ -f .claude-harness/features/active.json ]; then
   cat .claude-harness/features/active.json
-elif [ -f .claude-harness/feature-list.json ]; then
-  cat .claude-harness/feature-list.json
 else
   echo "No .claude-harness/features/active.json found"
 fi

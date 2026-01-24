@@ -79,6 +79,36 @@
       },
       "createdAt": "2026-01-16T14:00:00Z",
       "updatedAt": "2026-01-16T14:00:00Z"
+    },
+    {
+      "id": "feature-016",
+      "name": "Remove version tag creation from /merge command",
+      "description": "Remove version tagging and release creation from /merge since git tag operations are not directly supported by GitHub MCP",
+      "priority": 1,
+      "status": "passing",
+      "verification": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": [
+          "/merge command no longer attempts to create version tags",
+          "/merge command no longer attempts to create GitHub releases",
+          "Documentation updated"
+        ]
+      },
+      "relatedFiles": [
+        "commands/merge.md",
+        "README.md",
+        ".claude-plugin/plugin.json"
+      ],
+      "github": {
+        "issueNumber": 27,
+        "prNumber": 28,
+        "branch": "feature/feature-016"
+      },
+      "createdAt": "2026-01-23T16:20:00Z",
+      "updatedAt": "2026-01-23T16:25:00Z"
     }
   ],
   "fixes": [

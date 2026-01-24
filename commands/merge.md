@@ -1,11 +1,9 @@
 ---
-description: Merge all PRs, auto-version, create release
-argument-hint: "[VERSION]"
+description: Merge all open PRs and close related issues
+argument-hint: ""
 ---
 
-Merge all open PRs, close related issues, create version tag and release:
-
-Arguments: $ARGUMENTS (optional - specific version like v1.2.0, defaults to auto-versioning)
+Merge all open PRs and close related issues:
 
 Requires GitHub MCP to be configured.
 
@@ -28,7 +26,6 @@ Requires GitHub MCP to be configured.
    - Read `.claude-harness/features/active.json`:
      - Check `features` array for linked issue/PR numbers
      - Check `fixes` array for linked issue/PR numbers
-   - Get latest version tag from git: `git describe --tags --abbrev=0`
 
 ## Phase 2: Build Dependency Graph
 
@@ -63,59 +60,21 @@ Requires GitHub MCP to be configured.
      - For features: Set status="passing" in features array
      - For fixes: Set status="passing" in fixes array
 
-## Phase 5: Version Tagging
+## Phase 5: Cleanup
 
-5. Create version tag (auto-versioning is the default):
-   - If no arguments or 'auto': Calculate next version based on PR types:
-     - Any PR with `feat:` or `feature` label → bump MINOR
-     - Only `fix:` PRs → bump PATCH
-     - Any PR with `BREAKING CHANGE` → bump MAJOR
-   - If specific version provided: Use that version
-   - Create annotated git tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-   - Push tag: `git push origin vX.Y.Z`
-
-## Phase 6: Release Notes
-
-6. Generate release notes (if version tagged):
-   - Create GitHub release with:
-     - Tag: vX.Y.Z
-     - Title: "Release vX.Y.Z"
-     - Body: Auto-generated from merged PRs:
-       ```
-       ## What's Changed
-
-       ### Features
-       - PR title (#XX) @author
-
-       ### Bug Fixes
-       - PR title (#XX) @author
-
-       ### Other Changes
-       - PR title (#XX) @author
-
-       **Full Changelog**: compare link
-       ```
-
-## Phase 7: Cleanup
-
-7. Cleanup:
+5. Cleanup:
    - Prune local branches: `git fetch --prune`
    - Delete local feature branches that were merged
    - Verify remote branches were deleted (list any that remain)
    - Switch to main/master branch
    - Pull latest: `git pull`
 
-## Phase 8: Report Summary
+## Phase 6: Report Summary
 
-8. Report summary:
+6. Report summary:
    - PRs merged (with commit hashes)
    - Issues closed
    - Branches deleted (local and remote)
-   - Version tag created (if any)
-   - Release URL (if created)
    - Any failures or skipped items
 
-**Semantic Versioning:**
-- MAJOR: Breaking changes (incompatible API changes)
-- MINOR: New features (backward compatible)
-- PATCH: Bug fixes (backward compatible)
+**Note**: Version tagging and GitHub releases should be managed separately using git commands or GitHub's release UI directly.

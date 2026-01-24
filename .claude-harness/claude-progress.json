@@ -1,31 +1,29 @@
 {
-  "lastUpdated": "2026-01-22T12:00:00Z",
+  "lastUpdated": "2026-01-24T10:30:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Add PRD analysis command with multi-agent decomposition - v4.0.0",
+    "summary": "Remove obsolete feature-list.json references - v4.2.1",
     "completedTasks": [
-      "Created /prd-breakdown command with 4-phase workflow",
-      "Implemented 3 subagent templates (Product Analyst, Architect, QA Lead)",
-      "Added PRD input detection (inline, file, GitHub, interactive)",
-      "Implemented atomic feature decomposition and generation",
-      "Updated all version references to v4.0.0",
-      "Updated README TL;DR section with new command",
-      "Updated changelog and documentation"
+      "Updated commands/setup.md to MOVE feature-list.json instead of keeping it",
+      "Removed obsolete feature-list.json schema from setup.md",
+      "Fixed setup.sh nextSteps to reference correct files",
+      "Removed feature-list.json fallback from session-start.sh",
+      "Removed feature-list.json fallback from init.sh",
+      "Cleaned up legacy references in start.md",
+      "Updated all version numbers to 4.2.1",
+      "Added changelog entry in README.md"
     ],
     "blockers": [],
     "nextSteps": [
-      "Test /prd-breakdown with real PRDs",
-      "Verify subagent analysis quality",
-      "Consider PRD diffing for future versions"
+      "Commit and push changes",
+      "Create/update PR"
     ]
   },
   "recentChanges": [
-    "v4.0.0: PRD analysis command - decompose requirements into atomic features (3 parallel subagents)",
-    "v3.9.6: Remote branch cleanup after PR merge",
-    "v3.9.5: Auto-spawn subagents for multi-feature worktrees",
-    "v3.9.4: Interactive menu when no arguments provided",
-    "v3.9.3: Untrack ephemeral harness files from git index",
-    "v3.9.2: Enforce multiSelect: true in interactive menu"
+    "v4.2.1: Removed obsolete file references (feature-list.json, feature-archive.json)",
+    "v4.2.0: Simplified /merge - removed version tagging",
+    "v4.1.0: Auto-create GitHub issues from PRD analysis",
+    "v4.0.0: PRD analysis command - decompose requirements into atomic features"
   ],
   "knownIssues": [],
   "environmentState": {
