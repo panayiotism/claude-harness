@@ -41,7 +41,9 @@ Check for existing v2.x harness structure:
    - If `working-context.json` exists: Move to `memory/working/context.json`
    - If `agent-context.json` exists: Move to `agents/context.json`
    - If `loop-state.json` exists: Move to `loops/state.json`
-   - Keep `feature-list.json`, `feature-archive.json`, `claude-progress.json` in place (backward compatible)
+   - If `feature-list.json` exists: Move to `features/active.json`
+   - If `feature-archive.json` exists: Move to `features/archive.json`
+   - Keep `claude-progress.json` in place (still used)
 
    **Create memory layer files:**
    - `memory/episodic/decisions.json` with empty entries array
@@ -136,11 +138,11 @@ These files enable **parallel development**: multiple `/start` commands in diffe
 
 **CRITICAL**: Write the correct plugin version - do NOT use schema versions (like 3.0.0).
 
-**The current plugin version is: 4.2.0**
+**The current plugin version is: 4.2.1**
 
 Steps:
-1. Write `4.2.0` to `.claude-harness/.plugin-version`
-2. Report: "Plugin version: 4.2.0"
+1. Write `4.2.1` to `.claude-harness/.plugin-version`
+2. Report: "Plugin version: 4.2.1"
 
 **Note for maintainers**: Update this version number in setup.md whenever plugin.json version changes.
 
@@ -227,14 +229,6 @@ Steps:
   "currentSession": null,
   "agentResults": [],
   "pendingHandoffs": []
-}
-```
-
-### feature-list.json (backward compatible)
-```json
-{
-  "version": 1,
-  "features": []
 }
 ```
 

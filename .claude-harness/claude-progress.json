@@ -1,30 +1,29 @@
 {
-  "lastUpdated": "2026-01-23T16:30:00Z",
+  "lastUpdated": "2026-01-24T10:30:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Remove version tag creation from /merge command - v4.2.0",
+    "summary": "Remove obsolete feature-list.json references - v4.2.1",
     "completedTasks": [
-      "Removed Phase 5 (Version Tagging) from merge.md",
-      "Removed Phase 6 (Release Notes) from merge.md",
-      "Updated Phase numbers (Cleanup → 5, Report Summary → 6)",
-      "Updated README documentation (workflow, commands, changelog)",
-      "Updated setup.sh version and descriptions",
-      "Updated hooks/session-start.sh descriptions",
-      "Updated plugin.json version to 4.2.0"
+      "Updated commands/setup.md to MOVE feature-list.json instead of keeping it",
+      "Removed obsolete feature-list.json schema from setup.md",
+      "Fixed setup.sh nextSteps to reference correct files",
+      "Removed feature-list.json fallback from session-start.sh",
+      "Removed feature-list.json fallback from init.sh",
+      "Cleaned up legacy references in start.md",
+      "Updated all version numbers to 4.2.1",
+      "Added changelog entry in README.md"
     ],
     "blockers": [],
     "nextSteps": [
-      "Create PR for feature-016",
-      "Test /merge command without version tagging"
+      "Commit and push changes",
+      "Create/update PR"
     ]
   },
   "recentChanges": [
-    "v4.2.0: Simplified /merge - removed version tagging (use git/GitHub UI directly)",
+    "v4.2.1: Removed obsolete file references (feature-list.json, feature-archive.json)",
+    "v4.2.0: Simplified /merge - removed version tagging",
     "v4.1.0: Auto-create GitHub issues from PRD analysis",
-    "v4.0.0: PRD analysis command - decompose requirements into atomic features (3 parallel subagents)",
-    "v3.9.6: Remote branch cleanup after PR merge",
-    "v3.9.5: Auto-spawn subagents for multi-feature worktrees",
-    "v3.9.4: Interactive menu when no arguments provided"
+    "v4.0.0: PRD analysis command - decompose requirements into atomic features"
   ],
   "knownIssues": [],
   "environmentState": {

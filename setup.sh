@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v4.2 ==="
+echo "=== Claude Code Agent Harness Setup v4.2.1 ==="
 echo ""
 
 # Detect project info
@@ -627,7 +627,7 @@ create_file ".claude-harness/claude-progress.json" '{
     "summary": "Initial harness setup (v3.0)",
     "completedTasks": [],
     "blockers": [],
-    "nextSteps": ["Review CLAUDE.md and customize", "Add features to feature-list.json"]
+    "nextSteps": ["Review CLAUDE.md and customize", "Run /claude-harness:start to begin"]
   },
   "recentChanges": [],
   "knownIssues": [],
@@ -1207,7 +1207,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v4.2.0 - Simplified Merge Command) ==="
+echo "=== Setup Complete (v4.2.1 - Removed Obsolete File References) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"

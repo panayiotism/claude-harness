@@ -265,11 +265,11 @@ Before compiling context, detect if we're running in a git worktree and establis
 
 9. Read `.claude-harness/claude-progress.json` for session context
 
-10. Read `${FEATURES_FILE}` (or legacy `feature-list.json`) to identify next priority
+10. Read `${FEATURES_FILE}` to identify next priority
    - If the file is too large to read (>25000 tokens), use: `grep -A 5 "passes.*false" ${FEATURES_FILE}` to see pending features
    - Run `/claude-harness:checkpoint` to auto-archive completed features and reduce file size
 
-11. Optionally check `${ARCHIVE_FILE}` (or legacy `feature-archive.json`) to see completed feature count/history
+11. Optionally check `${ARCHIVE_FILE}` to see completed feature count/history
 
 ## Phase 3: Loop & Orchestration State
 

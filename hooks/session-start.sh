@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v4.2.0
+# Claude Harness SessionStart Hook v4.2.1
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 
@@ -46,8 +46,8 @@ if [ -z "$PROJECT_VERSION" ]; then
 elif [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
     echo "$PLUGIN_VERSION" > "$HARNESS_DIR/.plugin-version"
     VERSION_MSG="Plugin updated: v$PROJECT_VERSION -> v$PLUGIN_VERSION"
-    # Check if migration to v3.0 is needed
-    if [ ! -d "$HARNESS_DIR/memory" ] && [ -f "$HARNESS_DIR/feature-list.json" ]; then
+    # Check if migration to v3.0 is needed (legacy v2.x detection)
+    if [ ! -d "$HARNESS_DIR/memory" ]; then
         NEEDS_MIGRATION=true
     fi
 fi
@@ -134,11 +134,12 @@ if [ -d "$HARNESS_DIR/memory" ]; then
     fi
 else
     IS_V3=false
-    # Fallback to v2.x locations
-    FEATURES_FILE="$HARNESS_DIR/feature-list.json"
+    # Legacy v2.x locations - prompt for migration
+    FEATURES_FILE="$HARNESS_DIR/features/active.json"
     LOOP_FILE="$HARNESS_DIR/loop-state.json"
     AGENT_FILE="$HARNESS_DIR/agent-context.json"
     WORKING_FILE="$HARNESS_DIR/working-context.json"
+    NEEDS_MIGRATION=true
 fi
 
 # Get active feature from working-context
