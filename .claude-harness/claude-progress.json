@@ -1,25 +1,25 @@
 {
-  "lastUpdated": "2026-01-24T10:30:00Z",
+  "lastUpdated": "2026-01-24T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Remove obsolete feature-list.json references - v4.2.1",
+    "summary": "fix-feature-013-001: Session cleanup not triggering on WSL - v4.2.2",
     "completedTasks": [
-      "Updated commands/setup.md to MOVE feature-list.json instead of keeping it",
-      "Removed obsolete feature-list.json schema from setup.md",
-      "Fixed setup.sh nextSteps to reference correct files",
-      "Removed feature-list.json fallback from session-start.sh",
-      "Removed feature-list.json fallback from init.sh",
-      "Cleaned up legacy references in start.md",
-      "Updated all version numbers to 4.2.1",
-      "Added changelog entry in README.md"
+      "Added proactive stale session cleanup to session-start.sh",
+      "Removed jq dependency from session-end.sh (uses grep/sed instead)",
+      "Replaced kill -0 with ps -p for reliable process detection on WSL",
+      "Cleaned up 6 stale session directories",
+      "Updated all version numbers to 4.2.2",
+      "Added changelog entry in README.md",
+      "Updated fix-feature-013-001 status to passing"
     ],
     "blockers": [],
     "nextSteps": [
-      "Commit and push changes",
-      "Create/update PR"
+      "Merge PR for fix/feature-013-session-cleanup",
+      "Archive fix-feature-013-001 after merge"
     ]
   },
   "recentChanges": [
+    "v4.2.2: Session cleanup fix - proactive cleanup on session start, removed jq dependency",
     "v4.2.1: Removed obsolete file references (feature-list.json, feature-archive.json)",
     "v4.2.0: Simplified /merge - removed version tagging",
     "v4.1.0: Auto-create GitHub issues from PRD analysis",
@@ -31,6 +31,6 @@
     "lastSuccessfulBuild": null,
     "lastTypeCheck": null
   },
-  "lastCompaction": "2026-01-16T13:01:16.000Z",
-  "compactionCount": 2
+  "lastCompaction": "2026-01-24T09:23:37.000Z",
+  "compactionCount": 3
 }

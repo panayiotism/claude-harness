@@ -49,31 +49,31 @@
   "fixes": [
     {
       "id": "fix-feature-013-001",
-      "name": "Session cleanup not triggering on Windows",
-      "description": "The SessionEnd hook doesn't clean up sessions properly on Windows WSL",
+      "name": "Session cleanup not triggering on Windows WSL",
+      "description": "Moved stale session cleanup from SessionEnd to SessionStart for reliability. Removed jq dependency, use ps -p instead of kill -0.",
       "linkedTo": {
         "featureId": "feature-013",
         "featureName": "Parallel Work Streams",
         "issueNumber": 25
       },
       "type": "bugfix",
-      "status": "pending",
+      "status": "passing",
       "verification": {
         "build": null,
         "tests": null,
         "lint": null,
         "typecheck": null,
-        "custom": ["Sessions cleaned up on /clear in WSL"],
+        "custom": ["Stale sessions cleaned proactively on session start"],
         "inherited": true
       },
-      "relatedFiles": ["hooks/session-end.sh"],
+      "relatedFiles": ["hooks/session-start.sh", "hooks/session-end.sh"],
       "github": {
         "issueNumber": null,
-        "prNumber": null,
+        "prNumber": 29,
         "branch": "fix/feature-013-session-cleanup"
       },
       "createdAt": "2026-01-16T14:00:00Z",
-      "updatedAt": "2026-01-16T14:00:00Z"
+      "updatedAt": "2026-01-24T11:20:00Z"
     }
   ]
 }

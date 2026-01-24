@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v4.2.1
+# Claude Harness SessionStart Hook v4.2.2
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 
@@ -30,6 +30,40 @@ cat > "$SESSION_DIR/session.json" << SESSIONEOF
   "workingDir": "$CLAUDE_PROJECT_DIR"
 }
 SESSIONEOF
+
+# ============================================================================
+# STALE SESSION CLEANUP (v4.2.2 - Proactive cleanup on session start)
+# ============================================================================
+# Clean up sessions where the PID is no longer running
+# This is more reliable than SessionEnd which may not trigger on /clear or crash
+
+SESSIONS_DIR="$HARNESS_DIR/sessions"
+CLEANED_COUNT=0
+
+if [ -d "$SESSIONS_DIR" ]; then
+    for session_dir in "$SESSIONS_DIR"/*/; do
+        [ -d "$session_dir" ] || continue
+
+        session_id=$(basename "$session_dir")
+        session_file="$session_dir/session.json"
+
+        # Skip current session
+        [ "$session_id" = "$SESSION_ID" ] && continue
+
+        # Skip if no session.json
+        [ -f "$session_file" ] || continue
+
+        # Get PID from session.json (works without jq)
+        pid=$(grep '"pid"' "$session_file" 2>/dev/null | grep -o '[0-9]\+')
+
+        # If no PID or process doesn't exist, session is stale - delete it
+        # Use ps -p instead of kill -0 (more reliable on WSL)
+        if [ -z "$pid" ] || ! ps -p "$pid" > /dev/null 2>&1; then
+            rm -rf "$session_dir"
+            CLEANED_COUNT=$((CLEANED_COUNT + 1))
+        fi
+    done
+fi
 
 # Get plugin version
 PLUGIN_VERSION=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
