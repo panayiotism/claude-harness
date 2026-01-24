@@ -104,11 +104,11 @@
       ],
       "github": {
         "issueNumber": 27,
-        "prNumber": null,
+        "prNumber": 28,
         "branch": "feature/feature-016"
       },
       "createdAt": "2026-01-23T16:20:00Z",
-      "updatedAt": "2026-01-23T16:20:00Z"
+      "updatedAt": "2026-01-23T16:25:00Z"
     }
   ],
   "fixes": [
