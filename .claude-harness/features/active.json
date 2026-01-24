@@ -69,7 +69,7 @@
       "relatedFiles": ["hooks/session-start.sh", "hooks/session-end.sh"],
       "github": {
         "issueNumber": null,
-        "prNumber": null,
+        "prNumber": 29,
         "branch": "fix/feature-013-session-cleanup"
       },
       "createdAt": "2026-01-16T14:00:00Z",
