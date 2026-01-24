@@ -42,29 +42,6 @@ Before anything else, check if legacy root-level harness files need migration:
 
 4. **Create missing state files** (for plugin updates):
    - Check if each required state file exists, create with defaults if missing:
-   - `.claude-harness/loop-state.json` (if missing):
-     ```json
-     {
-       "version": 1,
-       "feature": null,
-       "status": "idle",
-       "attempt": 0,
-       "maxAttempts": 10,
-       "verification": {},
-       "history": []
-     }
-     ```
-   - `.claude-harness/working-context.json` (if missing):
-     ```json
-     {
-       "version": 1,
-       "activeFeature": null,
-       "summary": null,
-       "workingFiles": {},
-       "decisions": [],
-       "nextSteps": []
-     }
-     ```
    - `.claude-harness/memory/learned/rules.json` (if missing):
      - First create directory if needed: `mkdir -p .claude-harness/memory/learned`
      - Then create file with defaults:
@@ -82,6 +59,8 @@ Before anything else, check if legacy root-level harness files need migration:
      }
      ```
    - Report: "Created missing state file: {filename}"
+
+   **Note**: Loop state and working context are now session-scoped and created at runtime in `.claude-harness/sessions/{session-id}/`. Legacy files at `.claude-harness/loop-state.json` and `.claude-harness/working-context.json` are no longer created.
 
 ## Phase 0.5: Worktree Detection
 

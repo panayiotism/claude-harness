@@ -778,6 +778,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **4.2.3** | **Remove Legacy State Files**: Removed creation of unused legacy files (`loop-state.json`, `working-context.json`, `loops/state.json`, `memory/working/`). All workflow state is now session-scoped under `sessions/{session-id}/`. Updated setup.md and start.md to reflect current architecture. Cleaned up .gitignore patterns. |
 | **4.2.2** | **Fix Session Cleanup on WSL**: Moved stale session cleanup from SessionEnd hook to SessionStart hook for reliability. SessionEnd may not trigger on `/clear` or crashes, so cleanup now happens proactively when a new session starts. Removed `jq` dependency from both hooks (uses grep/sed instead). Fixes fix-feature-013-001. |
 | **4.2.1** | **Removed Obsolete File References**: Cleaned up all references to legacy `feature-list.json` and `feature-archive.json` files. Fresh setups now only create `features/active.json` and `features/archive.json`. Updated migration instructions to properly move old files to new locations. |
 | **4.2.0** | **Simplified /merge Command**: Removed version tagging and GitHub release creation from `/merge` command since git tag operations are not directly supported by GitHub MCP. The command now focuses on merging PRs, closing issues, and cleaning up branches. Version tagging should be done manually using git commands or GitHub's release UI. |

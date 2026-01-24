@@ -5,6 +5,3 @@
 # Claude Harness - Ephemeral/Per-Session State
 .claude-harness/sessions/
 .claude-harness/memory/compaction-backups/
-.claude-harness/memory/working/
-.claude-harness/loop-state.json
-.claude-harness/working-context.json

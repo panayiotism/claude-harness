@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v4.2.2 ==="
+echo "=== Claude Code Agent Harness Setup v4.2.3 ==="
 echo ""
 
 # Detect project info
@@ -1207,7 +1207,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v4.2.2 - Fixed Session Cleanup on WSL) ==="
+echo "=== Setup Complete (v4.2.3 - Removed legacy state files) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"

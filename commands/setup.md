@@ -26,24 +26,23 @@ Check for existing v2.x harness structure:
 
    **Create v3.0 directory structure:**
    ```bash
-   mkdir -p .claude-harness/memory/working
    mkdir -p .claude-harness/memory/episodic
    mkdir -p .claude-harness/memory/semantic
    mkdir -p .claude-harness/memory/procedural
+   mkdir -p .claude-harness/memory/learned
    mkdir -p .claude-harness/features
    mkdir -p .claude-harness/impact
    mkdir -p .claude-harness/agents
-   mkdir -p .claude-harness/loops
+   mkdir -p .claude-harness/sessions
    ```
 
    **Migrate existing files:**
    - If `agent-memory.json` exists: Extract `failedApproaches` → `memory/procedural/failures.json`, `successfulApproaches` → `memory/procedural/successes.json`
-   - If `working-context.json` exists: Move to `memory/working/context.json`
    - If `agent-context.json` exists: Move to `agents/context.json`
-   - If `loop-state.json` exists: Move to `loops/state.json`
    - If `feature-list.json` exists: Move to `features/active.json`
    - If `feature-archive.json` exists: Move to `features/archive.json`
    - Keep `claude-progress.json` in place (still used)
+   - Delete legacy files (no longer used in v4.x): `working-context.json`, `loop-state.json`
 
    **Create memory layer files:**
    - `memory/episodic/decisions.json` with empty entries array
@@ -89,7 +88,6 @@ If no `.claude-harness/` directory exists, create full v3.0 structure:
 ├── prd/
 │   └── subagent-prompts.json
 ├── sessions/                         (gitignored - per-session state)
-├── loops/                            (legacy fallback - gitignored)
 ├── .plugin-version
 ├── claude-progress.json
 └── init.sh
@@ -122,7 +120,6 @@ These files enable **parallel development**: multiple `/start` commands in diffe
    # Claude Harness - Ephemeral/Per-Session State
    .claude-harness/sessions/
    .claude-harness/memory/compaction-backups/
-   .claude-harness/memory/working/
 
    # Claude Code - Local settings
    .claude/settings.local.json
@@ -138,29 +135,49 @@ These files enable **parallel development**: multiple `/start` commands in diffe
 
 **CRITICAL**: Write the correct plugin version - do NOT use schema versions (like 3.0.0).
 
-**The current plugin version is: 4.2.2**
+**The current plugin version is: 4.2.3**
 
 Steps:
-1. Write `4.2.2` to `.claude-harness/.plugin-version`
-2. Report: "Plugin version: 4.2.2"
+1. Write `4.2.3` to `.claude-harness/.plugin-version`
+2. Report: "Plugin version: 4.2.3"
 
 **Note for maintainers**: Update this version number in setup.md whenever plugin.json version changes.
 
 ## File Schemas
 
-### memory/working/context.json
+### sessions/{session-id}/context.json (created at runtime)
 ```json
 {
+  "version": 3,
   "computedAt": null,
   "sessionId": null,
   "activeFeature": null,
   "relevantMemory": {
     "recentDecisions": [],
     "projectPatterns": [],
-    "avoidApproaches": []
+    "avoidApproaches": [],
+    "learnedRules": []
   },
   "currentTask": null,
   "compilationLog": []
+}
+```
+
+### sessions/{session-id}/loop-state.json (created at runtime)
+```json
+{
+  "version": 3,
+  "feature": null,
+  "featureName": null,
+  "type": "feature",
+  "linkedTo": null,
+  "status": "idle",
+  "attempt": 0,
+  "maxAttempts": 10,
+  "startedAt": null,
+  "lastAttemptAt": null,
+  "verification": {},
+  "history": []
 }
 ```
 
@@ -210,17 +227,6 @@ Steps:
 }
 ```
 
-### loops/state.json
-```json
-{
-  "version": 1,
-  "feature": null,
-  "status": "idle",
-  "attempt": 0,
-  "maxAttempts": 10,
-  "history": []
-}
-```
 
 ### agents/context.json
 ```json
