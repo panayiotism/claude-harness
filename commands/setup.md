@@ -135,11 +135,11 @@ These files enable **parallel development**: multiple `/start` commands in diffe
 
 **CRITICAL**: Write the correct plugin version - do NOT use schema versions (like 3.0.0).
 
-**The current plugin version is: 4.3.0**
+**The current plugin version is: 4.4.1**
 
 Steps:
-1. Write `4.3.0` to `.claude-harness/.plugin-version`
-2. Report: "Plugin version: 4.3.0"
+1. Write `4.4.1` to `.claude-harness/.plugin-version`
+2. Report: "Plugin version: 4.4.1"
 
 **Note for maintainers**: Update this version number in setup.md whenever plugin.json version changes.
 
@@ -261,5 +261,6 @@ Report:
 - Next steps:
   1. Run `/claude-harness:start` to compile context and sync GitHub
   2. For new projects: Run `/claude-harness:prd-breakdown @./prd.md` to analyze PRD and extract features
-  3. Use `/claude-harness:do "description"` to create and implement features
-  4. Use `/claude-harness:do --fix feature-XXX "bug"` to create bug fixes
+  3. Use `/claude-harness:flow "description"` for end-to-end automated workflow (recommended)
+  4. Use `/claude-harness:do "description"` for step-by-step control
+  5. Use `/claude-harness:do --fix feature-XXX "bug"` to create bug fixes

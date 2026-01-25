@@ -236,13 +236,15 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
 
    **WHY THIS STEP IS CRITICAL**: GitHub issues preserve the full context and reasoning behind features. Without them, future bug fixes and maintenance lose critical understanding of WHY decisions were made. This is NOT optional.
 
-   - **First, parse owner/repo from git remote** (MANDATORY):
-     ```bash
-     REMOTE_URL=$(git remote get-url origin 2>/dev/null)
-     # SSH: git@github.com:owner/repo.git → owner, repo
-     # HTTPS: https://github.com/owner/repo.git → owner, repo
-     ```
-     CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
+   - **Get GitHub owner/repo** (prefer cached from SessionStart):
+     - First check SessionStart hook output for cached `github.owner` and `github.repo`
+     - If cached values available, use them (faster, already parsed)
+     - If not cached, parse from git remote:
+       ```bash
+       REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+       # SSH: git@github.com:owner/repo.git → owner, repo
+       # HTTPS: https://github.com/owner/repo.git → owner, repo
+       ```
 
    - **Create GitHub issue using `mcp__github__create_issue`**:
      - owner: Parsed from REMOTE_URL (the username/org before the repo name)
@@ -338,13 +340,15 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
 
    **WHY THIS STEP IS CRITICAL**: Bug fixes without documented issues lose the context of what was broken and why. This makes future debugging and maintenance much harder. This is NOT optional.
 
-   - **First, parse owner/repo from git remote** (MANDATORY):
-     ```bash
-     REMOTE_URL=$(git remote get-url origin 2>/dev/null)
-     # SSH: git@github.com:owner/repo.git → owner, repo
-     # HTTPS: https://github.com/owner/repo.git → owner, repo
-     ```
-     CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
+   - **Get GitHub owner/repo** (prefer cached from SessionStart):
+     - First check SessionStart hook output for cached `github.owner` and `github.repo`
+     - If cached values available, use them (faster, already parsed)
+     - If not cached, parse from git remote:
+       ```bash
+       REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+       # SSH: git@github.com:owner/repo.git → owner, repo
+       # HTTPS: https://github.com/owner/repo.git → owner, repo
+       ```
 
    - **Create issue using `mcp__github__create_issue`**:
      - owner: Parsed from REMOTE_URL
@@ -485,7 +489,7 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
    │  1. Open new terminal                                           │
    │  2. cd {worktree-path}                                          │
    │  3. claude                                                      │
-   │  4. /claude-harness:do {feature-id}                             │
+   │  4. /claude-harness:flow {feature-id}  (or /do for step-by-step)│
    └─────────────────────────────────────────────────────────────────┘
    ```
    - **IMPORTANT**: STOP HERE when worktree is created
@@ -599,7 +603,7 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
       │     Expected branch: {feature-branch}                           │
       ├─────────────────────────────────────────────────────────────────┤
       │  Run: git checkout {feature-branch}                             │
-      │  Then resume with: /claude-harness:do {feature-id}               │
+      │  Then: /claude-harness:flow {feature-id} (or /do for step-by-step)│
       └─────────────────────────────────────────────────────────────────┘
       ```
     - If branch doesn't exist locally, fetch and checkout:

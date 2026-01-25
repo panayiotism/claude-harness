@@ -7,16 +7,18 @@ Merge all open PRs and close related issues:
 
 Requires GitHub MCP to be configured.
 
-## Phase 0: Parse Repository Info
+## Phase 0: Get Repository Info
 
-0. **Parse repository owner and name from git remote** (MANDATORY before any GitHub API calls):
-   ```bash
-   REMOTE_URL=$(git remote get-url origin 2>/dev/null)
-   # SSH: git@github.com:owner/repo.git → owner, repo
-   # HTTPS: https://github.com/owner/repo.git → owner, repo
-   ```
-   CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
-   Use the parsed owner/repo for ALL GitHub API calls in this command.
+0. **Get GitHub owner/repo** (prefer cached from SessionStart):
+   - First check SessionStart hook output for cached `github.owner` and `github.repo`
+   - If cached values available, use them (faster, already parsed)
+   - If not cached, parse from git remote:
+     ```bash
+     REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+     # SSH: git@github.com:owner/repo.git → owner, repo
+     # HTTPS: https://github.com/owner/repo.git → owner, repo
+     ```
+   Use the owner/repo for ALL GitHub API calls in this command.
 
 ## Phase 1: Gather State
 

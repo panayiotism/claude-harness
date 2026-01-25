@@ -92,7 +92,7 @@ Phase 6: Report Success
     │  1. Open new terminal                                           │
     │  2. cd {path}                                                   │
     │  3. claude                                                      │
-    │  4. /claude-harness:do {feature-id}                             │
+    │  4. /claude-harness:flow {feature-id}  (or /do for step-by-step)│
     └─────────────────────────────────────────────────────────────────┘
     ```
 ```

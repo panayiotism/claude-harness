@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v4.0
+# Claude Code Long-Running Agent Harness Setup v4.4
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v4.2.3 ==="
+echo "=== Claude Code Agent Harness Setup v4.4.1 ==="
 echo ""
 
 # Detect project info
@@ -721,10 +721,10 @@ if [ -f ".claude-harness/loops/state.json" ]; then
         if [ "$looptype" = "fix" ]; then
             echo "ACTIVE FIX: $feature (attempt $attempt, status: $status)"
             echo "Linked to: $linkedFeature"
-            echo "Resume with: /claude-harness:do $feature"
+            echo "Resume with: /claude-harness:flow $feature (or /do for step-by-step)"
         else
             echo "ACTIVE LOOP: $feature (attempt $attempt, status: $status)"
-            echo "Resume with: /claude-harness:do $feature"
+            echo "Resume with: /claude-harness:flow $feature (or /do for step-by-step)"
         fi
     else
         echo "No active loop"
@@ -760,11 +760,13 @@ else
 fi
 
 echo ""
-echo "=== Environment Ready (v3.8) ==="
-echo "Commands (6 total):"
+echo "=== Environment Ready (v4.4) ==="
+echo "Commands (8 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
-echo "  /claude-harness:do          - Unified workflow (features + fixes)"
+echo "  /claude-harness:flow        - End-to-end automated workflow (recommended)"
+echo "  /claude-harness:do          - Step-by-step workflow (manual control)"
+echo "  /claude-harness:do-tdd      - TDD workflow (tests first)"
 echo "  /claude-harness:checkpoint  - Save progress, persist memory"
 echo "  /claude-harness:orchestrate - Spawn multi-agent team"
 echo "  /claude-harness:merge       - Merge PRs, close issues"
@@ -1207,7 +1209,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v4.2.3 - Removed legacy state files) ==="
+echo "=== Setup Complete (v4.4.1 - End-to-end /flow command) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1256,10 +1258,18 @@ echo "=== Next Steps ==="
 echo ""
 echo "  1. Edit CLAUDE.md to describe your project"
 echo "  2. Run /claude-harness:start to compile context and see status"
-echo "  3. Run /claude-harness:do \"feature description\" to create and implement features"
-echo "  4. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
+echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end automation (recommended)"
+echo "  4. Run /claude-harness:do \"feature description\" for step-by-step control"
+echo "  5. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v4.2.0 Features (NEW):"
+echo "v4.4.1 Features (NEW):"
+echo "  • /flow command - End-to-end automated workflow (start→implement→checkpoint→merge)"
+echo "  • Prompt-based Stop hook - Haiku LLM detects completion automatically"
+echo "  • Smart routing hook - Auto-detects active loops on prompt submit"
+echo "  • Parallelized memory reads - 30-40% faster context compilation"
+echo "  • GitHub repo caching - Single parse at session start, reused everywhere"
+echo ""
+echo "v4.2.0 Features:"
 echo "  • Simplified /merge command - removed version tagging (use git/GitHub UI directly)"
 echo ""
 echo "v4.0.0+ Features (Existing):"

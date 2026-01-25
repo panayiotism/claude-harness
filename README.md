@@ -17,22 +17,30 @@ claude plugin install claude-harness github:panayiotism/claude-harness
 cd your-project && claude
 /claude-harness:setup
 
-# One command does it all: create → worktree → plan → implement → checkpoint
+# NEW in v4.4: Single command for entire workflow (start → do → checkpoint → merge)
+/claude-harness:flow "Add user authentication with JWT tokens"
+# Auto-compiles context, creates issue/branch, implements, checkpoints, merges
+
+# Or step-by-step with /do (creates worktree by default)
 /claude-harness:do "Add user authentication with JWT tokens"
 # Creates worktree at ../your-project-feature-XXX/ (isolated working directory)
 # Then gives you instructions to continue in the new worktree
 ```
 
-The `/do` command chains all steps automatically with interactive checkpoints. By default, each new feature gets its own git worktree for true parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
+The **`/flow`** command (v4.4) handles the entire lifecycle automatically - from context compilation to PR merge. The `/do` command chains creation through checkpoint with interactive prompts. Both support worktrees for parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
 
-### Complete Workflow (9 Commands Total)
+### Complete Workflow (10 Commands Total)
 
 ```bash
 # 1. SETUP (one-time)
 /claude-harness:setup                              # Initialize harness in project
 
-# 2. START SESSION
+# 2. START SESSION (or skip with /flow)
 /claude-harness:start                              # Compile context, show status
+
+# 2b. AUTOMATED END-TO-END (NEW in v4.4)
+/claude-harness:flow "Add dark mode"               # Complete lifecycle in one command
+/claude-harness:flow --no-merge "Add feature"      # Stop at checkpoint (don't auto-merge)
 
 # 2b. PRD BOOTSTRAP (for new projects)
 /claude-harness:prd-breakdown "Your PRD..."                           # Analyze inline PRD → extract atomic features
@@ -71,6 +79,16 @@ The `/do` command chains all steps automatically with interactive checkpoints. B
 
 /start           → Compiles working context from 4 memory layers
                    Shows status, syncs GitHub, displays learned rules
+
+/flow            → END-TO-END WORKFLOW (NEW in v4.4):
+                   1. Auto-compiles context (replaces /start)
+                   2. Creates feature (GitHub issue + branch)
+                   3. Plans implementation (checks past failures)
+                   4. Agentic loop until verification passes
+                   5. Auto-checkpoints when tests pass
+                   6. Auto-merges when PR approved
+                   Options: --no-merge (stop at checkpoint), --quick, --inline
+                   OPTIMIZATIONS: Parallel memory reads, cached GitHub parsing
 
 /do              → UNIFIED WORKFLOW (handles features AND fixes):
                    1. Creates feature/fix (GitHub issue + branch)
@@ -172,13 +190,15 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v4.1.0 (PRD + GitHub Issues)     │
+│                  CLAUDE HARNESS v4.4.1 (End-to-End Flow)         │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
+│  GitHub: owner/repo (cached)                                    │
 ├─────────────────────────────────────────────────────────────────┤
 │  /claude-harness:setup          Initialize harness (one-time)   │
 │  /claude-harness:start          Compile context + GitHub sync   │
+│  /claude-harness:flow           End-to-end (start→do→merge)     │
 │  /claude-harness:prd-breakdown  Analyze PRD → extract features  │
 │  /claude-harness:do             Unified workflow (auto-worktree)│
 │  /claude-harness:do-tdd         TDD workflow (tests first)      │
@@ -384,12 +404,13 @@ Successful Patterns to Use:
 
 Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 
-## Commands Reference (9 Total)
+## Commands Reference (10 Total)
 
 | Command | Purpose |
 |---------|---------|
 | `/claude-harness:setup` | Initialize harness in project (one-time) |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
+| **`/claude-harness:flow`** | **End-to-end workflow**: start→do→checkpoint→merge in one command (v4.4) |
 | **`/claude-harness:prd-breakdown`** | **PRD Analysis**: Decompose PRD into atomic features |
 | **`/claude-harness:do`** | **Unified workflow**: features AND fixes (auto-worktree) |
 | **`/claude-harness:do-tdd`** | **TDD workflow**: tests first, then implement |
@@ -397,6 +418,23 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/claude-harness:worktree` | Manage worktrees (list, create, remove, prune) |
 | `/claude-harness:orchestrate <id>` | Spawn multi-agent team (advanced) |
 | `/claude-harness:merge` | Merge all PRs, close issues |
+
+### `/flow` Command Options (v4.4)
+
+| Syntax | Behavior |
+|--------|----------|
+| `/flow "Add feature"` | Complete lifecycle: start→do→checkpoint→merge |
+| `/flow feature-001` | Resume existing feature from current phase |
+| `/flow --no-merge "Add feature"` | Stop at checkpoint (don't auto-merge) |
+| `/flow --quick "Simple change"` | Skip planning phase |
+| `/flow --inline "Tiny fix"` | Skip worktree, work in current directory |
+| `/flow --fix feature-001 "Bug"` | Complete lifecycle for a bug fix |
+
+**Key Optimizations in /flow**:
+- Memory layers read in parallel (30-40% faster startup)
+- GitHub repo parsed once and cached for entire flow
+- Streaming memory updates after each verification attempt
+- Prompt-based Stop hook detects completion automatically
 
 ### `/do` Command Options
 
@@ -778,6 +816,8 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **4.4.1** | **Fix Stop Hook Schema**: Fixed prompt-based Stop hook schema validation error. The hook response must include `ok` boolean field for Claude Code to process it correctly. |
+| **4.4.0** | **Automated End-to-End Flow**: New `/claude-harness:flow` command combines start→do→checkpoint→merge into single automated workflow. Added prompt-based `Stop` hook (Haiku LLM) for intelligent completion detection. Added `UserPromptSubmit` hook for smart routing to active loops. GitHub repo now cached in SessionStart hook (eliminates 4 redundant parses). Memory layers read in parallel for 30-40% faster startup. Streaming memory updates after each verification attempt. Commands updated to use cached GitHub repo. |
 | **4.3.0** | **Enforce GitHub Issue Creation**: Made GitHub issue creation MANDATORY (not optional) for all features and fixes. Added explicit issue body templates with required sections (Problem, Solution, Acceptance Criteria, Verification). Added "MANDATORY REQUIREMENTS" section at top of `/do` command. Issues now MUST be created before any code work - failure blocks progression. Fixes context loss when issues were sometimes skipped. |
 | **4.2.3** | **Remove Legacy State Files**: Removed creation of unused legacy files (`loop-state.json`, `working-context.json`, `loops/state.json`, `memory/working/`). All workflow state is now session-scoped under `sessions/{session-id}/`. Updated setup.md and start.md to reflect current architecture. Cleaned up .gitignore patterns. |
 | **4.2.2** | **Fix Session Cleanup on WSL**: Moved stale session cleanup from SessionEnd hook to SessionStart hook for reliability. SessionEnd may not trigger on `/clear` or crashes, so cleanup now happens proactively when a new session starts. Removed `jq` dependency from both hooks (uses grep/sed instead). Fixes fix-feature-013-001. |

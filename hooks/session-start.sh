@@ -1,13 +1,37 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v4.2.3
+# Claude Harness SessionStart Hook v4.4.1
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
+# Added: GitHub repo caching for workflow optimization
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
 # Skip if not a harness project - output nothing
 if [ ! -d "$HARNESS_DIR" ]; then
     exit 0
+fi
+
+# ============================================================================
+# GITHUB REPO CACHING (v4.4.1 - Parse once, reuse everywhere)
+# ============================================================================
+
+GITHUB_OWNER=""
+GITHUB_REPO=""
+
+# Parse GitHub owner/repo from git remote (do this ONCE per session)
+REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+if [ -n "$REMOTE_URL" ]; then
+    # SSH format: git@github.com:owner/repo.git
+    if [[ "$REMOTE_URL" =~ git@github\.com:([^/]+)/([^/.]+) ]]; then
+        GITHUB_OWNER="${BASH_REMATCH[1]}"
+        GITHUB_REPO="${BASH_REMATCH[2]}"
+    # HTTPS format: https://github.com/owner/repo.git
+    elif [[ "$REMOTE_URL" =~ github\.com/([^/]+)/([^/.]+) ]]; then
+        GITHUB_OWNER="${BASH_REMATCH[1]}"
+        GITHUB_REPO="${BASH_REMATCH[2]}"
+    fi
+    # Remove .git suffix if present
+    GITHUB_REPO="${GITHUB_REPO%.git}"
 fi
 
 # ============================================================================
@@ -277,8 +301,8 @@ STATUS_PADDED=$(printf "%-61s" "$STATUS_LINE")
 if [ -n "$LOOP_LINE" ]; then
     # Active loop - highest priority display
     LOOP_PADDED=$(printf "%-61s" "$LOOP_LINE")
-    RESUME_CMD="/claude-harness:do $LOOP_FEATURE"
-    RESUME_PADDED=$(printf "%-61s" "Resume: $RESUME_CMD")
+    RESUME_CMD="/claude-harness:flow $LOOP_FEATURE"
+    RESUME_PADDED=$(printf "%-61s" "Resume: $RESUME_CMD (or /do for step-by-step)")
 
     if [ "$IS_V3" = true ]; then
         MEMORY_PADDED=$(printf "%-61s" "$MEMORY_LINE")
@@ -292,8 +316,8 @@ if [ -n "$LOOP_LINE" ]; then
 │  $STATUS_PADDED│
 │  $MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:do           Resume or start workflow          │
-│  /claude-harness:checkpoint   Commit + persist memory           │
+│  /claude-harness:flow         End-to-end (recommended)          │
+│  /claude-harness:do           Step-by-step workflow             │
 └─────────────────────────────────────────────────────────────────┘"
     else
         USER_MSG="
@@ -306,8 +330,8 @@ if [ -n "$LOOP_LINE" ]; then
 │  $STATUS_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
-│  /claude-harness:do          Resume or start workflow           │
-│  /claude-harness:start       Full status + GitHub sync          │
+│  /claude-harness:flow        End-to-end (recommended)           │
+│  /claude-harness:do          Step-by-step workflow              │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
 └─────────────────────────────────────────────────────────────────┘"
     fi
@@ -323,10 +347,10 @@ elif [ "$IS_V3" = true ]; then
 ├─────────────────────────────────────────────────────────────────┤
 │  /claude-harness:setup         Initialize harness (one-time)  │
 │  /claude-harness:start         Compile context + GitHub sync   │
-│  /claude-harness:prd-breakdown Analyze PRD → extract features  │
-│  /claude-harness:do            Unified workflow (features+fixes)│
+│  /claude-harness:flow          End-to-end workflow (recommended)│
+│  /claude-harness:do            Step-by-step workflow            │
 │  /claude-harness:do-tdd        TDD workflow (tests first)       │
-│  /claude-harness:checkpoint    Commit + persist memory          │
+│  /claude-harness:checkpoint    Manual commit + persist memory   │
 │  /claude-harness:orchestrate   Spawn multi-agent team           │
 │  /claude-harness:merge         Merge PRs + close issues         │
 └─────────────────────────────────────────────────────────────────┘"
@@ -339,8 +363,8 @@ else
 │  $STATUS_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
-│  /claude-harness:start       Full status + GitHub sync          │
-│  /claude-harness:do          Unified workflow (features+fixes)  │
+│  /claude-harness:flow        End-to-end workflow (recommended)  │
+│  /claude-harness:do          Step-by-step workflow              │
 │  /claude-harness:orchestrate Spawn multi-agent team             │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
 │  /claude-harness:merge       Merge PRs + close issues           │
@@ -374,6 +398,14 @@ CLAUDE_CONTEXT="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ===\n"
 # Add session info for parallel work streams
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
+
+# Add cached GitHub repo info
+if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== GITHUB (CACHED) ==="
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nOwner: $GITHUB_OWNER"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nRepo: $GITHUB_REPO"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nIMPORTANT: Use these cached values for ALL GitHub API calls. Do NOT re-parse git remote."
+fi
 
 # Add worktree context if in a worktree
 if [ "$IS_WORKTREE" = true ]; then
@@ -423,12 +455,11 @@ fi
 
 # Add active loop context (PRIORITY)
 if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress\n\nIMPORTANT: Resume the loop with: /claude-harness:do $LOOP_FEATURE\nThe loop will continue from the last attempt, analyzing previous errors to try a different approach."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress\n\nResume options:\n  /claude-harness:flow $LOOP_FEATURE  (recommended - automated completion)\n  /claude-harness:do $LOOP_FEATURE    (step-by-step control)"
 
     if [ "$IS_V3" = true ]; then
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nPast failures for this feature are recorded in memory/procedural/failures.json."
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nConsult these before attempting a new approach."
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nResume with: /claude-harness:do $LOOP_FEATURE"
     fi
 fi
 
@@ -442,7 +473,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v4.2 WORKFLOW (7 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:do - Unified workflow (features AND fixes)\n4. /claude-harness:do-tdd - TDD workflow (tests first)\n5. /claude-harness:checkpoint - Manual commit + push + PR\n6. /claude-harness:orchestrate - Multi-agent team (advanced)\n7. /claude-harness:merge - Merge PRs, close issues\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v4.4 WORKFLOW (8 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - End-to-end workflow (RECOMMENDED)\n4. /claude-harness:do - Step-by-step workflow\n5. /claude-harness:do-tdd - TDD workflow (tests first)\n6. /claude-harness:checkpoint - Manual commit + push + PR\n7. /claude-harness:orchestrate - Multi-agent team (advanced)\n8. /claude-harness:merge - Merge PRs, close issues\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi
@@ -456,6 +487,7 @@ USER_MSG_ESCAPED=$(echo "$USER_MSG" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/
 CLAUDE_CONTEXT_ESCAPED=$(echo -e "$CLAUDE_CONTEXT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
 
 # Output JSON with both systemMessage (user) and additionalContext (Claude)
+# Includes cached GitHub repo info for workflow optimization
 cat << EOF
 {
   "continue": true,
@@ -464,6 +496,10 @@ cat << EOF
     "hookEventName": "SessionStart",
     "sessionId": "$SESSION_ID",
     "sessionDir": "$SESSION_DIR",
+    "github": {
+      "owner": "$GITHUB_OWNER",
+      "repo": "$GITHUB_REPO"
+    },
     "additionalContext": "$CLAUDE_CONTEXT_ESCAPED"
   }
 }

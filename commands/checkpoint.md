@@ -189,13 +189,15 @@ Before any checkpoint operations, detect if we're running in a git worktree:
 ## Phase 4: PR Management (if GitHub MCP available)
 
 4. If on a feature/fix branch and GitHub MCP is available:
-   - **First, parse owner/repo from git remote** (MANDATORY before any GitHub API calls):
-     ```bash
-     REMOTE_URL=$(git remote get-url origin 2>/dev/null)
-     # SSH: git@github.com:owner/repo.git → owner, repo
-     # HTTPS: https://github.com/owner/repo.git → owner, repo
-     ```
-     CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
+   - **Get GitHub owner/repo** (prefer cached from SessionStart):
+     - First check SessionStart hook output for cached `github.owner` and `github.repo`
+     - If cached values available, use them (faster, already parsed)
+     - If not cached, parse from git remote:
+       ```bash
+       REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+       # SSH: git@github.com:owner/repo.git → owner, repo
+       # HTTPS: https://github.com/owner/repo.git → owner, repo
+       ```
    - Check loop state type to determine if this is a feature or fix
    - Check if PR exists for this branch (use parsed owner/repo)
    - If no PR exists:
