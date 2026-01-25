@@ -1,29 +1,28 @@
 {
-  "lastUpdated": "2026-01-24T12:00:00Z",
+  "lastUpdated": "2026-01-25T06:50:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "fix-feature-013-001: Session cleanup not triggering on WSL - v4.2.2",
+    "summary": "feature-017: Enforce GitHub issue creation for all harness features - v4.3.0",
     "completedTasks": [
-      "Added proactive stale session cleanup to session-start.sh",
-      "Removed jq dependency from session-end.sh (uses grep/sed instead)",
-      "Replaced kill -0 with ps -p for reliable process detection on WSL",
-      "Cleaned up 6 stale session directories",
-      "Updated all version numbers to 4.2.2",
-      "Added changelog entry in README.md",
-      "Updated fix-feature-013-001 status to passing"
+      "Added MANDATORY REQUIREMENTS section to /do command",
+      "Enhanced GitHub issue body templates with required sections",
+      "Added explicit WHY explanations for issue creation requirement",
+      "Added error handling for failed issue creation",
+      "Updated version to 4.3.0",
+      "Updated README changelog"
     ],
     "blockers": [],
     "nextSteps": [
-      "Merge PR for fix/feature-013-session-cleanup",
-      "Archive fix-feature-013-001 after merge"
+      "Create PR for feature-017",
+      "Manual test the enforcement"
     ]
   },
   "recentChanges": [
-    "v4.2.2: Session cleanup fix - proactive cleanup on session start, removed jq dependency",
+    "v4.3.0: Enforce GitHub issue creation - mandatory with full body templates",
+    "v4.2.3: Remove legacy state files, session-scoped workflow state",
+    "v4.2.2: Session cleanup fix - proactive cleanup on session start",
     "v4.2.1: Removed obsolete file references (feature-list.json, feature-archive.json)",
-    "v4.2.0: Simplified /merge - removed version tagging",
-    "v4.1.0: Auto-create GitHub issues from PRD analysis",
-    "v4.0.0: PRD analysis command - decompose requirements into atomic features"
+    "v4.2.0: Simplified /merge - removed version tagging"
   ],
   "knownIssues": [],
   "environmentState": {
