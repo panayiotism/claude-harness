@@ -7,6 +7,28 @@ Unified command that orchestrates the complete development workflow:
 
 Arguments: $ARGUMENTS
 
+---
+
+## ⚠️ MANDATORY REQUIREMENTS (READ FIRST)
+
+**CRITICAL: The following requirements are NOT optional and MUST be followed:**
+
+1. **GitHub Issue Creation is MANDATORY**
+   - Every new feature MUST have a GitHub issue created BEFORE any code work
+   - Every bug fix MUST have a GitHub issue created BEFORE any code work
+   - Issues MUST contain full context: problem, solution, acceptance criteria, verification
+   - **NEVER skip issue creation** - it preserves critical context for future maintenance
+   - If GitHub MCP is unavailable, STOP and inform the user
+
+2. **Branch Checkout is MANDATORY**
+   - NEVER write code on `main` or `master` branch
+   - ALWAYS verify current branch before ANY code changes
+   - Feature branch MUST be checked out before implementation begins
+
+3. **These are BLOCKING requirements** - do not proceed past them if they fail
+
+---
+
 ## Phase 0: Interactive Selection (if no arguments)
 
 If `/do` is called without arguments, show an interactive menu of incomplete features:
@@ -210,7 +232,10 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
    - Read `.claude-harness/features/active.json` to find highest existing ID
    - Generate next sequential ID: `feature-XXX` (zero-padded, e.g., feature-013)
 
-   **Step 3b: Create GitHub Issue (MANDATORY if GitHub MCP available)**
+   **Step 3b: Create GitHub Issue (MANDATORY - NEVER SKIP)**
+
+   **WHY THIS STEP IS CRITICAL**: GitHub issues preserve the full context and reasoning behind features. Without them, future bug fixes and maintenance lose critical understanding of WHY decisions were made. This is NOT optional.
+
    - **First, parse owner/repo from git remote** (MANDATORY):
      ```bash
      REMOTE_URL=$(git remote get-url origin 2>/dev/null)
@@ -218,14 +243,56 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
      # HTTPS: https://github.com/owner/repo.git → owner, repo
      ```
      CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
-   - Create GitHub issue using `mcp__github__create_issue`:
+
+   - **Create GitHub issue using `mcp__github__create_issue`**:
      - owner: Parsed from REMOTE_URL (the username/org before the repo name)
      - repo: Parsed from REMOTE_URL (the repository name, without .git suffix)
-     - title: Feature description
-     - body: Include acceptance criteria, verification steps
+     - title: Feature description (clear, actionable)
      - labels: `["feature", "claude-harness"]`
+     - body: **MUST include ALL of the following sections**:
+
+     ```markdown
+     ## Problem / Motivation
+
+     [Describe the problem this feature solves or the need it addresses.
+     Include user impact and why this matters.]
+
+     ## Solution
+
+     [Describe the proposed solution at a high level.
+     What approach will be taken? What are the key changes?]
+
+     ## Acceptance Criteria
+
+     - [ ] [Specific, testable criterion 1]
+     - [ ] [Specific, testable criterion 2]
+     - [ ] [Specific, testable criterion 3]
+
+     ## Verification
+
+     [How will we verify this feature works correctly?]
+     - [ ] Manual test: [description]
+     - [ ] Build passes
+     - [ ] Tests pass (if applicable)
+
+     ## Technical Notes (if applicable)
+
+     [Any implementation details, constraints, or considerations]
+
+     ---
+     🤖 Generated with [Claude Code](https://claude.com/claude-code)
+     ```
+
    - Store the returned issue number
-   - **DO NOT PROCEED** without issue creation (if MCP available)
+   - **STOP AND ERROR if issue creation fails**:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  ❌ ERROR: GitHub issue creation failed                         │
+     │     Feature creation cannot proceed without an issue.           │
+     │     Check GitHub MCP connection and permissions.               │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+   - **DO NOT PROCEED to Step 3c** without successful issue creation
 
    **Step 3c: Create and Checkout Feature Branch (MANDATORY)**
    - Create branch using `mcp__github__create_branch`:
@@ -267,7 +334,10 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
    - Generate fix ID: `fix-{feature-id}-{NNN}` (zero-padded sequential)
    - Generate branch name: `fix/{feature-id}-{slug}` (slug from description, max 30 chars)
 
-   **Step 3a.3: Create GitHub Issue (MANDATORY if GitHub MCP available)**
+   **Step 3a.3: Create GitHub Issue (MANDATORY - NEVER SKIP)**
+
+   **WHY THIS STEP IS CRITICAL**: Bug fixes without documented issues lose the context of what was broken and why. This makes future debugging and maintenance much harder. This is NOT optional.
+
    - **First, parse owner/repo from git remote** (MANDATORY):
      ```bash
      REMOTE_URL=$(git remote get-url origin 2>/dev/null)
@@ -275,14 +345,51 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
      # HTTPS: https://github.com/owner/repo.git → owner, repo
      ```
      CRITICAL: Always run this command fresh. NEVER guess or cache owner/repo.
-   - Create issue using `mcp__github__create_issue`:
+
+   - **Create issue using `mcp__github__create_issue`**:
      - owner: Parsed from REMOTE_URL
      - repo: Parsed from REMOTE_URL
      - title: `fix: {description}`
-     - body: Link to original issue, bug description
      - labels: `["bugfix", "claude-harness", "linked-to:{feature-id}"]`
+     - body: **MUST include ALL of the following sections**:
+
+     ```markdown
+     ## Bug Description
+
+     [Clear description of the bug/issue being fixed]
+
+     ## Related Feature
+
+     Fixes bug in #{original-issue-number} ({original-feature-name})
+
+     ## Root Cause
+
+     [What caused this bug? Why did the original implementation have this issue?]
+
+     ## Solution
+
+     [How will this fix address the root cause?]
+
+     ## Verification
+
+     - [ ] [How to verify the fix works]
+     - [ ] Original feature still works correctly
+     - [ ] No regression introduced
+
+     ---
+     🤖 Generated with [Claude Code](https://claude.com/claude-code)
+     ```
+
    - Add comment to original feature issue: "Bug fix created: #{new-issue}"
-   - **DO NOT PROCEED** without issue creation (if MCP available)
+   - **STOP AND ERROR if issue creation fails**:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  ❌ ERROR: GitHub issue creation failed                         │
+     │     Fix creation cannot proceed without an issue.               │
+     │     Check GitHub MCP connection and permissions.               │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+   - **DO NOT PROCEED to Step 3a.4** without successful issue creation
 
    **Step 3a.4: Create and Checkout Fix Branch (MANDATORY)**
    - Create branch using `mcp__github__create_branch`:
