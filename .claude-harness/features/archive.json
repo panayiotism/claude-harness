@@ -97,6 +97,36 @@
       "archivedAt": "2026-01-24T09:00:00Z"
     },
     {
+      "id": "feature-017",
+      "name": "Enforce GitHub issue creation for all harness features",
+      "description": "Enforce mandatory GitHub issue creation in the /do command workflow. The command should ALWAYS create a GitHub issue before any feature/fix work begins, include full reasoning/acceptance criteria in the issue body, and block progression until issue is created.",
+      "priority": 1,
+      "status": "passing",
+      "verification": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": [
+          "Manual test: Run /do 'test feature' and verify issue is created before any code work",
+          "Check that issue body contains full context (description, rationale, acceptance criteria)"
+        ]
+      },
+      "relatedFiles": [
+        "commands/do.md",
+        "commands/setup.md",
+        "README.md"
+      ],
+      "github": {
+        "issueNumber": 30,
+        "prNumber": 31,
+        "branch": "feature/feature-017"
+      },
+      "createdAt": "2026-01-25T06:43:00Z",
+      "completedAt": "2026-01-25T06:50:00Z",
+      "archivedAt": "2026-01-25T06:52:00Z"
+    },
+    {
       "id": "feature-016",
       "name": "Remove version tag creation from /merge command",
       "description": "Remove version tagging and release creation from /merge since git tag operations are not directly supported by GitHub MCP",
