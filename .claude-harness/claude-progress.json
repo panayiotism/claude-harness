@@ -1,33 +1,26 @@
 {
-  "lastUpdated": "2026-01-25T18:45:00Z",
+  "lastUpdated": "2026-02-01T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "feature-018: Automated end-to-end /flow command with workflow optimizations - v4.4.0",
+    "summary": "Fix Stop hook JSON validation error - convert from prompt-type to command-type hook (v4.4.2)",
     "completedTasks": [
-      "Created /claude-harness:flow command for complete lifecycle automation",
-      "Added prompt-based Stop hook with Haiku LLM for completion detection",
-      "Added UserPromptSubmit hook for smart routing to active loops",
-      "Cached GitHub repo parsing in SessionStart hook",
-      "Updated all commands to use cached GitHub repo",
-      "Parallelized memory reads in /start command",
-      "Added streaming memory updates documentation to /flow",
-      "Updated version to 4.4.0",
-      "Updated README with /flow documentation and changelog",
-      "Updated all command suggestions to recommend /flow as primary option"
+      "Diagnosed Stop hook JSON validation failure on interrupt/stop",
+      "Created hooks/stop.sh shell script to replace prompt-based hook",
+      "Updated hooks.json to use command-type Stop hook instead of prompt-type",
+      "Bumped version to 4.4.2"
     ],
     "blockers": [],
     "nextSteps": [
-      "Test /flow command end-to-end",
-      "Verify Stop hook triggers correctly",
-      "Create PR for feature-018"
+      "Test stop hook triggers cleanly on interrupt",
+      "Verify no JSON validation errors on session stop"
     ]
   },
   "recentChanges": [
+    "v4.4.2: Fix Stop hook - convert from prompt-type (unreliable JSON) to command-type (shell script)",
+    "v4.4.1: End-to-end /flow command + Stop hook schema fix",
     "v4.4.0: Automated end-to-end /flow command, prompt-based hooks, GitHub caching, parallel memory reads",
     "v4.3.0: Enforce GitHub issue creation - mandatory with full body templates",
-    "v4.2.3: Remove legacy state files, session-scoped workflow state",
-    "v4.2.2: Session cleanup fix - proactive cleanup on session start",
-    "v4.2.1: Removed obsolete file references (feature-list.json, feature-archive.json)"
+    "v4.2.3: Remove legacy state files, session-scoped workflow state"
   ],
   "knownIssues": [],
   "environmentState": {

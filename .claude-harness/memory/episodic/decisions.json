@@ -99,6 +99,15 @@
       "rationale": "User reported that in plugin installations, the interactive menu only allowed single selection despite multiSelect: true in docs. More explicit instructions needed to ensure Claude follows the requirement.",
       "alternatives": ["Keep subtle instruction", "Remove multi-select entirely"],
       "impact": "commands/do.md"
+    },
+    {
+      "id": "dec-20260201-001",
+      "timestamp": "2026-02-01T12:00:00Z",
+      "feature": "hotfix",
+      "decision": "Convert Stop hook from prompt-type to command-type",
+      "rationale": "Prompt-type hooks require a model to generate valid JSON on every stop/interrupt. This is inherently unreliable - the model can produce trailing backslashes, extra text, or malformed JSON, causing 'JSON validation failed' errors. Shell scripts are deterministic and never fail validation.",
+      "alternatives": ["Simplify the prompt", "Remove Stop hook entirely", "Add retry logic"],
+      "impact": "hooks/hooks.json, hooks/stop.sh"
     }
   ]
 }

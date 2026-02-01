@@ -38,9 +38,9 @@
       {
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Analyze the current harness session state. Check if there is an active feature implementation that just completed successfully:\n\n1. Look for loop-state.json in .claude-harness/sessions/ with status='completed' or recent verification success\n2. Check if tests/build passed in the recent conversation\n3. Check if code changes were made and committed\n\nRespond with JSON only (MUST include 'ok' boolean field):\n- If feature implementation just completed with passing tests: {\"ok\": true, \"action\": \"suggest_checkpoint\", \"feature\": \"feature-XXX\", \"reason\": \"Tests passed, ready for checkpoint\"}\n- If tests failed or work is incomplete: {\"ok\": true, \"action\": \"continue\", \"reason\": \"...\"}\n- If no active feature or not applicable: {\"ok\": true, \"action\": \"none\"}\n\nIMPORTANT: Always set ok=true to allow the stop to proceed. Only suggest checkpoint if verification actually passed.",
-            "timeout": 10
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh",
+            "timeout": 5
           }
         ]
       }
