@@ -135,11 +135,11 @@ These files enable **parallel development**: multiple `/start` commands in diffe
 
 **CRITICAL**: Write the correct plugin version - do NOT use schema versions (like 3.0.0).
 
-**The current plugin version is: 4.4.1**
+**The current plugin version is: 4.4.2**
 
 Steps:
-1. Write `4.4.1` to `.claude-harness/.plugin-version`
-2. Report: "Plugin version: 4.4.1"
+1. Write `4.4.2` to `.claude-harness/.plugin-version`
+2. Report: "Plugin version: 4.4.2"
 
 **Note for maintainers**: Update this version number in setup.md whenever plugin.json version changes.
 

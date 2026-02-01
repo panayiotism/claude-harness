@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v4.4.1 ==="
+echo "=== Claude Code Agent Harness Setup v4.4.2 ==="
 echo ""
 
 # Detect project info
@@ -1209,7 +1209,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v4.4.1 - End-to-end /flow command) ==="
+echo "=== Setup Complete (v4.4.2 - Fix Stop hook command-type) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1262,7 +1262,7 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:do \"feature description\" for step-by-step control"
 echo "  5. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v4.4.1 Features (NEW):"
+echo "v4.4.2 Features (NEW):"
 echo "  • /flow command - End-to-end automated workflow (start→implement→checkpoint→merge)"
 echo "  • Prompt-based Stop hook - Haiku LLM detects completion automatically"
 echo "  • Smart routing hook - Auto-detects active loops on prompt submit"
