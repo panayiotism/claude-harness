@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stop Hook v4.4.2 - Check if feature completed, suggest checkpoint
+# Stop Hook v4.5.0 - Check if feature completed, suggest checkpoint
 # Runs when user stops/interrupts Claude Code
 # Uses loop-state.json file check instead of prompt-based analysis
 

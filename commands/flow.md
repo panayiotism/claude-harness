@@ -178,6 +178,55 @@ Arguments: $ARGUMENTS
 
 ---
 
+## Phase 3.5: Create Task Breakdown (Native Tasks Integration)
+
+**IMPORTANT**: This phase uses Claude Code's native Tasks system for visual progress tracking.
+
+15.5. **Create task chain for feature**:
+    - Use `TaskCreate` for each workflow phase:
+      ```
+      Task 1: "Research {feature}"
+        - description: "Explore codebase for existing patterns and dependencies"
+        - activeForm: "Researching {feature}"
+
+      Task 2: "Plan {feature}"
+        - description: "Design implementation approach based on research"
+        - activeForm: "Planning {feature}"
+        - addBlockedBy: [Task 1 ID]
+
+      Task 3: "Implement {feature}"
+        - description: "Write code changes following the plan"
+        - activeForm: "Implementing {feature}"
+        - addBlockedBy: [Task 2 ID]
+
+      Task 4: "Verify {feature}"
+        - description: "Run all verification commands (build, test, lint)"
+        - activeForm: "Verifying {feature}"
+        - addBlockedBy: [Task 3 ID]
+
+      Task 5: "Checkpoint {feature}"
+        - description: "Commit, push, create PR"
+        - activeForm: "Creating checkpoint for {feature}"
+        - addBlockedBy: [Task 4 ID]
+      ```
+    - Store task IDs in loop-state for reference
+    - **Graceful fallback**: If TaskCreate fails, continue without tasks
+
+15.6. **Display task chain**:
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  FLOW: Task chain created                                       │
+    │  Tasks: [ ] Research → [ ] Plan → [ ] Implement → [ ] Verify   │
+    │         → [ ] Checkpoint                                        │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+
+15.7. **Mark first task in progress**:
+    - Call `TaskUpdate` to set Task 1 status to "in_progress"
+    - Research phase begins automatically in Phase 3 (Planning)
+
+---
+
 ## Phase 4: Implementation (Agentic Loop)
 
 16. **Branch verification** (MANDATORY):
@@ -187,11 +236,11 @@ Arguments: $ARGUMENTS
     - **STOP if on main/master**
     - Fetch and checkout correct branch if needed
 
-17. **Initialize loop state**:
+17. **Initialize loop state** (v4 with task integration):
     - Write to `.claude-harness/sessions/{session-id}/loop-state.json`:
       ```json
       {
-        "version": 3,
+        "version": 4,
         "feature": "feature-XXX",
         "featureName": "{description}",
         "type": "feature",
@@ -199,8 +248,22 @@ Arguments: $ARGUMENTS
         "attempt": 1,
         "maxAttempts": 10,
         "startedAt": "{ISO timestamp}",
-        "history": []
+        "history": [],
+        "tasks": {
+          "enabled": true,
+          "chain": ["{task1-id}", "{task2-id}", "{task3-id}", "{task4-id}", "{task5-id}"],
+          "current": "{task3-id}",
+          "completed": ["{task1-id}", "{task2-id}"]
+        }
       }
+      ```
+    - **Backward compatible**: If tasks.enabled is false or missing, ignore task integration
+
+17.5. **Update task status** (if tasks enabled):
+    - Call `TaskUpdate` to mark "Implement" task (Task 3) as "in_progress"
+    - Display task progress:
+      ```
+      Tasks: [✓] Research [✓] Plan [→] Implement [ ] Verify [ ] Checkpoint
       ```
 
 18. **Execute implementation loop**:
@@ -239,6 +302,11 @@ Arguments: $ARGUMENTS
         }
         ```
       - Update loop status to "completed"
+      - **Update tasks** (if enabled):
+        - Mark "Implement" task (Task 3) as "completed"
+        - Mark "Verify" task (Task 4) as "completed"
+        - Mark "Checkpoint" task (Task 5) as "in_progress"
+        - Display: `Tasks: [✓] Research [✓] Plan [✓] Implement [✓] Verify [→] Checkpoint`
       - **Proceed to Phase 5 (Checkpoint)**
 
 20. **On escalation** (max attempts reached):
@@ -271,12 +339,17 @@ Arguments: $ARGUMENTS
     - Body: Closes #{issue}, Summary, Test plan
     - Update feature entry with prNumber
 
+24.5. **Complete checkpoint task** (if tasks enabled):
+    - Mark "Checkpoint" task (Task 5) as "completed"
+    - All tasks now complete: `[✓] Research [✓] Plan [✓] Implement [✓] Verify [✓] Checkpoint`
+
 25. **Display checkpoint summary**:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │  FLOW: Checkpoint complete                                     │
     │  Commit: {hash}                                                 │
     │  PR: #{number} - awaiting review                               │
+    │  Tasks: [✓] Research [✓] Plan [✓] Implement [✓] Verify [✓] PR │
     └─────────────────────────────────────────────────────────────────┘
     ```
 
@@ -319,6 +392,11 @@ Arguments: $ARGUMENTS
 
 ## Phase 7: Completion Report
 
+29.5. **Clean up tasks** (if tasks enabled):
+    - All 5 tasks should be "completed"
+    - Tasks remain in `~/.claude/tasks/` for history
+    - Clear task references from loop-state
+
 30. **Display final status**:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
@@ -328,6 +406,7 @@ Arguments: $ARGUMENTS
     │  Description: {name}                                           │
     │  Issue: #{issue} (closed)                                      │
     │  PR: #{pr} (merged)                                            │
+    │  Tasks: 5/5 completed                                          │
     │  Attempts: {N}                                                 │
     │  Duration: {time}                                              │
     ├─────────────────────────────────────────────────────────────────┤

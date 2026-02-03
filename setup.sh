@@ -28,7 +28,7 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v4.4.2 ==="
+echo "=== Claude Code Agent Harness Setup v4.5.0 ==="
 echo ""
 
 # Detect project info
@@ -1209,7 +1209,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v4.4.2 - Fix Stop hook command-type) ==="
+echo "=== Setup Complete (v4.5.0 - Native Tasks Integration) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1262,9 +1262,15 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:do \"feature description\" for step-by-step control"
 echo "  5. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v4.4.2 Features (NEW):"
+echo "v4.5.0 Features (NEW):"
+echo "  • Native Tasks integration - Visual progress tracking with Claude Code Tasks"
+echo "  • 5-task workflow chain - Research → Plan → Implement → Verify → Checkpoint"
+echo "  • Task dependencies - Built-in blocking and unblocking"
+echo "  • Loop-state v4 schema - Task references with backward compatibility"
+echo ""
+echo "v4.4.0 Features:"
 echo "  • /flow command - End-to-end automated workflow (start→implement→checkpoint→merge)"
-echo "  • Prompt-based Stop hook - Haiku LLM detects completion automatically"
+echo "  • Stop hook - Detects completion automatically"
 echo "  • Smart routing hook - Auto-detects active loops on prompt submit"
 echo "  • Parallelized memory reads - 30-40% faster context compilation"
 echo "  • GitHub repo caching - Single parse at session start, reused everywhere"

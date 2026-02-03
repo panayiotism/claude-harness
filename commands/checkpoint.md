@@ -244,16 +244,20 @@ Before any checkpoint operations, detect if we're running in a git worktree:
    - PR URL, CI status, review status
    - Remaining work
 
-## Phase 6: Clear Loop State (if feature/fix completed)
+## Phase 6: Clear Loop State and Tasks (if feature/fix completed)
 
 6. If an agentic loop just completed successfully:
    - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
    - If session file doesn't exist, check legacy: `.claude-harness/loops/state.json`
    - If `status` is "completed" and matches current feature/fix:
-     - Reset loop state to idle:
+     - **Mark all tasks complete** (if tasks.enabled in loop-state):
+       - Call `TaskList` to find feature's tasks
+       - For any tasks not yet "completed", call `TaskUpdate` to mark as "completed"
+       - Report: "All 5 tasks completed"
+     - Reset loop state to idle (v4 schema):
        ```json
        {
-         "version": 3,
+         "version": 4,
          "feature": null,
          "featureName": null,
          "type": "feature",
@@ -268,6 +272,12 @@ Before any checkpoint operations, detect if we're running in a git worktree:
          "lastAttemptAt": null,
          "verification": {},
          "history": [],
+         "tasks": {
+           "enabled": false,
+           "chain": [],
+           "current": null,
+           "completed": []
+         },
          "lastCheckpoint": "{commit-hash}",
          "escalationRequested": false
        }

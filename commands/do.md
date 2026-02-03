@@ -618,7 +618,13 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
 16. Initialize or resume agentic loop:
     - If resuming: Load state from session-scoped path: `.claude-harness/sessions/{session-id}/loop-state.json`
     - If session file doesn't exist, check legacy path: `.claude-harness/loops/state.json`
-    - If new: Initialize loop state in session directory with version 3 schema
+    - If new: Initialize loop state in session directory with version 4 schema (includes task references)
+
+16.5. **Task integration** (if tasks.enabled in loop-state):
+    - Call `TaskList` to find current feature's tasks
+    - Find implementation task by subject match or stored ID
+    - Call `TaskUpdate` to set implementation task status to "in_progress"
+    - Display task progress: `Tasks: [✓] Research [✓] Plan [→] Implement [ ] Verify [ ] Checkpoint`
 
 17. Query procedural memory:
     - Show past failures to avoid
@@ -636,11 +642,19 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
     - If ALL pass: Record success, commit, continue to checkpoint
     - If ANY fail: Record failure to procedural memory, retry (up to maxAttempts)
 
+19.5. **Update tasks on verification** (if tasks.enabled):
+    - If verification FAILED: Keep implementation task as "in_progress", increment attempt
+    - If verification PASSED:
+      - Mark implementation task as "completed"
+      - Mark verify task as "completed"
+      - Update loop-state.tasks.completed array
+
 20. On verification success:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │  ✅ Feature Complete: feature-012                               │
     │     Attempts: 2 | Verification: ✅ All Passed                   │
+    │     Tasks: [✓] Research [✓] Plan [✓] Implement [✓] Verify      │
     ├─────────────────────────────────────────────────────────────────┤
     │  Create checkpoint (commit + PR)? [Y/n]                         │
     └─────────────────────────────────────────────────────────────────┘
@@ -661,6 +675,9 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
       - Extract learned rules from corrections
       - Save to `.claude-harness/memory/learned/rules.json`
       - Report: "Learned {N} rules from this session"
+    - **Mark checkpoint task complete** (if tasks.enabled):
+      - Call `TaskUpdate` to set checkpoint task status to "completed"
+      - All 5 tasks now complete
     - Commit all changes with appropriate prefix:
       - Feature: `feat(feature-XXX): description`
       - Fix: `fix({linkedTo.featureId}): description`
