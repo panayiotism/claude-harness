@@ -875,291 +875,45 @@ create_file ".claude/settings.local.json" '{
 }'
 
 # ============================================================================
-# 15. /start command - Now with context compilation
+# 15. Copy ALL plugin command files to .claude/commands/
 # ============================================================================
 
-create_file ".claude/commands/start.md" 'Run the initialization script and prepare for a new coding session:
+echo ""
+echo "=== Command Files ==="
+PLUGIN_COMMANDS_DIR="$SCRIPT_DIR/commands"
+LOCAL_COMMANDS_DIR=".claude/commands"
+mkdir -p "$LOCAL_COMMANDS_DIR"
 
-## Phase 0: Auto-Migration
-Check if legacy files exist and migrate them:
-1. Root-level files (v1.x) -> .claude-harness/
-2. v2.x structure -> v3.0 memory architecture (if needed)
+COMMANDS_UPDATED=0
+COMMANDS_CREATED=0
+COMMANDS_SKIPPED=0
 
-## Phase 1: Context Compilation
-1. Clear session context (.claude-harness/sessions/{session-id}/context.json)
-2. Load active feature from .claude-harness/features/active.json
-3. Query episodic memory for recent relevant decisions
-4. Query semantic memory for project patterns
-5. Query procedural memory for:
-   - Failures to avoid (similar file patterns)
-   - Successful approaches to reuse
-6. Compute relevance scores, keep top entries
-7. Write compiled context to sessions/{session-id}/context.json
-8. Log compilation decisions
+for cmd_file in "$PLUGIN_COMMANDS_DIR"/*.md; do
+    [ -f "$cmd_file" ] || continue
+    filename=$(basename "$cmd_file")
+    target="$LOCAL_COMMANDS_DIR/$filename"
 
-## Phase 2: Local Status
-1. Execute `./.claude-harness/init.sh` to see environment status
-2. Read compiled context from session-scoped context (.claude-harness/sessions/{session-id}/context.json)
-3. Read `.claude-harness/features/active.json` to identify next priority
+    if [ -f "$target" ]; then
+        if [ "$FORCE" = true ] || [ "$FORCE_COMMANDS" = true ]; then
+            cp "$cmd_file" "$target"
+            echo "  [UPDATE] $target"
+            COMMANDS_UPDATED=$((COMMANDS_UPDATED + 1))
+        else
+            echo "  [SKIP] $target already exists"
+            COMMANDS_SKIPPED=$((COMMANDS_SKIPPED + 1))
+        fi
+    else
+        cp "$cmd_file" "$target"
+        echo "  [CREATE] $target"
+        COMMANDS_CREATED=$((COMMANDS_CREATED + 1))
+    fi
+done
 
-## Phase 3: Orchestration State
-4. Read `.claude-harness/agents/context.json` if exists - check for pending handoffs
-5. Read `.claude-harness/agents/handoffs.json` for queued handoffs
+echo "  Commands: ${COMMANDS_CREATED} created, ${COMMANDS_UPDATED} updated, ${COMMANDS_SKIPPED} unchanged"
 
-## Phase 4: GitHub Integration (if MCP configured)
-6. Fetch GitHub dashboard: open issues, PRs, CI status
-7. Sync GitHub Issues with .claude-harness/features/active.json
-
-## Phase 5: Recommendations
-8. Report:
-   - Compiled context summary
-   - Active feature and phase
-   - Approaches to avoid (from failure memory)
-   - Patterns to use (from success memory)
-   - Recommended next action
-' "command"
 
 # ============================================================================
-# 16. /checkpoint command - Now with memory persistence
-# ============================================================================
-
-create_file ".claude/commands/checkpoint.md" 'Create a checkpoint of the current session:
-
-## Phase 1: Update Progress
-1. Update `.claude-harness/claude-progress.json` with:
-   - Summary of what was accomplished this session
-   - Any blockers encountered
-   - Recommended next steps
-   - Update lastUpdated timestamp
-
-## Phase 2: Persist Memory
-2. Record decisions to episodic memory:
-   - Add new entries to `.claude-harness/memory/episodic/decisions.json`
-   - Prune old entries if > maxEntries (FIFO)
-
-3. Update semantic memory:
-   - Add discovered patterns to `.claude-harness/memory/semantic/architecture.json`
-   - Update file structure mappings
-
-4. Update procedural memory:
-   - If verification PASSED: Add approach to `.claude-harness/memory/procedural/successes.json`
-   - If verification FAILED: Add approach to `.claude-harness/memory/procedural/failures.json`
-   - Extract patterns to `.claude-harness/memory/procedural/patterns.json`
-
-## Phase 3: Run Verification
-5. Run build/test commands appropriate for the project
-6. Record results in loop state if active
-
-## Phase 4: Git Operations
-7. ALWAYS commit changes:
-   - Stage all modified files (except secrets/env files)
-   - Write descriptive commit message summarizing the work
-   - Push to remote
-
-## Phase 5: PR Management
-8. If on a feature branch and GitHub MCP is available:
-   - Check if PR exists for this branch
-   - If no PR: Create PR with title, body linking to issue
-   - If PR exists: Update PR description with latest progress
-   - Update .claude-harness/features/active.json with prNumber
-
-## Phase 6: Archive & Report
-9. Archive completed features:
-   - Find features with status=passing in active.json
-   - Move to features/archive.json with archivedAt timestamp
-
-10. Report final status:
-    - Memory updates made
-    - Build/test results
-    - Commit hash and push status
-    - PR URL (if created/updated)
-    - Remaining work
-' "command"
-
-# ============================================================================
-# 17. /do command - Unified workflow (features + fixes)
-# ============================================================================
-
-create_file ".claude/commands/do.md" '---
-description: Unified workflow - create, plan, and implement features or fixes in one command
-argumentsPrompt: Feature description, feature ID, or --fix flag (e.g., "Add dark mode", "feature-001", "--fix feature-001 Bug description")
----
-
-Unified command that orchestrates the complete development workflow:
-
-Arguments: $ARGUMENTS
-
-## Argument Parsing
-
-1. Detect argument type:
-   - If starts with `--fix <feature-id>`: Create bug fix linked to feature
-   - If matches `feature-\d+`: Resume existing feature
-   - If matches `fix-feature-\d+-\d+`: Resume existing fix
-   - If "resume": Resume last active workflow
-   - Otherwise: Create new feature from description
-
-2. Parse options:
-   - `--fix <feature-id>`: Create bug fix linked to specified feature
-   - `--quick`: Skip planning phase (for simple tasks)
-   - `--auto`: No interactive prompts (full automation)
-   - `--plan-only`: Stop after planning (review before implementation)
-
-## Phase 1: Feature Creation (if new feature)
-
-3. If creating new feature (no --fix flag):
-   - Generate unique feature ID (feature-XXX based on existing IDs)
-   - If GitHub MCP is available:
-     - Create GitHub issue with title, description, labels
-     - Create feature branch: `feature/feature-XXX`
-     - Checkout the feature branch
-   - Add to `.claude-harness/features/active.json`
-
-## Phase 1a: Fix Creation (if --fix flag)
-
-3a. If creating bug fix (`--fix <feature-id> "description"`):
-    - Validate original feature exists in active.json or archive.json
-    - Generate fix ID: `fix-{feature-id}-{NNN}`
-    - Inherit verification commands from original feature
-    - If GitHub MCP available: Create issue + branch
-    - Add to `.claude-harness/features/active.json` fixes array
-
-## Phase 2: Planning (unless --quick)
-
-4. Load context from memory layers
-5. Analyze requirements, identify files
-6. Check past failures, suggest alternatives
-7. Generate implementation plan
-
-## Phase 3: Implementation
-
-8. Initialize or resume agentic loop
-9. Query procedural memory for failures to avoid
-10. Execute implementation with verification
-11. On success: Record to successes.json
-12. On failure: Record to failures.json, retry
-
-## Phase 4: Checkpoint (if confirmed or --auto)
-
-13. Commit changes with appropriate prefix (feat: or fix:)
-14. Push to remote, create/update PR
-15. Auto-reflect on user corrections
-16. Archive completed feature/fix
-
-## Quick Reference
-
-| Command | Behavior |
-|---------|----------|
-| `/claude-harness:do "Add X"` | Full workflow with prompts |
-| `/claude-harness:do --fix feature-001 "Bug Y"` | Create bug fix linked to feature |
-| `/claude-harness:do feature-001` | Resume existing feature |
-| `/claude-harness:do fix-feature-001-001` | Resume existing fix |
-| `/claude-harness:do resume` | Resume last active workflow |
-| `/claude-harness:do --quick "Simple change"` | Skip planning phase |
-| `/claude-harness:do --auto "Add Z"` | No prompts, full automation |
-| `/claude-harness:do --plan-only "Big feature"` | Plan only, implement later |
-' "command"
-
-# ============================================================================
-# 18. /merge command - Merge PRs, auto-version, release
-# ============================================================================
-
-create_file ".claude/commands/merge.md" '---
-description: Merge all PRs, auto-version, create release
-argumentsPrompt: Optional: specific version tag (e.g., v1.2.0). Defaults to auto-versioning.
----
-
-Merge all open PRs, close related issues, create version tag and release:
-
-Arguments: $ARGUMENTS (optional - specific version like v1.2.0, defaults to auto-versioning)
-
-Requires GitHub MCP to be configured.
-
-## Phase 1: Gather State
-1. List all open PRs (features and fixes)
-2. List all open issues with "feature" or "bugfix" labels
-3. Read `.claude-harness/features/active.json` for linked issue/PR numbers
-4. Get latest version tag from git
-
-## Phase 2: Build Dependency Graph
-5. Order PRs so dependent PRs merge after their base PRs
-
-## Phase 3: Pre-merge Validation
-6. For each PR: CI passes, no conflicts, has approvals
-
-## Phase 4: Execute Merges
-7. Merge in dependency order (squash preferred)
-8. Close linked issues
-9. Delete source branches
-
-## Phase 5: Version Tagging
-10. Auto-version based on PR types:
-    - `feat:` PRs → bump MINOR
-    - `fix:` PRs only → bump PATCH
-    - `BREAKING CHANGE` → bump MAJOR
-11. Create annotated git tag and push
-
-## Phase 6: Release Notes
-12. Create GitHub release with auto-generated notes
-
-## Phase 7: Cleanup
-13. Prune branches, switch to main, pull latest
-
-## Phase 8: Report Summary
-14. PRs merged, issues closed, version tag, release URL
-' "command"
-
-# ============================================================================
-# 19. /orchestrate command - Multi-agent teams
-# ============================================================================
-
-create_file ".claude/commands/orchestrate.md" '---
-description: Orchestrate multi-agent teams for complex features
-argumentsPrompt: Feature ID or description to orchestrate
----
-
-Orchestrate specialized agents to implement a feature or task:
-
-Arguments: $ARGUMENTS
-
-## Phase 1: Task Analysis
-1. Identify target (feature ID or description)
-2. Read orchestration context and learned patterns
-3. Analyze task: file types, domains, security-sensitive ops
-
-## Phase 2: Impact Analysis
-4. Read dependency graph
-5. Calculate impact score
-6. Add mandatory quality agents for high-impact changes
-
-## Phase 3: Agent Selection
-7. Map requirements to agents:
-   - Implementation: react-specialist, backend-developer, etc.
-   - Quality: code-reviewer, security-auditor, qa-expert
-
-## Phase 4: Failure Prevention Check
-8. Check procedural/failures.json before spawning
-
-## Phase 5: Agent Spawning
-9. Build execution plan with groups
-10. Provide context, failures to avoid, success patterns
-
-## Phase 6: Coordination
-11. Update agents/context.json, handle failures, manage handoffs
-
-## Phase 7: Verification Loop
-12. Run all verification commands, re-spawn on failure (max 3 cycles)
-
-## Phase 8: Memory Persistence
-13. Record successes/failures to procedural memory
-
-## Phase 9: Report
-14. Summary of agents, files, verification, next steps
-
-Run `/claude-harness:checkpoint` after to commit changes.
-' "command"
-
-# ============================================================================
-# 23. Update project .gitignore with harness ephemeral patterns
+# 16. Update project .gitignore with harness ephemeral patterns (was 20)
 # ============================================================================
 
 update_gitignore() {
@@ -1210,7 +964,7 @@ update_gitignore() {
 update_gitignore
 
 # ============================================================================
-# 24. Record plugin version for update detection
+# 17. Record plugin version for update detection
 # ============================================================================
 
 # PLUGIN_VERSION and SCRIPT_DIR already set at top of script
@@ -1253,13 +1007,8 @@ echo "  ├── sessions/               (gitignored, per-instance)"
 echo "  │   └── {uuid}/             (session-scoped state)"
 echo "  └── config.json"
 echo ""
-echo "Commands (6 total):"
-echo "  .claude/commands/setup.md           (initialize harness)"
-echo "  .claude/commands/start.md           (compile context)"
-echo "  .claude/commands/do.md              (unified workflow)"
-echo "  .claude/commands/checkpoint.md      (save + persist memory)"
-echo "  .claude/commands/orchestrate.md     (multi-agent)"
-echo "  .claude/commands/merge.md           (merge PRs + release)"
+echo "Commands (copied from plugin):"
+echo "  .claude/commands/             (all commands auto-synced from plugin)"
 echo ""
 echo "=== GitHub MCP Setup (Optional) ==="
 echo ""
@@ -1274,7 +1023,7 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:do \"feature description\" for step-by-step control"
 echo "  5. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v5.1.2 Features (NEW - Autonomous Multi-Feature Processing):"
+echo "v5.1.3 Features (NEW - Autonomous Multi-Feature Processing):"
 echo "  • Autonomous mode - /flow --autonomous processes entire feature backlog with TDD"
 echo "  • TDD enforcement - Red-Green-Refactor cycle enforced in autonomous loop"
 echo "  • Conflict detection - Git rebase check skips conflicting features automatically"
