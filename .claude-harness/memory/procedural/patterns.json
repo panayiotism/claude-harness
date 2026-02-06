@@ -15,6 +15,18 @@
     {
       "pattern": "Both setup.sh AND commands/setup.md must be updated together",
       "source": "feature-005"
+    },
+    {
+      "pattern": "Version bump requires updating ALL files: plugin.json, .plugin-version, all hook version comments, README, setup.sh, claude-progress.json, and schema examples in command docs",
+      "source": "v5.0.0"
+    },
+    {
+      "pattern": "Use Grep with replace_all to find all occurrences of hardcoded values (like maxAttempts) across the codebase before updating",
+      "source": "v5.0.0"
+    },
+    {
+      "pattern": "New model capabilities should be added as advisory annotations that are backward-compatible with older models",
+      "source": "v5.0.0"
     }
   ]
 }

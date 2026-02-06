@@ -133,7 +133,13 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
 
    **Step 7a: Spawn Parallel Subagents (AUTOMATIC)**
 
-   For each worktree, spawn a background subagent using the **Task tool**:
+   **Preferred: Agent Teams (Opus 4.6+)**
+   If Claude Code's native Agent Teams feature is available, use it instead of the Task tool.
+   Agent Teams spawn autonomous parallel agents, each with their own context window,
+   providing better coordination and reliability. Fall back to the Task tool approach below
+   if Agent Teams are not available.
+
+   For each worktree, spawn a background subagent using the **Task tool** (or Agent Teams):
 
    - Use a **single message with multiple Task tool calls** (one per feature)
    - Each Task call parameters:
@@ -317,7 +323,7 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
      - status: "pending"
      - verification: Generate reasonable verification steps
      - verificationCommands: Auto-detect from project (build, test, lint, typecheck)
-     - maxAttempts: 10
+     - maxAttempts: 15
      - github: { issueNumber: {from 3b}, prNumber: null, branch: "feature/feature-XXX" }
 
 ## Phase 1a: Fix Creation (if --fix flag)
@@ -524,6 +530,27 @@ If `/do` is called without arguments, show an interactive menu of incomplete fea
      }
    }
    ```
+
+## Effort Controls (Opus 4.6+)
+
+Opus 4.6 supports effort levels (low/medium/high/max) for balancing reasoning depth, speed, and cost.
+
+| Phase | Effort | Why |
+|-------|--------|-----|
+| Feature/Fix Creation | low | Template-based, deterministic steps |
+| Planning | max | Critical -- determines approach quality |
+| Implementation | high | Core coding work |
+| Verification/Debug | max | Root-cause analysis needs deepest reasoning |
+| Checkpoint | low | Mechanical commit/push |
+
+**Adaptive Loop Strategy** (progressive escalation on retries):
+- Attempts 1-5: high effort
+- Attempts 6-10: max effort
+- Attempts 11-15: max effort + load full procedural memory for cross-feature pattern analysis
+
+On models without effort controls, all phases run at default effort.
+
+---
 
 ## Phase 2: Planning (unless --quick)
 

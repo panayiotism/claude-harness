@@ -76,7 +76,30 @@ Arguments: $ARGUMENTS
    }
    ```
 
-7. For each agent in the execution plan, use the Task tool:
+7. **Select spawning mechanism**:
+
+   **Preferred: Agent Teams (Opus 4.6+)**
+   If Claude Code's native Agent Teams feature is available, use it for spawning:
+   - Agent Teams spawn autonomous parallel agents, each with their own full context window
+   - Each agent operates independently without sharing the orchestrator's context budget
+   - Agents can coordinate through shared filesystem state (`.claude-harness/agents/context.json`)
+   - Agent Teams handle lifecycle management natively (no manual polling needed)
+   - Use Shift+Up/Down or tmux to monitor agent progress
+
+   **Effort levels per agent role** (Opus 4.6+):
+   | Agent Role | Effort | Why |
+   |------------|--------|-----|
+   | code-reviewer | max | Review requires deepest reasoning to catch issues |
+   | security-auditor | max | Security analysis must be thorough |
+   | research-analyst | high | Exploration needs careful analysis |
+   | Implementation agents | high | Core coding work |
+   | qa-expert | high | Test design needs good reasoning |
+   | performance-engineer | high | Performance analysis requires depth |
+   | documentation-engineer | low | Documentation is straightforward |
+   | devops-engineer | high | Infrastructure changes need care |
+
+   **Fallback: Task tool** (pre-Opus 4.6 or Agent Teams unavailable)
+   For each agent in the execution plan, use the Task tool:
 
    **Prompt Template for Each Agent:**
    ```
@@ -210,7 +233,7 @@ Arguments: $ARGUMENTS
       - Determine which agent should fix (e.g., type errors → typescript-pro)
       - Re-spawn relevant agent with error context
       - Repeat verification
-      - Track attempts in loop state (max 10 by default)
+      - Track attempts in loop state (max 15 by default)
 
 17. If verification keeps failing after multiple agent re-runs:
     - Escalate: Report which verification step fails persistently

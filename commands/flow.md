@@ -27,6 +27,30 @@ Arguments: $ARGUMENTS
 
 ---
 
+## Effort Controls (Opus 4.6+)
+
+Opus 4.6 supports effort levels (low/medium/high/max) that balance reasoning depth, speed, and cost.
+Apply these effort levels per phase to optimize workflow efficiency:
+
+| Phase | Effort | Why |
+|-------|--------|-----|
+| Context Compilation | low | Mechanical data loading, no complex reasoning needed |
+| Feature Creation | low | Template-based, deterministic steps |
+| Planning | max | Critical phase -- determines approach quality and avoids past failures |
+| Implementation | high | Core coding work benefits from careful reasoning |
+| Verification/Debug | max | Root-cause analysis and debugging need deepest reasoning |
+| Checkpoint | low | Mechanical commit/push operations |
+| Merge | low | Mechanical merge operations |
+
+**Adaptive Loop Strategy** (progressive escalation on retries):
+- Attempts 1-5: high effort (let natural reasoning work)
+- Attempts 6-10: max effort (engage deepest analysis for stubborn issues)
+- Attempts 11-15: max effort + load full procedural memory for cross-feature pattern analysis
+
+On models without effort controls, all phases run at default effort (no change in behavior).
+
+---
+
 ## Phase 0: Argument Parsing
 
 1. **Parse arguments**:
@@ -149,7 +173,7 @@ Arguments: $ARGUMENTS
           "branch": "feature/feature-XXX"
         },
         "verificationCommands": {auto-detected},
-        "maxAttempts": 10
+        "maxAttempts": 15
       }
       ```
 
@@ -162,7 +186,7 @@ Arguments: $ARGUMENTS
 
 ## Phase 3: Planning (unless --quick)
 
-13. **Query procedural memory**:
+13. **Query procedural memory** (effort: max):
     - Check past failures for similar features
     - Check successful approaches
     - **If planned approach matches past failure**: Warn and suggest alternative
@@ -246,7 +270,7 @@ Arguments: $ARGUMENTS
         "type": "feature",
         "status": "in_progress",
         "attempt": 1,
-        "maxAttempts": 10,
+        "maxAttempts": 15,
         "startedAt": "{ISO timestamp}",
         "history": [],
         "tasks": {
@@ -266,11 +290,12 @@ Arguments: $ARGUMENTS
       Tasks: [✓] Research [✓] Plan [→] Implement [ ] Verify [ ] Checkpoint
       ```
 
-18. **Execute implementation loop**:
+18. **Execute implementation loop** (effort: high, escalate to max on failure):
     - Plan approach (avoiding past failures)
     - Implement code changes
     - Document approach in loop state
     - Run ALL verification commands
+    - **Effort escalation**: If attempt > 5, use max effort. If attempt > 10, also load full procedural memory.
 
 19. **STREAMING MEMORY UPDATES** (after EACH verification attempt):
     - **If verification failed**:
@@ -473,7 +498,7 @@ Arguments: $ARGUMENTS
 | Manual transitions | Required | Automatic |
 | Memory compilation | Each /start | Once at beginning |
 | GitHub parsing | 5x (each command) | 1x (cached) |
-| Completion detection | Manual | Auto (Haiku hook) |
+| Completion detection | Manual | Auto (hook-based) |
 | Merge timing | Manual /merge | Auto when PR approved |
 
 **When to use /flow**:

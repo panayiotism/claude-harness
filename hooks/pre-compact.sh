@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness PreCompact Hook v4.5.1
+# Claude Harness PreCompact Hook v5.0.0
 # Saves critical state before context compaction to prevent data loss
 # This is a safety net - ideally users run /claude-harness:checkpoint then /clear
 
@@ -93,9 +93,14 @@ State has been preserved before compaction:
 - Branch: $GIT_BRANCH
 - Last commit: $GIT_LAST_COMMIT
 
-After compaction, run /claude-harness:start to reload context from memory files.
+Opus 4.6 native context compaction is active. The model will automatically
+summarize and compress context intelligently, preserving task-relevant information.
+Your memory layers remain intact (episodic, procedural, semantic, learned).
 
-TIP: To avoid compaction, run /claude-harness:checkpoint then /clear periodically."
+After compaction, run /claude-harness:start only if context feels incomplete.
+
+TIP: Opus 4.6 compaction is smarter than manual /clear - it preserves task-relevant
+context automatically. Only run /checkpoint + /clear if you want a full reset."
 
 # Escape for JSON
 USER_MSG_ESCAPED=$(echo "$USER_MSG" | sed 's/"/\\"/g')

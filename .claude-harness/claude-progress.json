@@ -1,23 +1,27 @@
 {
-  "lastUpdated": "2026-02-06T14:00:00Z",
+  "lastUpdated": "2026-02-06T15:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Fix version tracking and stale state detection (v4.5.1)",
+    "summary": "Opus 4.6 optimizations - effort controls, Agent Teams, 128K output (v5.0.0)",
     "completedTasks": [
-      "Deleted stale loops/state.json with feature-013 false positive",
-      "Added active.json validation to user-prompt-submit.sh",
-      "Made setup.md version dynamic (reads from plugin.json)",
-      "Fixed setup.sh to use $PLUGIN_VERSION variable everywhere",
-      "Fixed init.sh template to read version from .plugin-version at runtime",
-      "Bumped version to 4.5.1 across all files"
+      "Added effort-aware phases to flow.md, do.md, do-tdd.md with per-phase effort tables",
+      "Added Agent Teams integration to orchestrate.md, do.md, do-tdd.md with Task tool fallback",
+      "Updated prd-breakdown.md for 128K output with exhaustive subagent analysis",
+      "Increased maxAttempts from 10 to 15 across all commands",
+      "Added adaptive loop strategy with progressive effort escalation",
+      "Updated session-start.sh with Opus 4.6 capabilities banner",
+      "Updated pre-compact.sh with native compaction awareness",
+      "Bumped version to 5.0.0 across all files"
     ],
     "blockers": [],
     "nextSteps": [
-      "Run /claude-harness:setup on target projects to verify fix",
-      "Test user-prompt-submit.sh no longer reports stale features"
+      "Run /claude-harness:setup on target projects to deploy v5.0.0",
+      "Test effort controls in a /flow workflow",
+      "Test Agent Teams spawning in /orchestrate"
     ]
   },
   "recentChanges": [
+    "v5.0.0: Opus 4.6 optimizations - effort controls, Agent Teams, 128K output, adaptive loops",
     "v4.5.1: Fix version tracking - dynamic setup.md, stale state detection, cleanup legacy loops/",
     "v4.5.0: Native Tasks integration - 5-task workflow chain with visual progress tracking",
     "v4.4.2: Fix Stop hook - convert from prompt-type (unreliable JSON) to command-type (shell script)",

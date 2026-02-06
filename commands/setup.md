@@ -188,7 +188,7 @@ When the memory directory already exists, run the setup script to ensure all dir
   "linkedTo": null,
   "status": "idle",
   "attempt": 0,
-  "maxAttempts": 10,
+  "maxAttempts": 15,
   "startedAt": null,
   "lastAttemptAt": null,
   "verification": {},

@@ -108,6 +108,51 @@
       "rationale": "Prompt-type hooks require a model to generate valid JSON on every stop/interrupt. This is inherently unreliable - the model can produce trailing backslashes, extra text, or malformed JSON, causing 'JSON validation failed' errors. Shell scripts are deterministic and never fail validation.",
       "alternatives": ["Simplify the prompt", "Remove Stop hook entirely", "Add retry logic"],
       "impact": "hooks/hooks.json, hooks/stop.sh"
+    },
+    {
+      "id": "dec-20260206-001",
+      "timestamp": "2026-02-06T15:45:00Z",
+      "feature": "v5.0.0",
+      "decision": "Stay within 200K standard context - do not use 1M beta context",
+      "rationale": "1M context window is still in beta and triggers premium pricing ($10/$37.50 per MTok vs standard $5/$25 for >200K input). Requires usage tier 4 orgs. Not worth the cost increase for most users.",
+      "alternatives": ["Use 1M context with tier detection", "3-tier system (standard/opus46/opus46-extended)"],
+      "impact": "All commands - no memory limit changes needed"
+    },
+    {
+      "id": "dec-20260206-002",
+      "timestamp": "2026-02-06T15:45:00Z",
+      "feature": "v5.0.0",
+      "decision": "Effort annotations are advisory - backward compatible with older models",
+      "rationale": "Models without effort controls simply ignore the annotations. This ensures the plugin works identically on older models while optimizing cost/quality on Opus 4.6+.",
+      "alternatives": ["Model detection with conditional behavior", "Separate command variants per model"],
+      "impact": "commands/flow.md, do.md, do-tdd.md, orchestrate.md"
+    },
+    {
+      "id": "dec-20260206-003",
+      "timestamp": "2026-02-06T15:45:00Z",
+      "feature": "v5.0.0",
+      "decision": "Agent Teams as preferred spawning mechanism with Task tool fallback",
+      "rationale": "Agent Teams (research preview) provides native parallel agent spawning with separate context windows. Better coordination than custom Task tool approach. Fallback ensures compatibility when Agent Teams is unavailable.",
+      "alternatives": ["Only use Task tool", "Only use Agent Teams (no fallback)", "Configurable via settings"],
+      "impact": "commands/do.md, do-tdd.md, orchestrate.md"
+    },
+    {
+      "id": "dec-20260206-004",
+      "timestamp": "2026-02-06T15:45:00Z",
+      "feature": "v5.0.0",
+      "decision": "Increase maxAttempts from 10 to 15 across all commands",
+      "rationale": "Opus 4.6 sustains longer agentic tasks with better debugging. 15 attempts with progressive effort escalation (high → max → max+memory) provides more runway for complex issues.",
+      "alternatives": ["Keep at 10", "Increase to 20", "Make configurable per-project"],
+      "impact": "commands/flow.md, do.md, do-tdd.md, checkpoint.md, setup.md, README.md"
+    },
+    {
+      "id": "dec-20260206-005",
+      "timestamp": "2026-02-06T15:45:00Z",
+      "feature": "v5.0.0",
+      "decision": "Simple single-update approach instead of complex tier system",
+      "rationale": "User explicitly requested simplicity. All Opus 4.6 features are backward-compatible, so no need for model detection or tiered behavior. One plugin version works for all models.",
+      "alternatives": ["3-tier system with model detection", "Feature flags per capability"],
+      "impact": "Entire plugin architecture - kept simple"
     }
   ]
 }

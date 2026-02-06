@@ -21,7 +21,7 @@ Arguments: $ARGUMENTS
    - Check minimum length (at least 100 characters of content)
    - If Markdown: verify structure (sections, requirements)
    - If plain text: parse as-is
-   - If too large (>50KB): warn user, ask to focus on specific sections
+   - If too large (>100KB): warn user, ask to focus on specific sections
 
 3. **Store PRD input**:
    - Create `.claude-harness/prd/` directory if missing
@@ -45,11 +45,17 @@ Arguments: $ARGUMENTS
    - Read `.claude-harness/prd/subagent-prompts.json`
    - Get prompts for Product Analyst, Architect, QA Lead
 
-5. **Spawn 3 parallel subagents** (all at once using Task tool):
+5. **Spawn 3 parallel subagents** (all at once using Task tool or Agent Teams):
+
+   **Opus 4.6 Enhancement**: With 128K output tokens available, each subagent can produce
+   significantly richer and more exhaustive analysis. Append to each subagent prompt:
+   "Provide exhaustive analysis with detailed rationale for every recommendation.
+   Generate comprehensive acceptance criteria including edge cases and error scenarios."
 
    **Subagent 1: Product Analyst**
    - Extracts business goals, user personas, functional requirements
    - Identifies non-functional requirements, dependencies, constraints
+   - **With 128K output**: Include full user journey mapping for each persona, not just bullet points
    - Output: JSON with structured requirements list
 
    **Subagent 2: Architect**
@@ -57,12 +63,14 @@ Arguments: $ARGUMENTS
    - Proposes implementation order (dependency graph)
    - Identifies risks and mitigations
    - Suggests MVP features
+   - **With 128K output**: Include complete dependency graph with risk assessment per edge and migration paths
    - Output: JSON with complexity scores, dependencies, risk assessment
 
    **Subagent 3: QA Lead**
    - Defines acceptance criteria for each requirement
    - Identifies edge cases and error scenarios
    - Specifies performance/security requirements
+   - **With 128K output**: Include comprehensive test matrix with boundary conditions, error paths, and integration scenarios
    - Output: JSON with verification framework and test scenarios
 
 6. **Wait for all agents to complete**:
@@ -328,7 +336,7 @@ Arguments: $ARGUMENTS
 | Scenario | Action |
 |----------|--------|
 | PRD not provided | Prompt via AskUserQuestion |
-| PRD too large (>50KB) | Warn user, ask to focus section |
+| PRD too large (>100KB) | Warn user, ask to focus section |
 | Subagent timeout (>10min) | Retry with simpler prompt, or skip that agent |
 | GitHub fetch fails (no MCP) | Fall back to interactive input |
 | Invalid markdown | Parse as plaintext, still extract |

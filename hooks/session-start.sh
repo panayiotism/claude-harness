@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v4.5.1
+# Claude Harness SessionStart Hook v5.0.0
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 # Added: GitHub repo caching for workflow optimization
@@ -400,6 +400,11 @@ CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
 
+# Opus 4.6 capabilities awareness (v5.0.0)
+CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== OPUS 4.6 CAPABILITIES ==="
+CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n128K output tokens | Effort controls (low/medium/high/max) | Agent Teams | Adaptive thinking"
+CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEffort guidance: Use low for mechanical phases, max for planning/debugging. See command docs for per-phase effort tables."
+
 # Add cached GitHub repo info
 if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== GITHUB (CACHED) ==="
@@ -474,7 +479,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v4.5 WORKFLOW (8 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - End-to-end workflow (RECOMMENDED)\n4. /claude-harness:do - Step-by-step workflow\n5. /claude-harness:do-tdd - TDD workflow (tests first)\n6. /claude-harness:checkpoint - Manual commit + push + PR\n7. /claude-harness:orchestrate - Multi-agent team (advanced)\n8. /claude-harness:merge - Merge PRs, close issues\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v5.0 WORKFLOW (8 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - End-to-end workflow (RECOMMENDED)\n4. /claude-harness:do - Step-by-step workflow\n5. /claude-harness:do-tdd - TDD workflow (tests first)\n6. /claude-harness:checkpoint - Manual commit + push + PR\n7. /claude-harness:orchestrate - Multi-agent team (advanced)\n8. /claude-harness:merge - Merge PRs, close issues\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi

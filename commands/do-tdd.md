@@ -121,7 +121,12 @@ If `/do-tdd` is called without arguments, show an interactive menu of incomplete
 
    **Step 7a: Spawn Parallel TDD Subagents (AUTOMATIC)**
 
-   For each worktree, spawn a background subagent using the **Task tool**:
+   **Preferred: Agent Teams (Opus 4.6+)**
+   If Claude Code's native Agent Teams feature is available, use it instead of the Task tool.
+   Agent Teams spawn autonomous parallel agents, each with their own context window.
+   Fall back to the Task tool approach below if Agent Teams are not available.
+
+   For each worktree, spawn a background subagent using the **Task tool** (or Agent Teams):
 
    - Use a **single message with multiple Task tool calls** (one per feature)
    - Each Task call parameters:
@@ -273,7 +278,7 @@ If `/do-tdd` is called without arguments, show an interactive menu of incomplete
      - **tdd: true** (mark as TDD feature)
      - verification: Generate reasonable verification steps
      - verificationCommands: Auto-detect from project (build, test, lint, typecheck)
-     - maxAttempts: 10
+     - maxAttempts: 15
      - github: { issueNumber: {from 3b}, prNumber: null, branch: "feature/feature-XXX" }
 
 ## Phase 1a: Fix Creation (if --fix flag)
@@ -412,6 +417,22 @@ Same as `/do` command - see `commands/do.md` for full details.
     ```
     Plan complete. Run `/claude-harness:do-tdd feature-012` to implement.
     ```
+
+## Effort Controls (Opus 4.6+ TDD)
+
+Opus 4.6 supports effort levels for balancing reasoning depth, speed, and cost.
+TDD phases have specific effort requirements:
+
+| TDD Phase | Effort | Why |
+|-----------|--------|-----|
+| RED (write tests) | high | Requires understanding expected behavior to write meaningful tests |
+| GREEN (implement) | high | Core coding to make tests pass |
+| REFACTOR | max | Deep structural analysis of code quality benefits most from max reasoning |
+| Verification/Debug | max | Root-cause analysis needs deepest reasoning |
+
+On models without effort controls, all phases run at default effort.
+
+---
 
 ## Phase 3: Implementation (TDD-Enforced)
 

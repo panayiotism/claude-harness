@@ -190,7 +190,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v4.5.1 (Dynamic Versioning)      │
+│                  CLAUDE HARNESS v5.0.0 (Opus 4.6 Optimized)      │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -601,7 +601,7 @@ This is useful when you want to:
     "custom": []
   },
   "attempts": 0,
-  "maxAttempts": 10,
+  "maxAttempts": 15,
   "relatedFiles": [],
   "github": {
     "issueNumber": 42,
@@ -638,7 +638,7 @@ Bug fixes are linked to their original features:
     "inherited": true
   },
   "attempts": 0,
-  "maxAttempts": 10,
+  "maxAttempts": 15,
   "relatedFiles": [],
   "github": {
     "issueNumber": 55,
@@ -816,6 +816,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **5.0.0** | **Opus 4.6 Optimizations**: Effort controls per workflow phase (low for mechanical operations, max for planning/debugging) across `/flow`, `/do`, `/do-tdd`, and `/orchestrate`. Agent Teams integration as preferred parallel agent spawning mechanism with Task tool fallback. 128K output token utilization for richer PRD analysis (exhaustive subagent output, PRD size limit increased to 100KB). Increased maxAttempts from 10 to 15 for better agentic loop sustaining. Adaptive loop strategy with progressive effort escalation on retries. Native context compaction awareness in PreCompact hook. Effort-per-agent-role table in orchestration. Session banner now displays Opus 4.6 capabilities. All changes backward compatible with pre-Opus 4.6 models. |
 | **4.5.1** | **Fix Version Tracking & Stale State Detection**: Removed hardcoded version from `setup.md` — now reads dynamically from `plugin.json`. Fixed `setup.sh` to use `$PLUGIN_VERSION` variable everywhere instead of hardcoded strings. Added active.json validation to `user-prompt-submit.sh` to prevent stale loop-state from falsely reporting archived features as active. Cleaned up stale legacy `loops/state.json`. |
 | **4.5.0** | **Native Claude Code Tasks Integration**: Features now create a 5-task chain using Claude Code's native Tasks system (TaskCreate, TaskUpdate, TaskList). Tasks provide visual progress tracking (`[✓] Research [✓] Plan [→] Implement [ ] Verify [ ] Checkpoint`), persist across sessions, and have built-in dependency management. Loop-state schema updated to v4 with task references. Backward compatible with v3 loop-state. Graceful fallback if TaskCreate fails. |
 | **4.4.2** | **Fix Stop Hook Command-Type**: Converted Stop hook from prompt-type (unreliable JSON validation) to command-type shell script for reliable completion detection. |

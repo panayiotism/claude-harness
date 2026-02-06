@@ -1,11 +1,30 @@
 {
   "version": 3,
-  "lastUpdated": "2026-01-15T17:55:00Z",
+  "lastUpdated": "2026-02-06T15:50:00Z",
   "metadata": {
-    "totalRules": 0,
-    "projectSpecific": 0,
-    "general": 0,
-    "lastReflection": null
+    "totalRules": 2,
+    "projectSpecific": 1,
+    "general": 1,
+    "lastReflection": "2026-02-06T15:50:00Z"
   },
-  "rules": []
+  "rules": [
+    {
+      "id": "rule-001",
+      "title": "Prefer simplicity over complex tier/detection systems",
+      "rule": "When adding model-specific capabilities, make them advisory and backward-compatible rather than building complex detection/tier systems. User explicitly prefers simple updates that work for all models.",
+      "confidence": 0.9,
+      "source": "user-correction",
+      "learnedAt": "2026-02-06T15:50:00Z",
+      "scope": "project"
+    },
+    {
+      "id": "rule-002",
+      "title": "Verify pricing and beta status before planning around new features",
+      "rule": "Always verify the actual pricing and availability (beta vs GA) of new model capabilities before incorporating them into plans. Premium pricing tiers and beta restrictions can make features impractical for most users.",
+      "confidence": 0.95,
+      "source": "user-correction",
+      "learnedAt": "2026-02-06T15:50:00Z",
+      "scope": "general"
+    }
+  ]
 }

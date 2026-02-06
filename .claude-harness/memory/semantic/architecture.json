@@ -15,8 +15,11 @@
   "patterns": {
     "commandFiles": "commands/{name}.md (no harness- prefix)",
     "stateFiles": ".claude-harness/{name}.json",
-    "loopArchitecture": "/implement for single-agent, /orchestrate for multi-agent"
+    "loopArchitecture": "/flow for end-to-end, /do for step-by-step, /orchestrate for multi-agent",
+    "effortControls": "Per-phase effort annotations (low/high/max) in command docs - advisory, backward-compatible",
+    "agentSpawning": "Agent Teams preferred, Task tool fallback",
+    "versionBumping": "Update ALL version references: plugin.json, .plugin-version, hook comments, README, setup.sh, claude-progress.json"
   },
   "discoveredAt": "2026-01-15T15:00:00Z",
-  "lastUpdated": "2026-01-15T15:00:00Z"
+  "lastUpdated": "2026-02-06T15:45:00Z"
 }

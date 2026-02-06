@@ -267,7 +267,7 @@ Before any checkpoint operations, detect if we're running in a git worktree:
          },
          "status": "idle",
          "attempt": 0,
-         "maxAttempts": 10,
+         "maxAttempts": 15,
          "startedAt": null,
          "lastAttemptAt": null,
          "verification": {},
