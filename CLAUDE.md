@@ -43,4 +43,6 @@ On every session start:
 ## Progress Tracking
 See: `.claude-harness/claude-progress.json` and `.claude-harness/features/active.json`
 
-ALWAYS bump the version in all occurances after code change according to significanse following the semver 
+ALWAYS bump the version in all occurances after code change according to significanse following the semver
+
+https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
