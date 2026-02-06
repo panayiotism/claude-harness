@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v4.5.0
+# Claude Harness SessionStart Hook v4.5.1
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 # Added: GitHub repo caching for workflow optimization

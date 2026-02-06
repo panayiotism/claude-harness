@@ -135,13 +135,12 @@ These files enable **parallel development**: multiple `/start` commands in diffe
 
 **CRITICAL**: Write the correct plugin version - do NOT use schema versions (like 3.0.0).
 
-**The current plugin version is: 4.5.0**
+**Read the current plugin version dynamically:**
+1. Read the `"version"` field from the plugin configuration file at `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`
+2. Write that version string to `.claude-harness/.plugin-version`
+3. Report: "Plugin version: {version}"
 
-Steps:
-1. Write `4.5.0` to `.claude-harness/.plugin-version`
-2. Report: "Plugin version: 4.5.0"
-
-**Note for maintainers**: Update this version number in setup.md whenever plugin.json version changes.
+**This is dynamic** — no hardcoded version in this file. Always read from plugin.json.
 
 ## File Schemas
 

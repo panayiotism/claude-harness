@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v4.5
+# Claude Code Long-Running Agent Harness Setup
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -28,7 +28,11 @@ case "$1" in
         ;;
 esac
 
-echo "=== Claude Code Agent Harness Setup v4.5.0 ==="
+# Extract plugin version from plugin.json (single source of truth)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "4.2.0")
+
+echo "=== Claude Code Agent Harness Setup v${PLUGIN_VERSION} ==="
 echo ""
 
 # Detect project info
@@ -760,7 +764,8 @@ else
 fi
 
 echo ""
-echo "=== Environment Ready (v4.5) ==="
+DISPLAY_VERSION=$(cat .claude-harness/.plugin-version 2>/dev/null || echo "unknown")
+echo "=== Environment Ready (v${DISPLAY_VERSION}) ==="
 echo "Commands (8 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
@@ -1199,8 +1204,7 @@ update_gitignore
 # 24. Record plugin version for update detection
 # ============================================================================
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "4.2.0")
+# PLUGIN_VERSION and SCRIPT_DIR already set at top of script
 echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
 echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 
@@ -1209,7 +1213,7 @@ echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 # ============================================================================
 
 echo ""
-echo "=== Setup Complete (v4.5.0 - Native Tasks Integration) ==="
+echo "=== Setup Complete (v${PLUGIN_VERSION}) ==="
 echo ""
 echo "Directory Structure (v3.0 Memory Architecture):"
 echo "  .claude-harness/"
@@ -1236,7 +1240,6 @@ echo "  │   ├── context.json"
 echo "  │   └── handoffs.json"
 echo "  ├── worktrees/"
 echo "  │   └── registry.json         (worktree tracking)"
-echo "  ├── loops/state.json"
 echo "  ├── sessions/               (gitignored, per-instance)"
 echo "  │   └── {uuid}/             (session-scoped state)"
 echo "  └── config.json"
@@ -1262,7 +1265,12 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:do \"feature description\" for step-by-step control"
 echo "  5. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v4.5.0 Features (NEW):"
+echo "v4.5.1 Features (NEW):"
+echo "  • Dynamic versioning - setup.md reads version from plugin.json, no hardcoding"
+echo "  • Stale state detection - user-prompt-submit validates against active.json"
+echo "  • Cleaned up legacy loops/ directory"
+echo ""
+echo "v4.5.0 Features:"
 echo "  • Native Tasks integration - Visual progress tracking with Claude Code Tasks"
 echo "  • 5-task workflow chain - Research → Plan → Implement → Verify → Checkpoint"
 echo "  • Task dependencies - Built-in blocking and unblocking"

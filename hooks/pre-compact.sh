@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness PreCompact Hook v3.6
+# Claude Harness PreCompact Hook v4.5.1
 # Saves critical state before context compaction to prevent data loss
 # This is a safety net - ideally users run /claude-harness:checkpoint then /clear
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness UserPromptSubmit Hook v4.5.0
+# Claude Harness UserPromptSubmit Hook v4.5.1
 # Provides smart routing context when user submits a prompt
 # Checks for active loops and injects relevant context
 
@@ -66,6 +66,18 @@ fi
 # ============================================================================
 # BUILD CONTEXT IF ACTIVE LOOP EXISTS
 # ============================================================================
+
+# Validate feature still exists in active.json (prevent stale loop-state false positives)
+if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
+    FEATURES_FILE="$HARNESS_DIR/features/active.json"
+    if [ -f "$FEATURES_FILE" ]; then
+        if ! grep -q "\"$LOOP_FEATURE\"" "$FEATURES_FILE" 2>/dev/null; then
+            # Feature not in active.json - stale loop-state, ignore it
+            LOOP_FEATURE=""
+            LOOP_STATUS=""
+        fi
+    fi
+fi
 
 if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
     if [ "$LOOP_TYPE" = "fix" ]; then
