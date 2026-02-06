@@ -473,7 +473,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v4.4 WORKFLOW (8 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - End-to-end workflow (RECOMMENDED)\n4. /claude-harness:do - Step-by-step workflow\n5. /claude-harness:do-tdd - TDD workflow (tests first)\n6. /claude-harness:checkpoint - Manual commit + push + PR\n7. /claude-harness:orchestrate - Multi-agent team (advanced)\n8. /claude-harness:merge - Merge PRs, close issues\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v4.5 WORKFLOW (8 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - End-to-end workflow (RECOMMENDED)\n4. /claude-harness:do - Step-by-step workflow\n5. /claude-harness:do-tdd - TDD workflow (tests first)\n6. /claude-harness:checkpoint - Manual commit + push + PR\n7. /claude-harness:orchestrate - Multi-agent team (advanced)\n8. /claude-harness:merge - Merge PRs, close issues\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi

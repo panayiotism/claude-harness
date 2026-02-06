@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code Long-Running Agent Harness Setup v4.4
+# Claude Code Long-Running Agent Harness Setup v4.5
 # Based on: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 # Enhanced with: Context-Engine memory architecture, Agent-Foreman patterns, Anthropic autonomous-coding
 #
@@ -760,7 +760,7 @@ else
 fi
 
 echo ""
-echo "=== Environment Ready (v4.4) ==="
+echo "=== Environment Ready (v4.5) ==="
 echo "Commands (8 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"

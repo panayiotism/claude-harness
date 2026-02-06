@@ -17,7 +17,7 @@ claude plugin install claude-harness github:panayiotism/claude-harness
 cd your-project && claude
 /claude-harness:setup
 
-# NEW in v4.4: Single command for entire workflow (start → do → checkpoint → merge)
+# NEW in v4.5: Single command for entire workflow (start → do → checkpoint → merge)
 /claude-harness:flow "Add user authentication with JWT tokens"
 # Auto-compiles context, creates issue/branch, implements, checkpoints, merges
 
@@ -27,7 +27,7 @@ cd your-project && claude
 # Then gives you instructions to continue in the new worktree
 ```
 
-The **`/flow`** command (v4.4) handles the entire lifecycle automatically - from context compilation to PR merge. The `/do` command chains creation through checkpoint with interactive prompts. Both support worktrees for parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
+The **`/flow`** command (v4.5) handles the entire lifecycle automatically - from context compilation to PR merge. The `/do` command chains creation through checkpoint with interactive prompts. Both support worktrees for parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
 
 ### Complete Workflow (10 Commands Total)
 
@@ -38,7 +38,7 @@ The **`/flow`** command (v4.4) handles the entire lifecycle automatically - from
 # 2. START SESSION (or skip with /flow)
 /claude-harness:start                              # Compile context, show status
 
-# 2b. AUTOMATED END-TO-END (NEW in v4.4)
+# 2b. AUTOMATED END-TO-END (NEW in v4.5)
 /claude-harness:flow "Add dark mode"               # Complete lifecycle in one command
 /claude-harness:flow --no-merge "Add feature"      # Stop at checkpoint (don't auto-merge)
 
@@ -80,7 +80,7 @@ The **`/flow`** command (v4.4) handles the entire lifecycle automatically - from
 /start           → Compiles working context from 4 memory layers
                    Shows status, syncs GitHub, displays learned rules
 
-/flow            → END-TO-END WORKFLOW (NEW in v4.4):
+/flow            → END-TO-END WORKFLOW (NEW in v4.5):
                    1. Auto-compiles context (replaces /start)
                    2. Creates feature (GitHub issue + branch)
                    3. Plans implementation (checks past failures)
@@ -410,7 +410,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 |---------|---------|
 | `/claude-harness:setup` | Initialize harness in project (one-time) |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
-| **`/claude-harness:flow`** | **End-to-end workflow**: start→do→checkpoint→merge in one command (v4.4) |
+| **`/claude-harness:flow`** | **End-to-end workflow**: start→do→checkpoint→merge in one command (v4.5) |
 | **`/claude-harness:prd-breakdown`** | **PRD Analysis**: Decompose PRD into atomic features |
 | **`/claude-harness:do`** | **Unified workflow**: features AND fixes (auto-worktree) |
 | **`/claude-harness:do-tdd`** | **TDD workflow**: tests first, then implement |
@@ -419,7 +419,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/claude-harness:orchestrate <id>` | Spawn multi-agent team (advanced) |
 | `/claude-harness:merge` | Merge all PRs, close issues |
 
-### `/flow` Command Options (v4.4)
+### `/flow` Command Options (v4.5)
 
 | Syntax | Behavior |
 |--------|----------|
