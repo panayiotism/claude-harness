@@ -131,16 +131,16 @@ These files enable **parallel development**: multiple `/start` commands in diffe
 
 **DO NOT SKIP THIS PHASE** - it is required for proper harness operation.
 
-## Phase 4: Update Plugin Version
+## Phase 4: Verify Plugin Version
 
-**CRITICAL**: Write the correct plugin version - do NOT use schema versions (like 3.0.0).
+**CRITICAL**: The SessionStart hook has ALREADY written the correct plugin version to `.claude-harness/.plugin-version`. Do NOT overwrite this file with any hardcoded version.
 
-**Read the current plugin version dynamically:**
-1. Read the `"version"` field from the plugin configuration file at `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`
-2. Write that version string to `.claude-harness/.plugin-version`
-3. Report: "Plugin version: {version}"
+**Steps:**
+1. Read `.claude-harness/.plugin-version`
+2. If the file exists and is non-empty: Report the version. **Do NOT modify it.**
+3. If the file does NOT exist (fresh install only): Leave it — the next session start will write it automatically.
 
-**This is dynamic** — no hardcoded version in this file. Always read from plugin.json.
+**WARNING**: This command definition may be cached by Claude Code. The `.plugin-version` file is always written by the SessionStart hook directly from the plugin's `plugin.json`, so it is the authoritative source. NEVER overwrite it with a version number from these instructions.
 
 ## File Schemas
 
