@@ -1023,7 +1023,7 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:do \"feature description\" for step-by-step control"
 echo "  5. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v5.1.3 Features (NEW - Autonomous Multi-Feature Processing):"
+echo "v5.1.4 Features (NEW - Autonomous Multi-Feature Processing):"
 echo "  • Autonomous mode - /flow --autonomous processes entire feature backlog with TDD"
 echo "  • TDD enforcement - Red-Green-Refactor cycle enforced in autonomous loop"
 echo "  • Conflict detection - Git rebase check skips conflicting features automatically"

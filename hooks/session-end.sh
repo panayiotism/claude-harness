@@ -1,5 +1,5 @@
 #!/bin/bash
-# Session End Hook v5.1.3 - Clean up inactive session directories
+# Session End Hook v5.1.4 - Clean up inactive session directories
 # Runs automatically when a Claude Code session ends
 # Only removes sessions where the PID is no longer running (inactive)
 #

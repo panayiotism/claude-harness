@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v5.1.3
+# Claude Harness SessionStart Hook v5.1.4
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 # Added: GitHub repo caching for workflow optimization
@@ -400,7 +400,7 @@ CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
 
-# Opus 4.6 capabilities awareness (v5.1.3)
+# Opus 4.6 capabilities awareness (v5.1.4)
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== OPUS 4.6 CAPABILITIES ==="
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n128K output tokens | Effort controls (low/medium/high/max) | Agent Teams | Adaptive thinking"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEffort guidance: Use low for mechanical phases, max for planning/debugging. See command docs for per-phase effort tables."

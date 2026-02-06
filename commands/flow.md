@@ -456,14 +456,27 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 28. **Run Phase 6** (Auto-Merge) unless `--no-merge`:
     - Check PR status (CI, reviews)
-    - If ready: merge (squash), close issue, delete branch, update status to "passing"
+    - If ready: merge (squash), close issue, delete branch, update status to "passing", **archive feature to `${ARCHIVE_FILE}`**
     - If needs review: mark feature as checkpointed but not merged, continue to next feature
 
 ---
 
 ### Phase A.5: Post-Feature Cleanup
 
-29. **Update autonomous state**:
+29. **Archive completed feature** (MANDATORY):
+    - Read `${FEATURES_FILE}` (active.json)
+    - Find the current feature entry (by ID)
+    - If status is "passing":
+      - Add `archivedAt: "{ISO timestamp}"` to the feature object
+      - Read `${ARCHIVE_FILE}` (archive.json), append the feature to `archived[]`
+      - Write updated `${ARCHIVE_FILE}`
+      - Remove the feature from `features[]` in `${FEATURES_FILE}`
+      - Write updated `${FEATURES_FILE}`
+      - Report: `"Archived feature {feature-id} to archive.json"`
+    - If status is NOT "passing" (e.g., checkpointed but not merged):
+      - Skip archiving, feature remains in active.json for next session
+
+30. **Update autonomous state**:
     - Add to `completedFeatures`:
       ```json
       {
@@ -479,18 +492,18 @@ CURRENT_BRANCH=$(git branch --show-current)
       - Update `totalTestsWritten` and `totalTestsPassing`
     - Reset `consecutiveFailures` to 0 (feature succeeded)
 
-30. **Switch to main and update**:
+31. **Switch to main and update**:
     ```bash
     git checkout main
     git pull origin main
     ```
 
-31. **Reset session state**:
+32. **Reset session state**:
     - Reset loop-state.json to idle (v4 schema)
     - Clear TDD state
     - Clear task references (if tasks were enabled)
 
-32. **Brief per-feature report**:
+33. **Brief per-feature report**:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │  AUTONOMOUS: Feature {feature-id} COMPLETE                    │
@@ -506,7 +519,7 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 ### Phase A.6: Loop Continuation Check
 
-33. **Check termination conditions** (in order):
+34. **Check termination conditions** (in order):
 
     1. **Re-read `${FEATURES_FILE}`** - are there any eligible features left?
        - Filter: status != "passing", not in skipped/failed lists
@@ -521,7 +534,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     4. **All skipped/failed**: Are ALL remaining features either skipped or failed?
        - If yes: **proceed to Phase A.7** with "all remaining features need manual attention" note
 
-34. **If continuing**:
+35. **If continuing**:
     - Write updated autonomous state to disk
     - **Go back to Phase A.2** (feature selection)
 
@@ -529,7 +542,7 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 ### Phase A.7: Autonomous Completion Report
 
-35. **Generate final report**:
+36. **Generate final report**:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │  AUTONOMOUS MODE COMPLETE                                      │
@@ -563,7 +576,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     └─────────────────────────────────────────────────────────────────┘
     ```
 
-36. **Final cleanup**:
+37. **Final cleanup**:
     - Ensure on main branch: `git checkout main && git pull origin main`
     - Clear autonomous state file (or keep for history)
     - Clean up any remaining task references
