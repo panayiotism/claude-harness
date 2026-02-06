@@ -27,7 +27,7 @@ cd your-project && claude
 # Then gives you instructions to continue in the new worktree
 ```
 
-The **`/flow`** command (v4.5) handles the entire lifecycle automatically - from context compilation to PR merge. The `/do` command chains creation through checkpoint with interactive prompts. Both support worktrees for parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
+The **`/flow`** command (v4.5) handles the entire lifecycle automatically - from context compilation to PR merge. Use `--autonomous` (v5.1) to batch-process all active features with TDD enforcement. The `/do` command chains creation through checkpoint with interactive prompts. Both support worktrees for parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
 
 ### Complete Workflow (10 Commands Total)
 
@@ -38,9 +38,10 @@ The **`/flow`** command (v4.5) handles the entire lifecycle automatically - from
 # 2. START SESSION (or skip with /flow)
 /claude-harness:start                              # Compile context, show status
 
-# 2b. AUTOMATED END-TO-END (NEW in v4.5)
+# 2b. AUTOMATED END-TO-END (NEW in v4.5, autonomous in v5.1)
 /claude-harness:flow "Add dark mode"               # Complete lifecycle in one command
 /claude-harness:flow --no-merge "Add feature"      # Stop at checkpoint (don't auto-merge)
+/claude-harness:flow --autonomous                   # NEW: Batch-process all features with TDD
 
 # 2b. PRD BOOTSTRAP (for new projects)
 /claude-harness:prd-breakdown "Your PRD..."                           # Analyze inline PRD → extract atomic features
@@ -87,7 +88,8 @@ The **`/flow`** command (v4.5) handles the entire lifecycle automatically - from
                    4. Agentic loop until verification passes
                    5. Auto-checkpoints when tests pass
                    6. Auto-merges when PR approved
-                   Options: --no-merge (stop at checkpoint), --quick, --inline
+                   Options: --no-merge, --quick, --inline, --autonomous
+                   --autonomous: Batch loop through ALL features with TDD (v5.1)
                    OPTIMIZATIONS: Parallel memory reads, cached GitHub parsing
 
 /do              → UNIFIED WORKFLOW (handles features AND fixes):
@@ -190,7 +192,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v5.0.0 (Opus 4.6 Optimized)      │
+│                  CLAUDE HARNESS v5.1.1 (Opus 4.6 Optimized)      │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -429,6 +431,8 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/flow --quick "Simple change"` | Skip planning phase |
 | `/flow --inline "Tiny fix"` | Skip worktree, work in current directory |
 | `/flow --fix feature-001 "Bug"` | Complete lifecycle for a bug fix |
+| `/flow --autonomous` | **Batch loop**: process all active features with TDD, checkpoint, merge, repeat (v5.1) |
+| `/flow --autonomous --no-merge` | Batch loop but stop each feature at checkpoint (PRs created, not merged) |
 
 **Key Optimizations in /flow**:
 - Memory layers read in parallel (30-40% faster startup)
@@ -816,6 +820,8 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **5.1.1** | **Fix Setup Auto-Update**: `setup.sh` now auto-detects version upgrades by comparing installed `.plugin-version` against `plugin.json`. When a version change is detected, command files are automatically updated (equivalent to `--force-commands`) without requiring the flag. Fixes issue where running setup on existing projects only bumped the version file but skipped command updates. |
+| **5.1.0** | **Autonomous Multi-Feature Processing**: New `--autonomous` flag on `/flow` command enables unattended batch processing of the entire feature backlog. Iterates through all active features with strict TDD enforcement (Red-Green-Refactor), automatic checkpoint (commit, push, PR), merge to main, context reset, and loop back. Git rebase conflict detection auto-skips conflicting features. Configurable termination: max iterations (20), consecutive failure threshold (3), or all features complete. Autonomous state persisted to `autonomous-state.json` for crash recovery and resume. Compatible with `--no-merge` (stop at checkpoint) and `--quick` (skip planning). Forces `--inline` mode. TDD-specific task chain (7 tasks) with visual progress tracking. |
 | **5.0.0** | **Opus 4.6 Optimizations**: Effort controls per workflow phase (low for mechanical operations, max for planning/debugging) across `/flow`, `/do`, `/do-tdd`, and `/orchestrate`. Agent Teams integration as preferred parallel agent spawning mechanism with Task tool fallback. 128K output token utilization for richer PRD analysis (exhaustive subagent output, PRD size limit increased to 100KB). Increased maxAttempts from 10 to 15 for better agentic loop sustaining. Adaptive loop strategy with progressive effort escalation on retries. Native context compaction awareness in PreCompact hook. Effort-per-agent-role table in orchestration. Session banner now displays Opus 4.6 capabilities. All changes backward compatible with pre-Opus 4.6 models. |
 | **4.5.1** | **Fix Version Tracking & Stale State Detection**: Removed hardcoded version from `setup.md` — now reads dynamically from `plugin.json`. Fixed `setup.sh` to use `$PLUGIN_VERSION` variable everywhere instead of hardcoded strings. Added active.json validation to `user-prompt-submit.sh` to prevent stale loop-state from falsely reporting archived features as active. Cleaned up stale legacy `loops/state.json`. |
 | **4.5.0** | **Native Claude Code Tasks Integration**: Features now create a 5-task chain using Claude Code's native Tasks system (TaskCreate, TaskUpdate, TaskList). Tasks provide visual progress tracking (`[✓] Research [✓] Plan [→] Implement [ ] Verify [ ] Checkpoint`), persist across sessions, and have built-in dependency management. Loop-state schema updated to v4 with task references. Backward compatible with v3 loop-state. Graceful fallback if TaskCreate fails. |

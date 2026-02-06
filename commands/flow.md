@@ -1,6 +1,6 @@
 ---
 description: Unified end-to-end workflow - creates, implements, checkpoints, and merges features automatically
-argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "bug description"
+argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "bug description" | --autonomous
 ---
 
 Single-command workflow that handles the entire feature lifecycle from creation to merge.
@@ -64,6 +64,509 @@ On models without effort controls, all phases run at default effort (no change i
    - `--no-merge`: Skip automatic merge phase (stop at checkpoint)
    - `--quick`: Skip planning phase
    - `--inline`: Skip worktree creation
+   - `--autonomous`: Outer loop mode - iterate through all active features with TDD, checkpoint, merge, repeat
+
+3. **Autonomous mode validation** (if --autonomous):
+   - If arguments also contain a feature description (not a flag): **ERROR** - `--autonomous` processes existing features from `active.json`, not new descriptions
+   - Force `--inline` (autonomous mode operates within single session, cannot use worktrees)
+   - Compatible with: `--no-merge`, `--quick`
+   - **Proceed to Autonomous Wrapper section** (skip normal Phase 1-7)
+
+---
+
+## Autonomous Wrapper (if --autonomous)
+
+When `--autonomous` is set, the entire flow operates as an outer agentic loop that iterates through all active features. Each feature goes through the full lifecycle (context → planning → TDD implementation → checkpoint → merge) before moving to the next.
+
+**IMPORTANT**: This wrapper replaces the normal Phase 1-7 flow. Each iteration runs the standard phases internally with TDD enforcement.
+
+### Autonomous Effort Controls
+
+| Phase | Effort | Why |
+|-------|--------|-----|
+| Feature Selection / Conflict Detection | low | Mechanical git operations and list filtering |
+| Context Compilation | low | Mechanical data loading |
+| TDD Test Planning | high | Requires understanding feature behavior to design tests |
+| RED (write failing tests) | high | Must define expected behavior precisely |
+| GREEN (implement to pass tests) | high | Core coding work, escalate to max on retry |
+| REFACTOR | max | Deep structural analysis benefits most from max reasoning |
+| Verification / Debug | max | Root-cause analysis needs deepest reasoning |
+| Checkpoint / Merge | low | Mechanical commit/push/merge operations |
+
+Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-10: max. Attempts 11-15: max + full procedural memory.
+
+---
+
+### Phase A.1: Initialize Autonomous State
+
+4. **Read feature backlog**:
+   - Detect worktree mode and set paths (same as Phase 1 step 3)
+   - Read `${FEATURES_FILE}` to get all features
+   - Filter features where `status` is NOT `"passing"`
+   - If no eligible features exist:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  AUTONOMOUS: No pending features                               │
+     │  All features in active.json are already passing.              │
+     │  Add features with /claude-harness:do or /claude-harness:flow  │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+     **EXIT** - nothing to process
+
+5. **Check for resume** (if `autonomous-state.json` already exists):
+   - Read `.claude-harness/sessions/{session-id}/autonomous-state.json`
+   - If file exists and `mode` is `"autonomous"`:
+     - Display resume summary: completed/skipped/failed counts
+     - Resume from where it left off (skip already completed features)
+   - If file does not exist: create fresh state (step 6)
+
+6. **Create autonomous state file**:
+   - Write to `.claude-harness/sessions/{session-id}/autonomous-state.json`:
+     ```json
+     {
+       "version": 1,
+       "mode": "autonomous",
+       "startedAt": "{ISO timestamp}",
+       "iteration": 0,
+       "maxIterations": 20,
+       "consecutiveFailures": 0,
+       "maxConsecutiveFailures": 3,
+       "completedFeatures": [],
+       "skippedFeatures": [],
+       "failedFeatures": [],
+       "currentFeature": null,
+       "tddStats": {
+         "totalTestsWritten": 0,
+         "totalTestsPassing": 0,
+         "featuresWithTDD": 0
+       }
+     }
+     ```
+
+7. **Parse and cache GitHub repo** (MANDATORY - same as Phase 1 step 4):
+   ```bash
+   REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+   ```
+   Parse owner and repo. Store in session context for reuse across all iterations.
+
+8. **Read all memory layers IN PARALLEL** (single message, multiple Read tool calls):
+   - `${MEMORY_DIR}/procedural/failures.json`
+   - `${MEMORY_DIR}/procedural/successes.json`
+   - `${MEMORY_DIR}/episodic/decisions.json`
+   - `${MEMORY_DIR}/learned/rules.json`
+
+9. **Display autonomous banner**:
+   ```
+   ┌─────────────────────────────────────────────────────────────────┐
+   │  AUTONOMOUS MODE                                               │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  Features to process: {N}                                      │
+   │  Mode: TDD (Red-Green-Refactor) enforced                      │
+   │  Max iterations: 20                                            │
+   │  Merge: {auto / --no-merge}                                   │
+   │  Planning: {full / --quick}                                    │
+   │  GitHub: {owner}/{repo}                                        │
+   │  Memory: {N} decisions, {N} patterns, {N} to avoid            │
+   ├─────────────────────────────────────────────────────────────────┤
+   │  Starting feature processing loop...                           │
+   └─────────────────────────────────────────────────────────────────┘
+   ```
+
+---
+
+### Phase A.2: Feature Selection (LOOP START)
+
+10. **Re-read feature backlog**:
+    - Read `${FEATURES_FILE}` (may have changed after merges from prior iterations)
+    - Filter features where:
+      - `status` is NOT `"passing"`
+      - `id` is NOT in `skippedFeatures` list
+      - `id` is NOT in `failedFeatures` list
+    - If no eligible features remain: **proceed to Phase A.7** (completion report)
+
+11. **Select next feature**:
+    - Choose the feature with the **lowest ID** (deterministic ordering)
+    - This ensures natural dependency resolution (earlier features are processed first)
+    - Update autonomous state:
+      - Set `currentFeature` to selected feature ID
+      - Increment `iteration` counter
+
+12. **Display iteration header**:
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  AUTONOMOUS: Iteration {N}/{maxIterations}                     │
+    │  Feature: {feature-id} - {feature-name}                       │
+    │  Progress: {completed}/{total} completed, {skipped} skipped   │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+
+---
+
+### Phase A.3: Conflict Detection
+
+13. **Switch to main and update**:
+    ```bash
+    git checkout main
+    git pull origin main
+    ```
+
+14. **Checkout feature branch and rebase**:
+    - Read feature's `github.branch` from `active.json`
+    ```bash
+    git checkout {feature-branch}
+    git rebase origin/main
+    ```
+
+15. **Handle rebase result**:
+    - **If rebase succeeds** (clean): Proceed to Phase A.4
+    - **If rebase fails** (conflict):
+      ```bash
+      git rebase --abort
+      ```
+      - Add to `skippedFeatures` in autonomous state:
+        ```json
+        {
+          "id": "{feature-id}",
+          "reason": "merge-conflict",
+          "skippedAt": "{ISO timestamp}",
+          "details": "Conflict during rebase onto main"
+        }
+        ```
+      - Display:
+        ```
+        ┌─────────────────────────────────────────────────────────────────┐
+        │  AUTONOMOUS: Skipping {feature-id} (merge conflict)           │
+        │  Feature requires manual conflict resolution.                  │
+        │  Moving to next feature...                                    │
+        └─────────────────────────────────────────────────────────────────┘
+        ```
+      - **Go back to Phase A.2** (select next feature)
+
+---
+
+### Phase A.4: Execute Feature Flow with TDD
+
+This phase runs the standard flow Phases 1-7 with TDD enforcement and autonomous overrides.
+
+#### A.4.1: Context Compilation
+
+16. **Run Phase 1** (Context Compilation) normally:
+    - Worktree detection, GitHub caching (reuse from A.1), memory reads (reuse from A.1)
+    - Compile working context for this feature
+    - Write to `.claude-harness/sessions/{session-id}/context.json`
+
+#### A.4.2: Feature Creation (conditional)
+
+17. **Check if feature already exists** in `active.json`:
+    - If feature has `status: "pending"` or `status: "in_progress"`: **SKIP creation** (already exists with issue and branch)
+    - If feature needs a GitHub issue or branch: Run Phase 2 (Feature Creation) normally
+    - Most features in autonomous mode will already exist in `active.json`, so this phase is typically skipped
+
+#### A.4.3: TDD Planning
+
+18. **Run Phase 3** (Planning) unless `--quick`:
+    - Standard planning steps (query procedural memory, analyze requirements, generate plan)
+
+19. **Inject TDD test planning** (MANDATORY in autonomous mode):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  TDD: Generating Test Specifications for {feature-id}         │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+    - Analyze feature requirements
+    - Auto-detect test patterns for project language:
+      - TypeScript: `**/*.test.ts`, `**/*.spec.ts`, `**/__tests__/**`
+      - JavaScript: `**/*.test.js`, `**/*.spec.js`, `**/__tests__/**`
+      - Python: `**/test_*.py`, `**/*_test.py`, `**/tests/**`
+      - Go: `**/*_test.go`
+      - Shell/Bash: `**/test_*.sh`, `**/*_test.sh`
+    - Generate test specifications with tests as FIRST steps:
+      ```json
+      {
+        "steps": [
+          {"step": 1, "type": "test", "phase": "red", "description": "Write failing test for X"},
+          {"step": 2, "type": "test", "phase": "red", "description": "Write failing test for Y"},
+          {"step": 3, "type": "implementation", "phase": "green", "description": "Implement X"},
+          {"step": 4, "type": "implementation", "phase": "green", "description": "Implement Y"},
+          {"step": 5, "type": "refactor", "phase": "refactor", "description": "Refactor if needed"}
+        ]
+      }
+      ```
+    - Store test plan in feature entry or session context
+
+20. **Create task chain** (Phase 3.5) with TDD-specific tasks:
+    - Task 1: "Research {feature}" - activeForm: "Researching {feature}"
+    - Task 2: "Plan {feature} (TDD)" - activeForm: "Planning TDD for {feature}"
+    - Task 3: "Write tests for {feature} (RED)" - activeForm: "Writing failing tests"
+    - Task 4: "Implement {feature} (GREEN)" - activeForm: "Implementing to pass tests"
+    - Task 5: "Refactor {feature}" - activeForm: "Refactoring {feature}"
+    - Task 6: "Verify {feature}" - activeForm: "Verifying {feature}"
+    - Task 7: "Checkpoint {feature}" - activeForm: "Creating checkpoint"
+    - **Graceful fallback**: If TaskCreate fails, continue without tasks
+
+#### A.4.4: TDD Implementation (RED-GREEN-REFACTOR)
+
+**Branch verification** (MANDATORY):
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+```
+- **STOP if on main/master** - fetch and checkout feature branch
+
+21. **Initialize loop state** (v4 with TDD tracking):
+    - Write to `.claude-harness/sessions/{session-id}/loop-state.json`:
+      ```json
+      {
+        "version": 4,
+        "feature": "{feature-id}",
+        "featureName": "{description}",
+        "type": "feature",
+        "status": "in_progress",
+        "attempt": 1,
+        "maxAttempts": 15,
+        "startedAt": "{ISO timestamp}",
+        "history": [],
+        "tdd": {
+          "enabled": true,
+          "phase": null,
+          "testsWritten": [],
+          "testStatus": null
+        },
+        "tasks": {
+          "enabled": true,
+          "chain": ["{task-ids}"],
+          "current": null,
+          "completed": []
+        }
+      }
+      ```
+
+22. **TDD Phase: RED (Write Failing Tests)** (effort: high):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  RED PHASE: Write Failing Tests for {feature-id}              │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Write tests that define the expected behavior.                │
+    │  Tests MUST fail initially (no implementation yet).            │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+
+    **Step 22a: Write test files**
+    - Read planned test files from TDD test plan (step 19)
+    - Write test files that define expected behavior for the feature
+    - Tests should cover: unit tests, integration tests, edge cases
+
+    **Step 22b: Verify tests FAIL (correct RED state)**
+    - Run test command
+    - If tests **FAIL**: Correct! Proceed to GREEN phase
+    - If tests **PASS** without implementation:
+      - Log warning: "Tests pass without implementation - may be too trivial or over-mocking"
+      - In autonomous mode: continue anyway (don't prompt)
+    - Update TDD state: `tdd.phase = "red"`, `tdd.testStatus = "failing"`
+    - Update `tddStats.totalTestsWritten` in autonomous state
+
+23. **TDD Phase: GREEN (Minimal Implementation)** (effort: high, escalate to max):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  GREEN PHASE: Make Tests Pass for {feature-id}                │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Write the MINIMAL code needed to make tests pass.             │
+    │  Don't over-engineer. Don't optimize yet.                      │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+
+    - Query procedural memory for past failures to avoid
+    - Write minimal implementation code to make tests pass
+    - Run ALL verification commands (build, tests, lint, typecheck)
+    - **If tests PASS**:
+      - Update TDD state: `tdd.phase = "green"`, `tdd.testStatus = "passing"`
+      - Proceed to REFACTOR phase
+    - **If tests FAIL**:
+      - Record approach to history and to `${MEMORY_DIR}/procedural/failures.json`
+      - Increment attempt counter
+      - Retry with different approach (up to maxAttempts)
+      - **Effort escalation**: If attempt > 5, use max effort. If attempt > 10, also load full procedural memory.
+
+24. **TDD Phase: REFACTOR (Improve Code Quality)** (effort: max):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  REFACTOR PHASE: Improve Code Quality for {feature-id}        │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Tests pass. Improve code while keeping tests green.           │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+
+    - In autonomous mode: always attempt refactoring (don't prompt)
+    - Remove duplication, improve naming, simplify logic
+    - Run tests after EACH refactoring change
+    - **If tests break during refactoring**: Revert that specific change and stop refactoring
+    - Update TDD state: `tdd.phase = "refactor"`
+
+25. **Final Verification Gate** (MANDATORY):
+    - Run ALL verification commands one final time
+    - ALL must pass to proceed to checkpoint
+    - Record success to `${MEMORY_DIR}/procedural/successes.json`:
+      ```json
+      {
+        "id": "suc-{timestamp}",
+        "timestamp": "{ISO}",
+        "feature": "{feature-id}",
+        "approach": "{what worked}",
+        "tdd": true,
+        "files": ["{modified files}"],
+        "patterns": ["{learned patterns}"]
+      }
+      ```
+    - Update loop status to `"completed"`
+
+26. **On escalation** (maxAttempts reached in autonomous mode):
+    - Do NOT prompt user - autonomous mode handles this automatically
+    - Add to `failedFeatures` in autonomous state:
+      ```json
+      {
+        "id": "{feature-id}",
+        "reason": "max-attempts-reached",
+        "failedAt": "{ISO timestamp}",
+        "attempts": 15,
+        "lastError": "{last error message}"
+      }
+      ```
+    - Increment `consecutiveFailures` in autonomous state
+    - Record all failure approaches to procedural memory
+    - Display:
+      ```
+      ┌─────────────────────────────────────────────────────────────────┐
+      │  AUTONOMOUS: Feature {feature-id} FAILED (max attempts)       │
+      │  Attempts: 15/15 exhausted                                    │
+      │  Consecutive failures: {N}/{maxConsecutiveFailures}            │
+      │  Moving to next feature...                                    │
+      └─────────────────────────────────────────────────────────────────┘
+      ```
+    - **Go to Phase A.5** (cleanup) then Phase A.6 (continuation check)
+
+#### A.4.5: Auto-Checkpoint
+
+27. **Run Phase 5** (Auto-Checkpoint) normally:
+    - Update progress file
+    - Persist to memory layers (episodic, semantic, procedural, learned)
+    - Commit with TDD suffix: `feat({feature-id}): {description} [TDD]`
+    - Push to remote
+    - Create/update PR with TDD note in body
+
+#### A.4.6: Auto-Merge (unless --no-merge)
+
+28. **Run Phase 6** (Auto-Merge) unless `--no-merge`:
+    - Check PR status (CI, reviews)
+    - If ready: merge (squash), close issue, delete branch, update status to "passing"
+    - If needs review: mark feature as checkpointed but not merged, continue to next feature
+
+---
+
+### Phase A.5: Post-Feature Cleanup
+
+29. **Update autonomous state**:
+    - Add to `completedFeatures`:
+      ```json
+      {
+        "id": "{feature-id}",
+        "completedAt": "{ISO timestamp}",
+        "attempts": {N},
+        "prNumber": {N},
+        "merged": true|false
+      }
+      ```
+    - Update `tddStats`:
+      - Increment `featuresWithTDD`
+      - Update `totalTestsWritten` and `totalTestsPassing`
+    - Reset `consecutiveFailures` to 0 (feature succeeded)
+
+30. **Switch to main and update**:
+    ```bash
+    git checkout main
+    git pull origin main
+    ```
+
+31. **Reset session state**:
+    - Reset loop-state.json to idle (v4 schema)
+    - Clear TDD state
+    - Clear task references (if tasks were enabled)
+
+32. **Brief per-feature report**:
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  AUTONOMOUS: Feature {feature-id} COMPLETE                    │
+    │  RED -> GREEN -> REFACTOR                                     │
+    │  Tests: {N} written, {N} passing                              │
+    │  PR: #{number} {merged/awaiting review}                       │
+    │  Attempts: {N} | Duration: {time}                             │
+    │  Progress: {completed}/{total} features done                  │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+
+---
+
+### Phase A.6: Loop Continuation Check
+
+33. **Check termination conditions** (in order):
+
+    1. **Re-read `${FEATURES_FILE}`** - are there any eligible features left?
+       - Filter: status != "passing", not in skipped/failed lists
+       - If none remaining: **proceed to Phase A.7**
+
+    2. **Iteration limit**: Has `iteration` reached `maxIterations` (default 20)?
+       - If yes: **proceed to Phase A.7** with "max iterations reached" note
+
+    3. **Consecutive failures**: Has `consecutiveFailures` reached `maxConsecutiveFailures` (default 3)?
+       - If yes: **proceed to Phase A.7** with "too many consecutive failures" note
+
+    4. **All skipped/failed**: Are ALL remaining features either skipped or failed?
+       - If yes: **proceed to Phase A.7** with "all remaining features need manual attention" note
+
+34. **If continuing**:
+    - Write updated autonomous state to disk
+    - **Go back to Phase A.2** (feature selection)
+
+---
+
+### Phase A.7: Autonomous Completion Report
+
+35. **Generate final report**:
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  AUTONOMOUS MODE COMPLETE                                      │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Duration: {total time from startedAt to now}                  │
+    │  Iterations: {count}                                           │
+    │                                                                │
+    │  Completed: {N} features                                       │
+    │  • {feature-id}: "{name}" (PR #{N}, merged)                   │
+    │  • {feature-id}: "{name}" (PR #{N}, merged)                   │
+    │                                                                │
+    │  Skipped (conflicts): {N} features                             │
+    │  • {feature-id}: "{name}" - conflict during rebase            │
+    │                                                                │
+    │  Failed (max attempts): {N} features                           │
+    │  • {feature-id}: "{name}" - {N} attempts exhausted            │
+    │                                                                │
+    │  TDD Stats:                                                    │
+    │  • Tests written: {N}                                          │
+    │  • Tests passing: {N}                                          │
+    │  • Features with TDD: {N}/{total}                              │
+    │                                                                │
+    │  Memory Updated:                                               │
+    │  • {N} decisions recorded                                      │
+    │  • {N} patterns learned                                        │
+    │  • {N} rules extracted                                         │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Remaining features need manual attention:                     │
+    │  • Conflicts: Rebase onto main and retry manually             │
+    │  • Failures: Review procedural/failures.json for root causes  │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+
+36. **Final cleanup**:
+    - Ensure on main branch: `git checkout main && git pull origin main`
+    - Clear autonomous state file (or keep for history)
+    - Clean up any remaining task references
 
 ---
 
@@ -487,6 +990,9 @@ On models without effort controls, all phases run at default effort (no change i
 | `/claude-harness:flow --quick "Simple fix"` | Skip planning phase |
 | `/claude-harness:flow --inline "Tiny change"` | Skip worktree (work in current dir) |
 | `/claude-harness:flow --fix feature-001 "Bug"` | Create and complete a bug fix |
+| `/claude-harness:flow --autonomous` | Process all active features with TDD (batch loop) |
+| `/claude-harness:flow --autonomous --no-merge` | Process all features, stop each at checkpoint (PRs created, not merged) |
+| `/claude-harness:flow --autonomous --quick` | Autonomous without planning phase (TDD still enforced) |
 
 ---
 
@@ -505,6 +1011,11 @@ On models without effort controls, all phases run at default effort (no change i
 - New features you want to complete end-to-end
 - Bug fixes that need quick turnaround
 - Automated/unattended development
+
+**When to use /flow --autonomous**:
+- Batch processing an entire feature backlog unattended
+- TDD-enforced development across multiple features
+- Overnight/background processing of a pre-populated active.json
 
 **When to use individual commands**:
 - Need to pause between phases

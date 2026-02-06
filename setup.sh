@@ -35,6 +35,15 @@ PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/de
 echo "=== Claude Code Agent Harness Setup v${PLUGIN_VERSION} ==="
 echo ""
 
+# Auto-detect version upgrade: if installed version is older, force command updates
+INSTALLED_VERSION=$(cat .claude-harness/.plugin-version 2>/dev/null || echo "0.0.0")
+if [ "$INSTALLED_VERSION" != "$PLUGIN_VERSION" ] && [ "$INSTALLED_VERSION" != "0.0.0" ]; then
+    echo "Version upgrade detected: v${INSTALLED_VERSION} -> v${PLUGIN_VERSION}"
+    echo "Command files will be auto-updated to match new plugin version."
+    echo ""
+    FORCE_COMMANDS=true
+fi
+
 # Detect project info
 detect_project_info() {
     PROJECT_NAME=$(basename "$(pwd)")
@@ -1265,13 +1274,14 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:do \"feature description\" for step-by-step control"
 echo "  5. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v5.0.0 Features (NEW - Opus 4.6 Optimizations):"
+echo "v5.1.1 Features (NEW - Autonomous Multi-Feature Processing):"
+echo "  • Autonomous mode - /flow --autonomous processes entire feature backlog with TDD"
+echo "  • TDD enforcement - Red-Green-Refactor cycle enforced in autonomous loop"
+echo "  • Conflict detection - Git rebase check skips conflicting features automatically"
+echo "  • Batch processing - Iterates features, checkpoints, merges, clears, repeats"
 echo "  • Effort controls - Per-phase effort optimization (low for mechanical, max for planning/debugging)"
 echo "  • Agent Teams integration - Native parallel agent spawning in orchestrate/do/do-tdd"
 echo "  • 128K output support - Richer PRD analysis with exhaustive subagent output"
-echo "  • Increased maxAttempts (10 -> 15) - Better agentic loop sustaining"
-echo "  • Adaptive loop strategy - Progressive effort escalation on retries"
-echo "  • Native compaction awareness - Smarter pre-compact guidance for Opus 4.6"
 echo ""
 echo "v4.5.1 Features:"
 echo "  • Dynamic versioning - setup.md reads version from plugin.json, no hardcoding"
