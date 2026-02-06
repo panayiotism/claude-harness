@@ -190,7 +190,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v4.4.2 (End-to-End Flow)         │
+│                  CLAUDE HARNESS v4.5.0 (Native Tasks)            │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -816,6 +816,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **4.5.0** | **Native Claude Code Tasks Integration**: Features now create a 5-task chain using Claude Code's native Tasks system (TaskCreate, TaskUpdate, TaskList). Tasks provide visual progress tracking (`[✓] Research [✓] Plan [→] Implement [ ] Verify [ ] Checkpoint`), persist across sessions, and have built-in dependency management. Loop-state schema updated to v4 with task references. Backward compatible with v3 loop-state. Graceful fallback if TaskCreate fails. |
 | **4.4.2** | **Fix Stop Hook Command-Type**: Converted Stop hook from prompt-type (unreliable JSON validation) to command-type shell script for reliable completion detection. |
 | **4.4.1** | **Fix Stop Hook Schema**: Fixed prompt-based Stop hook schema validation error. The hook response must include `ok` boolean field for Claude Code to process it correctly. |
 | **4.4.0** | **Automated End-to-End Flow**: New `/claude-harness:flow` command combines start→do→checkpoint→merge into single automated workflow. Added prompt-based `Stop` hook (Haiku LLM) for intelligent completion detection. Added `UserPromptSubmit` hook for smart routing to active loops. GitHub repo now cached in SessionStart hook (eliminates 4 redundant parses). Memory layers read in parallel for 30-40% faster startup. Streaming memory updates after each verification attempt. Commands updated to use cached GitHub repo. |

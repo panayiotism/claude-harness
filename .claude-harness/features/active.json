@@ -1,5 +1,38 @@
 {
   "version": 1,
-  "features": [],
+  "features": [
+    {
+      "id": "feature-018",
+      "name": "Native Claude Code Tasks Integration",
+      "description": "Hybrid integration using native Tasks for feature breakdown while preserving loop-state for attempt tracking",
+      "priority": 1,
+      "status": "passing",
+      "verification": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "custom": [
+          "/flow creates 5-task chain with dependencies",
+          "Loop-state v4 schema includes task references",
+          "/do updates task status during implementation",
+          "/checkpoint cleans up tasks on completion"
+        ]
+      },
+      "relatedFiles": [
+        "commands/flow.md",
+        "commands/do.md",
+        "commands/checkpoint.md",
+        "README.md"
+      ],
+      "github": {
+        "issueNumber": 32,
+        "prNumber": 33,
+        "branch": "feature/feature-018"
+      },
+      "createdAt": "2026-02-03T08:00:00Z",
+      "updatedAt": "2026-02-06T10:00:00Z"
+    }
+  ],
   "fixes": []
 }
