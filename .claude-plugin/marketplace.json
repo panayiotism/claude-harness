@@ -7,7 +7,7 @@
     {
       "name": "claude-harness",
       "source": "./",
-      "description": "Long-running agent harness with feature tracking, GitHub integration, and session continuity"
+      "description": "Long-running agent harness with 5-layer memory, TDD, autonomous batch processing, GitHub integration, worktrees, and multi-agent orchestration"
     }
   ]
 }

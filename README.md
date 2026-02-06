@@ -9,17 +9,28 @@ Based on [Anthropic's engineering article](https://www.anthropic.com/engineering
 
 ## TL;DR - End-to-End Workflow
 
-### Quick Start (Unified Command)
+### Quick Start
 
 ```bash
-# Setup once
+# Option A: Install via marketplace (recommended)
+/plugin marketplace add panayiotism/claude-harness
+/plugin install claude-harness@panayiotism-claude-harness
+
+# Option B: Direct GitHub install
 claude plugin install claude-harness github:panayiotism/claude-harness
+```
+
+```bash
+# Initialize in your project (one-time)
 cd your-project && claude
 /claude-harness:setup
 
-# NEW in v4.5: Single command for entire workflow (start → do → checkpoint → merge)
+# Single command for entire workflow (start → do → checkpoint → merge)
 /claude-harness:flow "Add user authentication with JWT tokens"
 # Auto-compiles context, creates issue/branch, implements, checkpoints, merges
+
+# Or batch-process all active features autonomously with TDD
+/claude-harness:flow --autonomous
 
 # Or step-by-step with /do (creates worktree by default)
 /claude-harness:do "Add user authentication with JWT tokens"
@@ -27,7 +38,7 @@ cd your-project && claude
 # Then gives you instructions to continue in the new worktree
 ```
 
-The **`/flow`** command (v4.5) handles the entire lifecycle automatically - from context compilation to PR merge. Use `--autonomous` (v5.1) to batch-process all active features with TDD enforcement. The `/do` command chains creation through checkpoint with interactive prompts. Both support worktrees for parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
+The **`/flow`** command handles the entire lifecycle automatically - from context compilation to PR merge. Use `--autonomous` to batch-process all active features with TDD enforcement. The `/do` command chains creation through checkpoint with interactive prompts. Both support worktrees for parallel development. Use `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks, or `--auto` for full automation.
 
 ### Complete Workflow (10 Commands Total)
 
@@ -38,10 +49,10 @@ The **`/flow`** command (v4.5) handles the entire lifecycle automatically - from
 # 2. START SESSION (or skip with /flow)
 /claude-harness:start                              # Compile context, show status
 
-# 2b. AUTOMATED END-TO-END (NEW in v4.5, autonomous in v5.1)
+# 2b. AUTOMATED END-TO-END
 /claude-harness:flow "Add dark mode"               # Complete lifecycle in one command
 /claude-harness:flow --no-merge "Add feature"      # Stop at checkpoint (don't auto-merge)
-/claude-harness:flow --autonomous                   # NEW: Batch-process all features with TDD
+/claude-harness:flow --autonomous                   # Batch-process all features with TDD
 
 # 2b. PRD BOOTSTRAP (for new projects)
 /claude-harness:prd-breakdown "Your PRD..."                           # Analyze inline PRD → extract atomic features
@@ -81,7 +92,7 @@ The **`/flow`** command (v4.5) handles the entire lifecycle automatically - from
 /start           → Compiles working context from 4 memory layers
                    Shows status, syncs GitHub, displays learned rules
 
-/flow            → END-TO-END WORKFLOW (NEW in v4.5):
+/flow            → END-TO-END WORKFLOW:
                    1. Auto-compiles context (replaces /start)
                    2. Creates feature (GitHub issue + branch)
                    3. Plans implementation (checks past failures)
@@ -89,7 +100,7 @@ The **`/flow`** command (v4.5) handles the entire lifecycle automatically - from
                    5. Auto-checkpoints when tests pass
                    6. Auto-merges when PR approved
                    Options: --no-merge, --quick, --inline, --autonomous
-                   --autonomous: Batch loop through ALL features with TDD (v5.1)
+                   --autonomous: Batch loop through ALL features with TDD
                    OPTIMIZATIONS: Parallel memory reads, cached GitHub parsing
 
 /do              → UNIFIED WORKFLOW (handles features AND fixes):
@@ -421,7 +432,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/claude-harness:orchestrate <id>` | Spawn multi-agent team (advanced) |
 | `/claude-harness:merge` | Merge all PRs, close issues |
 
-### `/flow` Command Options (v4.5)
+### `/flow` Command Options
 
 | Syntax | Behavior |
 |--------|----------|
@@ -431,7 +442,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/flow --quick "Simple change"` | Skip planning phase |
 | `/flow --inline "Tiny fix"` | Skip worktree, work in current directory |
 | `/flow --fix feature-001 "Bug"` | Complete lifecycle for a bug fix |
-| `/flow --autonomous` | **Batch loop**: process all active features with TDD, checkpoint, merge, repeat (v5.1) |
+| `/flow --autonomous` | **Batch loop**: process all active features with TDD, checkpoint, merge, repeat |
 | `/flow --autonomous --no-merge` | Batch loop but stop each feature at checkpoint (PRs created, not merged) |
 
 **Key Optimizations in /flow**:
