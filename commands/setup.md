@@ -14,7 +14,7 @@ This command automatically detects what needs to be done:
 ## Phase 0: Version Detection
 
 1. Check if `.claude-harness/memory/` directory exists:
-   - If YES: Already v3.0, skip to Phase 3 (update version)
+   - If YES: Already v3.0 → go to **Phase 2.5** (update existing installation)
    - If NO: Continue to Phase 1
 
 ## Phase 1: Migration from v2.x (if applicable)
@@ -103,6 +103,22 @@ The following files are **session-specific** and **created at runtime** by the S
   - `loop-state.json` - Agentic loop state (no longer in `loops/`)
 
 These files enable **parallel development**: multiple `/start` commands in different worktrees each get their own isolated session state without conflicts.
+
+## Phase 2.5: Update Existing Installation (Already v3.0)
+
+When the memory directory already exists, run the setup script to ensure all directories and files from the current plugin version are present.
+
+**Steps:**
+1. Find the plugin root path from the session context (look for "Plugin Root:" in the session start context)
+2. Run: `bash {plugin-root}/setup.sh`
+   - This safely creates any **missing** directories and files from the current version
+   - Existing files are **NEVER overwritten** (skipped automatically)
+   - `.gitignore` patterns are added if missing
+   - `.plugin-version` is written from `plugin.json`
+3. Report what was created vs what was skipped
+4. **Skip Phase 3 and Phase 4** — `setup.sh` handles both
+
+**Fallback**: If the plugin root path is not available in the session context, fall through to Phase 3 + Phase 4 (manual gitignore check + version verify).
 
 ## Phase 3: Update Project .gitignore (MANDATORY)
 

@@ -398,6 +398,7 @@ CLAUDE_CONTEXT="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ===\n"
 # Add session info for parallel work streams
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
+CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
 
 # Add cached GitHub repo info
 if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
