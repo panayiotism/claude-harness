@@ -786,7 +786,7 @@ echo "  /claude-harness:orchestrate - Spawn multi-agent team"
 echo "  /claude-harness:merge       - Merge PRs, close issues"
 INITEOF
 )
-create_file ".claude-harness/init.sh" "$INIT_CONTENT"
+create_file ".claude-harness/init.sh" "$INIT_CONTENT" "command"
 chmod +x .claude-harness/init.sh 2>/dev/null || true
 
 # ============================================================================
@@ -837,7 +837,7 @@ done
 exit 0
 SESSIONENDEOF
 )
-create_file "hooks/session-end.sh" "$SESSION_END_HOOK"
+create_file "hooks/session-end.sh" "$SESSION_END_HOOK" "command"
 chmod +x hooks/session-end.sh 2>/dev/null || true
 
 # ============================================================================
@@ -1274,7 +1274,7 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:do \"feature description\" for step-by-step control"
 echo "  5. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v5.1.1 Features (NEW - Autonomous Multi-Feature Processing):"
+echo "v5.1.2 Features (NEW - Autonomous Multi-Feature Processing):"
 echo "  • Autonomous mode - /flow --autonomous processes entire feature backlog with TDD"
 echo "  • TDD enforcement - Red-Green-Refactor cycle enforced in autonomous loop"
 echo "  • Conflict detection - Git rebase check skips conflicting features automatically"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v5.1.1
+# Claude Harness SessionStart Hook v5.1.2
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 # Added: GitHub repo caching for workflow optimization
@@ -96,14 +96,14 @@ PLUGIN_VERSION=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.jso
 PROJECT_VERSION=$(cat "$HARNESS_DIR/.plugin-version" 2>/dev/null)
 
 # Build status components
+# NOTE: Do NOT write .plugin-version here. Only setup.sh should update it,
+# so that setup.sh can detect the version mismatch and force-update command files.
 VERSION_MSG=""
 NEEDS_MIGRATION=false
 if [ -z "$PROJECT_VERSION" ]; then
-    echo "$PLUGIN_VERSION" > "$HARNESS_DIR/.plugin-version"
-    VERSION_MSG="Harness initialized (v$PLUGIN_VERSION)"
+    VERSION_MSG="Harness not initialized - run /claude-harness:setup"
 elif [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
-    echo "$PLUGIN_VERSION" > "$HARNESS_DIR/.plugin-version"
-    VERSION_MSG="Plugin updated: v$PROJECT_VERSION -> v$PLUGIN_VERSION"
+    VERSION_MSG="Plugin updated: v$PROJECT_VERSION -> v$PLUGIN_VERSION - run /claude-harness:setup to update"
     # Check if migration to v3.0 is needed (legacy v2.x detection)
     if [ ! -d "$HARNESS_DIR/memory" ]; then
         NEEDS_MIGRATION=true
@@ -400,7 +400,7 @@ CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
 
-# Opus 4.6 capabilities awareness (v5.1.1)
+# Opus 4.6 capabilities awareness (v5.1.2)
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== OPUS 4.6 CAPABILITIES ==="
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n128K output tokens | Effort controls (low/medium/high/max) | Agent Teams | Adaptive thinking"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEffort guidance: Use low for mechanical phases, max for planning/debugging. See command docs for per-phase effort tables."
