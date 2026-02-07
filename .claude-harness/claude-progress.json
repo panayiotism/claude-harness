@@ -1,26 +1,26 @@
 {
-  "lastUpdated": "2026-02-07T15:00:00Z",
+  "lastUpdated": "2026-02-07T16:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Major v6.0.0 release: Replaced entire subagent pipeline with Agent Teams as sole orchestration model. Removed worktree support and --inline/--tdd flags. 3-specialist team (test-writer, implementer, reviewer) enforces TDD by design.",
+    "summary": "v6.0.1: Added v6 upgrade cleanup to setup.sh. migrate_to_v6() removes worktrees/, handoffs.json, stale worktree.md, and pendingHandoffs from target projects on upgrade. Removed all pendingHandoffs references from commands.",
     "completedTasks": [
-      "Replaced subagent pipeline with 3-specialist Agent Teams (test-writer, implementer, reviewer)",
-      "Removed --tdd flag (TDD always-on via team structure)",
-      "Removed worktree command and all worktree references",
-      "Removed --inline flag (inline is now the only mode)",
-      "Added TeammateIdle and TaskCompleted quality gate hooks",
-      "Updated setup.sh to auto-enable CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
-      "Synced all .claude/commands/ files with source commands/",
-      "Cleaned up all stale subagent/swarm references from README and other files"
+      "Added migrate_to_v6() function to setup.sh for automatic cleanup on upgrade",
+      "Removed agents/handoffs.json creation from setup.sh",
+      "Removed pendingHandoffs from agents/context.json template and live file",
+      "Cleaned handoffs references from init.sh, start.md, checkpoint.md, setup.md",
+      "Deleted stale .claude-harness/agents/handoffs.json from repo",
+      "Synced .claude/commands/ copies",
+      "Bumped version to 6.0.1"
     ],
     "blockers": [],
     "nextSteps": [
-      "Run /claude-harness:setup on a test project to verify Agent Teams env var",
+      "Run /claude-harness:setup on a test project to verify v6 migration",
       "Test /flow with Agent Teams specialist team",
       "Test /flow --autonomous with sequential team-per-feature"
     ]
   },
   "recentChanges": [
+    "v6.0.1: v6 upgrade cleanup - migrate_to_v6() removes worktrees, handoffs, stale commands",
     "v6.0.0: Agent Teams as sole orchestration, removed worktrees/--tdd/--inline, always-on TDD",
     "v5.2.1: Fix setup.sh for all cases including fresh install",
     "v5.2.0: Plugin upgrade - worktrees, config, handoffs, semantic entities/constraints, auto-synced commands",

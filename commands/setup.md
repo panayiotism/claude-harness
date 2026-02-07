@@ -157,8 +157,7 @@ This command automatically detects what needs to be done:
 {
   "version": 1,
   "currentSession": null,
-  "agentResults": [],
-  "pendingHandoffs": []
+  "agentResults": []
 }
 ```
 

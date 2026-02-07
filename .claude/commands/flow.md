@@ -54,7 +54,16 @@ On models without effort controls, all phases run at default effort (no change i
 
 ---
 
-## Phase 0: Argument Parsing
+## Phase 0: Preflight Check
+
+**BLOCKER — Agent Teams required:**
+Before anything else, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to `1`. If it is NOT:
+- Display: "BLOCKER: Agent Teams is not enabled. Run /claude-harness:setup, then restart Claude Code (env vars from settings.local.json take effect on next launch)."
+- **STOP. Do NOT proceed to any subsequent phase.**
+
+---
+
+## Phase 0.1: Argument Parsing
 
 1. **Parse arguments**:
    - If empty: Show interactive menu with `multiSelect: true` for parallel feature selection

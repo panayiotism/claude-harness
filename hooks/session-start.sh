@@ -352,6 +352,13 @@ if [ "$NEEDS_MIGRATION" = true ]; then
      🔄 v2.x detected - run /claude-harness:setup to upgrade to v3.0"
 fi
 
+# Agent Teams env var check (BLOCKER in v6+)
+if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
+    USER_MSG="$USER_MSG
+     🚫 BLOCKER: Agent Teams not enabled.
+     Run /claude-harness:setup then restart Claude Code (the env var takes effect on next launch)."
+fi
+
 # ============================================================================
 # BUILD CLAUDE CONTEXT
 # ============================================================================
@@ -368,6 +375,14 @@ CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== OPUS 4.6 CAPABILITIES ==="
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n128K output tokens | Effort controls (low/medium/high/max) | Agent Teams (required) | Adaptive thinking"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEffort guidance: Use low for mechanical phases, max for planning/debugging. See command docs for per-phase effort tables."
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nAgent Teams: Every feature uses a 3-specialist team (test-writer, implementer, reviewer). TDD always-on."
+
+# Agent Teams blocker check
+if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** BLOCKER: AGENT TEAMS NOT ENABLED ***"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nCLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set to '1'."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nDO NOT run /flow or any implementation workflow."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell the user: run /claude-harness:setup, then restart Claude Code (env vars from settings.local.json take effect on next launch)."
+fi
 
 # Add cached GitHub repo info
 if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then

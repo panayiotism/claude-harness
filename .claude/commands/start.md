@@ -281,7 +281,6 @@ Before anything else, check if legacy root-level harness files need migration:
 13. Check orchestration state:
    - Read `.claude-harness/agents/context.json` (or legacy `agent-context.json`) if it exists
    - Check for `currentSession.activeFeature` - indicates incomplete orchestration
-   - Check `pendingHandoffs` array for work waiting to be continued
    - Check `agentResults` for recently completed agent work
    - If active orchestration exists, recommend: "Run `/claude-harness:flow {feature-id}` to resume"
 
@@ -329,8 +328,7 @@ Before anything else, check if legacy root-level harness files need migration:
       2. **Active loop (feature)**: Resume with `/claude-harness:flow {feature-id}`
       3. **Escalated loop**: Review history and provide guidance, or increase maxAttempts
       4. **Pending fixes**: Resume fix with `/claude-harness:flow {fix-id}`
-      5. **Pending handoffs**: Resume with `/claude-harness:flow {feature-id}`
-      6. **No features (new project)**: Bootstrap with `/claude-harness:prd-breakdown @./prd.md` to analyze PRD and extract features
+      5. **No features (new project)**: Bootstrap with `/claude-harness:prd-breakdown @./prd.md` to analyze PRD and extract features
       7. **Pending features**: Start implementation with `/claude-harness:flow {feature-id}`
       8. **No features (existing project)**: Add one with `/claude-harness:flow "description"`
       9. **Create fix for completed feature**: `/claude-harness:flow --fix {feature-id} "bug description"`

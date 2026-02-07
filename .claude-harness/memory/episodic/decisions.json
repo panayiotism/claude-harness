@@ -180,6 +180,33 @@
       "rationale": "Agent Teams teammates each get their own Claude Code instance, making worktree-based isolation unnecessary. Removes complexity from 6 files without losing functionality.",
       "alternatives": ["Keep worktree as optional utility", "Only remove from flow, keep manual command"],
       "impact": "commands/worktree.md (deleted), flow.md, start.md, checkpoint.md, session-start.sh, setup.sh, README.md"
+    },
+    {
+      "id": "dec-20260207-004",
+      "timestamp": "2026-02-07T16:30:00Z",
+      "feature": "v6.0.1",
+      "decision": "Add migrate_to_v6() to setup.sh for automatic cleanup on upgrade",
+      "rationale": "Target projects upgrading from v5.x retain stale artifacts (worktrees/, handoffs.json, obsolete commands). Automatic migration prevents confusion and stale state.",
+      "alternatives": ["Manual cleanup instructions in changelog", "Force overwrite all files"],
+      "impact": "setup.sh"
+    },
+    {
+      "id": "dec-20260207-005",
+      "timestamp": "2026-02-07T16:30:00Z",
+      "feature": "v6.0.1",
+      "decision": "Use python3 JSON merge for settings.local.json env var injection",
+      "rationale": "create_file skips existing files. sed-based JSON manipulation is fragile. python3 json.load/dump safely merges the Agent Teams env var into any existing settings.local.json without losing user customizations.",
+      "alternatives": ["sed-based injection", "Force overwrite settings.local.json", "Require manual setup"],
+      "impact": "setup.sh, .claude/settings.local.json"
+    },
+    {
+      "id": "dec-20260207-006",
+      "timestamp": "2026-02-07T16:30:00Z",
+      "feature": "v6.0.1",
+      "decision": "Agent Teams env var blocker at session-start and flow Phase 0",
+      "rationale": "Agent Teams is required for v6+ (all workflows depend on it). Blocking early prevents confusing failures deep in the workflow. Hooks can't set env vars (child process), so user must run setup + restart.",
+      "alternatives": ["Warning only (non-blocking)", "Auto-enable via hook (impossible — child process)"],
+      "impact": "hooks/session-start.sh, commands/flow.md"
     }
   ]
 }

@@ -330,7 +330,6 @@ Create a checkpoint of the current session:
      - Persist to `${MEMORY_DIR}/episodic/decisions.json`
 
    - Clear `agentResults` array (already persisted to memory)
-   - Clear `pendingHandoffs` if all work is complete
    - Set `currentSession` to null
    - Update `lastUpdated` timestamp
 

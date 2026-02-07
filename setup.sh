@@ -42,6 +42,12 @@ if [ "$INSTALLED_VERSION" != "$PLUGIN_VERSION" ] && [ "$INSTALLED_VERSION" != "0
     echo "Command files will be auto-updated to match new plugin version."
     echo ""
     FORCE_COMMANDS=true
+
+    # Run v6 migration if upgrading from v5.x or earlier
+    MAJOR_OLD=$(echo "$INSTALLED_VERSION" | cut -d. -f1)
+    if [ "$MAJOR_OLD" -lt 6 ] 2>/dev/null; then
+        V6_MIGRATE=true
+    fi
 fi
 
 # Detect project info
@@ -318,11 +324,59 @@ migrate_legacy_root_files() {
     fi
 }
 
+# Migrate from v5.x to v6.0: remove worktrees, handoffs, stale commands
+migrate_to_v6() {
+    echo "Running v6.0 migration (Agent Teams replaces subagent pipeline)..."
+    CLEANED=0
+
+    # Remove worktrees directory (Agent Teams handle parallelism now)
+    if [ -d ".claude-harness/worktrees" ]; then
+        rm -rf ".claude-harness/worktrees"
+        echo "  [CLEANUP] Removed .claude-harness/worktrees/ (replaced by Agent Teams)"
+        CLEANED=$((CLEANED + 1))
+    fi
+
+    # Remove handoffs.json (direct inter-agent messaging replaces handoffs)
+    if [ -f ".claude-harness/agents/handoffs.json" ]; then
+        rm -f ".claude-harness/agents/handoffs.json"
+        echo "  [CLEANUP] Removed agents/handoffs.json (replaced by Agent Teams messaging)"
+        CLEANED=$((CLEANED + 1))
+    fi
+
+    # Remove stale commands from target project (merged into flow.md in v5.2, worktree removed in v6)
+    for stale_cmd in worktree.md do.md do-tdd.md orchestrate.md; do
+        if [ -f ".claude/commands/$stale_cmd" ]; then
+            rm -f ".claude/commands/$stale_cmd"
+            echo "  [CLEANUP] Removed .claude/commands/$stale_cmd (obsolete command)"
+            CLEANED=$((CLEANED + 1))
+        fi
+    done
+
+    # Clean pendingHandoffs from agents/context.json
+    if [ -f ".claude-harness/agents/context.json" ] && grep -q '"pendingHandoffs"' ".claude-harness/agents/context.json" 2>/dev/null; then
+        # Remove the pendingHandoffs line (with optional trailing comma handling)
+        sed -i '/"pendingHandoffs"/d' ".claude-harness/agents/context.json"
+        echo "  [CLEANUP] Removed pendingHandoffs from agents/context.json"
+        CLEANED=$((CLEANED + 1))
+    fi
+
+    if [ $CLEANED -gt 0 ]; then
+        echo "  Cleaned $CLEANED v5.x artifact(s)"
+    else
+        echo "  No v5.x artifacts to clean"
+    fi
+    echo ""
+}
+
 # Run migrations
 migrate_legacy_root_files
 
 if [ "$FORCE_MIGRATE" = true ] || needs_migration; then
     migrate_v2_to_v3
+fi
+
+if [ "${V6_MIGRATE:-false}" = true ]; then
+    migrate_to_v6
 fi
 
 echo "Creating harness files (v3.0 Memory Architecture)..."
@@ -518,7 +572,7 @@ create_file ".claude-harness/features/archive.json" '{
 }'
 
 # ============================================================================
-# 8. AGENTS: Orchestration context and handoffs
+# 8. AGENTS: Orchestration context
 # ============================================================================
 
 create_file ".claude-harness/agents/context.json" '{
@@ -543,13 +597,7 @@ create_file ".claude-harness/agents/context.json" '{
       "configs": []
     }
   },
-  "agentResults": [],
-  "pendingHandoffs": []
-}'
-
-create_file ".claude-harness/agents/handoffs.json" '{
-  "version": 3,
-  "queue": []
+  "agentResults": []
 }'
 
 # ============================================================================
@@ -759,10 +807,6 @@ if [ -f ".claude-harness/agents/context.json" ]; then
     else
         echo "No active orchestration"
     fi
-    handoffs=$(grep -c '"from":' .claude-harness/agents/handoffs.json 2>/dev/null || echo "0")
-    if [ "$handoffs" != "0" ]; then
-        echo "Pending handoffs: $handoffs"
-    fi
 else
     echo "No orchestration context yet"
 fi
@@ -843,6 +887,8 @@ mkdir -p .claude/commands
 # 14. .claude/settings.local.json
 # ============================================================================
 
+# settings.local.json gets special handling: create if missing, but always
+# ensure the Agent Teams env var is present (even in existing files).
 create_file ".claude/settings.local.json" '{
   "hooks": {
     "SessionEnd": [
@@ -869,6 +915,23 @@ create_file ".claude/settings.local.json" '{
     "ask": []
   }
 }'
+
+# ALWAYS ensure Agent Teams env var is in settings.local.json (even if file was skipped above)
+if [ -f ".claude/settings.local.json" ]; then
+    if ! grep -q '"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"' ".claude/settings.local.json" 2>/dev/null; then
+        # File exists but missing the env var — merge it in using python for safe JSON handling
+        python3 -c "
+import json, sys
+with open('.claude/settings.local.json') as f:
+    data = json.load(f)
+data.setdefault('env', {})['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] = '1'
+with open('.claude/settings.local.json', 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+" 2>/dev/null && echo "  [UPDATE] .claude/settings.local.json (added CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)" \
+              || echo "  [WARN] Could not update settings.local.json — add CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS manually"
+    fi
+fi
 
 # ============================================================================
 # 15. Copy ALL plugin command files to .claude/commands/
@@ -995,8 +1058,7 @@ echo "  │   ├── active.json"
 echo "  │   ├── archive.json"
 echo "  │   └── tests/"
 echo "  ├── agents/"
-echo "  │   ├── context.json"
-echo "  │   └── handoffs.json"
+echo "  │   └── context.json"
 echo "  ├── sessions/               (gitignored, per-instance)"
 echo "  │   └── {uuid}/             (session-scoped state)"
 echo "  └── config.json"

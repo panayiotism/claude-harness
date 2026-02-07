@@ -105,10 +105,6 @@ if [ -f ".claude-harness/agents/context.json" ]; then
     else
         echo "No active orchestration"
     fi
-    handoffs=$(grep -c '"from":' .claude-harness/agents/handoffs.json 2>/dev/null || echo "0")
-    if [ "$handoffs" != "0" ]; then
-        echo "Pending handoffs: $handoffs"
-    fi
 else
     echo "No orchestration context yet"
 fi
