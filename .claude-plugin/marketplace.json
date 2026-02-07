@@ -7,7 +7,7 @@
     {
       "name": "claude-harness",
       "source": "./",
-      "description": "Long-running agent harness with 5-layer memory, TDD, autonomous batch processing, GitHub integration, worktrees, and multi-agent orchestration"
+      "description": "Long-running agent harness with 5-layer memory, TDD via Agent Teams, autonomous batch processing, GitHub integration, and Agent Teams orchestration"
     }
   ]
 }

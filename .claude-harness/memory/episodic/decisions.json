@@ -153,6 +153,33 @@
       "rationale": "User explicitly requested simplicity. All Opus 4.6 features are backward-compatible, so no need for model detection or tiered behavior. One plugin version works for all models.",
       "alternatives": ["3-tier system with model detection", "Feature flags per capability"],
       "impact": "Entire plugin architecture - kept simple"
+    },
+    {
+      "id": "dec-20260207-001",
+      "timestamp": "2026-02-07T15:00:00Z",
+      "feature": "v6.0.0",
+      "decision": "Replace entire subagent pipeline with Agent Teams as sole orchestration model",
+      "rationale": "Agent Teams enable direct inter-agent messaging (reviewer↔implementer) which eliminates the lossy lead-intermediated handoffs of the old subagent pipeline. Per-feature specialist teams (test-writer, implementer, reviewer) naturally enforce TDD.",
+      "alternatives": ["Keep subagent pipeline with Agent Teams as opt-in", "Dual orchestration with fallback"],
+      "impact": "commands/flow.md (major rewrite), hooks/, setup.sh"
+    },
+    {
+      "id": "dec-20260207-002",
+      "timestamp": "2026-02-07T15:00:00Z",
+      "feature": "v6.0.0",
+      "decision": "Remove --tdd flag - TDD is always-on via team structure",
+      "rationale": "The 3-specialist team (test-writer=RED, implementer=GREEN, reviewer=REFACTOR) IS the TDD cycle by design. A separate flag is redundant.",
+      "alternatives": ["Keep --tdd as explicit opt-in", "Add --skip-tdd to opt out"],
+      "impact": "commands/flow.md, CLAUDE.md, README.md, session-start.sh, init.sh"
+    },
+    {
+      "id": "dec-20260207-003",
+      "timestamp": "2026-02-07T15:00:00Z",
+      "feature": "v6.0.0",
+      "decision": "Remove worktree support entirely - Agent Teams handle parallelism",
+      "rationale": "Agent Teams teammates each get their own Claude Code instance, making worktree-based isolation unnecessary. Removes complexity from 6 files without losing functionality.",
+      "alternatives": ["Keep worktree as optional utility", "Only remove from flow, keep manual command"],
+      "impact": "commands/worktree.md (deleted), flow.md, start.md, checkpoint.md, session-start.sh, setup.sh, README.md"
     }
   ]
 }

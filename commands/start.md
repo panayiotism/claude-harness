@@ -62,50 +62,13 @@ Before anything else, check if legacy root-level harness files need migration:
 
    **Note**: Loop state and working context are now session-scoped and created at runtime in `.claude-harness/sessions/{session-id}/`. Legacy files at `.claude-harness/loop-state.json` and `.claude-harness/working-context.json` are no longer created.
 
-## Phase 0.5: Worktree Detection
+## Phase 0.5: Set Paths
 
-Before compiling context, detect if we're running in a git worktree and establish correct paths:
-
-1. **Detect worktree mode**:
-   ```bash
-   GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
-   GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
-
-   if [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
-       IS_WORKTREE=true
-       MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
-   else
-       IS_WORKTREE=false
-       MAIN_REPO_PATH="."
-   fi
-   ```
-
-2. **Set path variables based on mode**:
-   - **Shared state (read from main repo)**:
-     - `FEATURES_FILE="${MAIN_REPO_PATH}/.claude-harness/features/active.json"`
-     - `ARCHIVE_FILE="${MAIN_REPO_PATH}/.claude-harness/features/archive.json"`
-     - `MEMORY_DIR="${MAIN_REPO_PATH}/.claude-harness/memory/"`
-     - `WORKTREES_REGISTRY="${MAIN_REPO_PATH}/.claude-harness/worktrees/registry.json"`
-   - **Local state (read/write in current directory)**:
-     - `SESSION_DIR=".claude-harness/sessions/{session-id}/"`
-     - `LOCAL_HARNESS=".claude-harness/"`
-
-3. **Verify main repo harness exists** (if worktree):
-   - If `IS_WORKTREE=true` and `${MAIN_REPO_PATH}/.claude-harness/` doesn't exist:
-     - Display error: "Main repo harness not found. Run /claude-harness:setup in main repo first."
-     - Abort with instructions
-
-4. **Display worktree status** (if applicable):
-   ```
-   ┌─────────────────────────────────────────────────────────────────┐
-   │  🌳 WORKTREE MODE                                               │
-   ├─────────────────────────────────────────────────────────────────┤
-   │  Branch: {current branch}                                       │
-   │  Main repo: {MAIN_REPO_PATH}                                    │
-   │  Shared state: features, memory (from main repo)                │
-   │  Local state: sessions (this worktree)                          │
-   └─────────────────────────────────────────────────────────────────┘
-   ```
+1. **Set path variables**:
+   - `FEATURES_FILE=".claude-harness/features/active.json"`
+   - `ARCHIVE_FILE=".claude-harness/features/archive.json"`
+   - `MEMORY_DIR=".claude-harness/memory/"`
+   - `SESSION_DIR=".claude-harness/sessions/{session-id}/"`
 
 **Important**: All subsequent phases must use these path variables instead of hardcoded paths.
 
@@ -302,8 +265,7 @@ Before compiling context, detect if we're running in a git worktree and establis
      - Recommend: increase maxAttempts or provide guidance
 
 12b. **Check pending fixes**:
-   - Read `${FEATURES_FILE}` (from main repo in worktree mode)
-   - Check `fixes` array for entries with `status` != "passing"
+   - Read `${FEATURES_FILE}`   - Check `fixes` array for entries with `status` != "passing"
    - If pending fixes exist:
      ```
      ┌─────────────────────────────────────────────────────────────────┐
@@ -324,8 +286,7 @@ Before compiling context, detect if we're running in a git worktree and establis
    - If active orchestration exists, recommend: "Run `/claude-harness:flow {feature-id}` to resume"
 
 14. Check procedural memory hotspots:
-   - Read `${MEMORY_DIR}/procedural/patterns.json` if it exists (from main repo in worktree mode)
-   - Report any `codebaseInsights.hotspots` that may affect current work
+   - Read `${MEMORY_DIR}/procedural/patterns.json` if it exists   - Report any `codebaseInsights.hotspots` that may affect current work
    - Show success/failure rates if significant history exists
 
 ## Phase 4: GitHub Integration (if MCP configured)

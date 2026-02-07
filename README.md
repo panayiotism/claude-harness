@@ -1,6 +1,6 @@
 # Claude Code Long-Running Agent Harness
 
-A Claude Code plugin for automated, context-preserving coding sessions with **5-layer memory architecture**, failure prevention, test-driven features, GitHub integration, **git worktree support for parallel development**, and multi-agent orchestration.
+A Claude Code plugin for automated, context-preserving coding sessions with **5-layer memory architecture**, failure prevention, test-driven features, GitHub integration, and **Agent Teams orchestration** (3-specialist TDD: test-writer, implementer, reviewer).
 
 Based on [Anthropic's engineering article](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) and enhanced with patterns from:
 - [Context-Engine](https://github.com/zeddy89/Context-Engine) - Memory architecture
@@ -34,11 +34,9 @@ cd your-project && claude
 
 # Or step-by-step without auto-merge
 /claude-harness:flow --no-merge "Add user authentication with JWT tokens"
-# Creates worktree at ../your-project-feature-XXX/ (isolated working directory)
-# Then gives you instructions to continue in the new worktree
 ```
 
-The **`/flow`** command handles the entire lifecycle automatically - from context compilation to PR merge. Use `--autonomous` to batch-process all active features with TDD enforcement. Use `--tdd` for test-driven development (tests first). Agent swarms (Research, Implement, Review) are enforced on every flow run. Use `--no-merge` for step-by-step control, `--inline` to skip worktree creation for quick fixes, `--quick` to skip planning for simple tasks.
+The **`/flow`** command handles the entire lifecycle automatically - from context compilation to PR merge. Every feature gets a 3-specialist Agent Team (test-writer, implementer, reviewer) that enforces TDD by design. Use `--autonomous` to batch-process all active features. Use `--no-merge` for step-by-step control, `--quick` to skip planning for simple tasks.
 
 ### Complete Workflow (5 Commands Total)
 
@@ -52,9 +50,7 @@ The **`/flow`** command handles the entire lifecycle automatically - from contex
 # 3. DEVELOPMENT (unified /flow command)
 /claude-harness:flow "Add dark mode"               # Complete lifecycle in one command
 /claude-harness:flow --no-merge "Add feature"      # Stop at checkpoint (don't auto-merge)
-/claude-harness:flow --tdd "Add authentication"    # TDD: write tests BEFORE code
-/claude-harness:flow --autonomous                   # Batch-process all features with TDD
-/claude-harness:flow --inline "Quick fix"          # Skip worktree, work in current dir
+/claude-harness:flow --autonomous                   # Batch-process all features
 /claude-harness:flow --fix feature-001 "Token bug" # Bug fix linked to feature
 /claude-harness:flow feature-001                   # Resume existing feature/fix
 
@@ -76,16 +72,14 @@ The **`/flow`** command handles the entire lifecycle automatically - from contex
 /flow            → UNIFIED END-TO-END WORKFLOW:
                    1. Auto-compiles context (replaces /start)
                    2. Creates feature (GitHub issue + branch)
-                   3. Agent Swarm: Research → Implement → Review (enforced)
-                   4. Auto-detects complexity (simple/standard/complex)
-                   5. Plans implementation (checks past failures)
-                   6. Agentic loop until verification passes
-                   7. Auto-checkpoints when tests pass
-                   8. Auto-merges when PR approved
-                   Options: --no-merge, --quick, --inline, --autonomous,
-                            --tdd, --plan-only, --fix
-                   --tdd: TDD workflow (RED→GREEN→REFACTOR)
-                   --autonomous: Batch loop through ALL features with TDD
+                   3. Plans implementation (checks past failures)
+                   4. Creates 3-specialist Agent Team (test-writer, implementer, reviewer)
+                   5. TDD cycle: RED → GREEN → REFACTOR
+                   6. Auto-checkpoints when tests pass
+                   7. Auto-merges when PR approved
+                   Options: --no-merge, --quick, --autonomous,
+                            --plan-only, --fix
+                   --autonomous: Batch loop through ALL features
                    OPTIMIZATIONS: Parallel memory reads, cached GitHub parsing
 
 /checkpoint      → Manual commit + push + PR (when not using /flow)
@@ -106,42 +100,8 @@ The **`/flow`** command handles the entire lifecycle automatically - from contex
 │   ├── procedural/  → Append-only success/failure logs (never repeat mistakes)
 │   └── learned/     → Rules from user corrections (self-improving)
 ├── features/        → Shared feature registry (active.json, archive.json)
-├── worktrees/       → Worktree registry for parallel development
-│   └── registry.json→ Tracks all active worktrees
 └── sessions/        → Per-session state (gitignored, enables parallel work)
     └── {uuid}/      → Each Claude instance gets isolated loop/context state
-```
-
-### Git Worktree Support (v3.9+) & PRD Analysis (v4.0)
-
-True parallel development: each feature gets its own isolated working directory.
-
-```
-~/dev/project/                    # Main repo (shared state)
-~/dev/project-feature-014/        # Worktree for feature-014
-~/dev/project-feature-015/        # Worktree for feature-015
-```
-
-**Why worktrees?**
-- Multiple Claude instances can work on different features simultaneously
-- No branch checkout conflicts (each worktree has its own branch)
-- Shared .git database (space-efficient, no sync issues)
-- Industry standard (used by incident.io, Cursor, etc.)
-
-**Workflow:**
-```bash
-# In main repo: create feature (auto-creates worktree)
-/claude-harness:flow "Add authentication"
-# → Creates worktree at ../project-feature-XXX/
-# → Displays instructions to enter worktree
-
-# Open new terminal, enter worktree
-cd ../project-feature-XXX
-claude
-/claude-harness:flow feature-XXX   # Resume implementation
-
-# After merge, clean up
-cd ../project
 ```
 
 ### Session Cleanup (Automatic)
@@ -160,7 +120,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v5.1.4 (Opus 4.6 Optimized)      │
+│                  CLAUDE HARNESS v6.0.0 (Agent Teams)             │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -174,23 +134,10 @@ When you start Claude Code in a harness-enabled project:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-When in a worktree:
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  🌳 WORKTREE MODE                                               │
-├─────────────────────────────────────────────────────────────────┤
-│  Branch: feature/feature-014                                    │
-│  Main repo: ../project/                                         │
-│  Shared state: features, memory (from main repo)                │
-│  Local state: sessions (this worktree)                          │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 Shows:
 - **Feature status**: P (Pending) / WIP (Work-in-progress) / Tests (Needs tests)
 - **Memory stats**: Decisions recorded, failures to avoid, successes to reuse
 - **Failure prevention**: If failures exist, warns before implementing
-- **Worktree mode**: If running in worktree, shows main repo location
 
 ## v3.0 Memory Architecture
 
@@ -278,7 +225,7 @@ Why it worked: Proper SSR hydration
 
 ## Test-Driven Features
 
-The `/flow` command can generate tests **before** implementation during planning (use `--tdd` for strict test-first enforcement):
+The `/flow` command enforces TDD by design via Agent Teams. Every feature gets a 3-specialist team: test-writer (RED), implementer (GREEN), reviewer (REFACTOR):
 
 ```
 /claude-harness:flow "Add user authentication"
@@ -375,7 +322,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 |---------|---------|
 | `/claude-harness:setup` | Initialize harness in project (one-time) |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
-| **`/claude-harness:flow`** | **Unified workflow**: start→implement→checkpoint→merge with agent swarms (flags: `--tdd`, `--no-merge`, `--plan-only`, `--autonomous`, `--quick`, `--inline`, `--fix`) |
+| **`/claude-harness:flow`** | **Unified workflow**: start→implement→checkpoint→merge with Agent Teams (flags: `--no-merge`, `--plan-only`, `--autonomous`, `--quick`, `--fix`) |
 | `/claude-harness:checkpoint` | Manual commit + push + PR |
 | `/claude-harness:merge` | Merge all PRs, close issues |
 
@@ -383,30 +330,29 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 
 | Syntax | Behavior |
 |--------|----------|
-| `/flow "Add feature"` | Complete lifecycle: start→implement→checkpoint→merge |
+| `/flow "Add feature"` | Complete lifecycle: team TDD (RED→GREEN→REFACTOR) → checkpoint → merge |
 | `/flow feature-001` | Resume existing feature from current phase |
 | `/flow --no-merge "Add feature"` | Stop at checkpoint (don't auto-merge) |
-| `/flow --tdd "Add feature"` | TDD workflow: RED→GREEN→REFACTOR (tests first) |
 | `/flow --plan-only "Big feature"` | Plan only, implement later |
 | `/flow --quick "Simple change"` | Skip planning phase |
-| `/flow --inline "Tiny fix"` | Skip worktree, work in current directory |
 | `/flow --fix feature-001 "Bug"` | Complete lifecycle for a bug fix |
-| `/flow --autonomous` | **Batch loop**: process all active features with TDD, checkpoint, merge, repeat |
+| `/flow --autonomous` | **Batch loop**: process all active features, checkpoint, merge, repeat |
 | `/flow --autonomous --no-merge` | Batch loop but stop each feature at checkpoint (PRs created, not merged) |
 
 **Key Features in /flow**:
-- **Agent Swarms enforced**: Research → Implement → Review on every run
-- **Auto-complexity detection**: simple/standard/complex → spawns specialized domain agents
+- **Agent Teams**: 3-specialist team (test-writer, implementer, reviewer) per feature
+- **TDD always-on**: Team structure enforces RED→GREEN→REFACTOR by design
+- **Direct collaboration**: Reviewer messages implementer directly (no lead intermediation)
+- **Delegate mode**: Lead coordinates only, doesn't write code
 - Memory layers read in parallel (30-40% faster startup)
 - GitHub repo parsed once and cached for entire flow
 - Streaming memory updates after each verification attempt
-- Prompt-based Stop hook detects completion automatically
 
-**TDD Workflow Phases (with `--tdd` flag):**
+**TDD Phases (always-on via Agent Teams):**
 ```
-RED     → Write failing tests (BLOCKS until tests exist)
-GREEN   → Write minimal code to pass tests
-REFACTOR → Improve code while keeping tests green
+RED     → test-writer writes failing tests
+GREEN   → implementer writes minimal code to pass tests
+REFACTOR → reviewer validates, messages implementer directly with issues
 ```
 
 ### `/prd-breakdown` Command Options
@@ -489,16 +435,13 @@ This is useful when you want to:
 │   └── tests/
 │       └── {feature-id}.json     # Test cases per feature
 ├── agents/
-│   ├── context.json              # Orchestration state
-│   └── handoffs.json             # Agent handoff queue
-├── worktrees/
-│   └── registry.json             # Worktree tracking for parallel dev
+│   └── context.json              # Orchestration state
 ├── prd/                          # PRD analysis and decomposition
 │   ├── input.md                  # Original PRD document
 │   ├── metadata.json             # PRD metadata and hash
-│   ├── analysis.json             # Subagent analysis results
+│   ├── analysis.json             # Analysis results
 │   ├── breakdown.json            # Decomposed features
-│   └── subagent-prompts.json     # Reusable subagent prompts
+│   └── subagent-prompts.json     # Reusable analysis prompts
 ├── loops/
 │   └── state.json                # Agentic loop state
 ├── sessions/                     # Per-session state (gitignored)
@@ -617,39 +560,40 @@ On failure:
 - Consults `successes.json` for working patterns
 - Up to 10 attempts before escalation
 
-## Multi-Agent Orchestration (Built into /flow)
+## Agent Teams Orchestration (Built into /flow)
 
-Agent swarms are enforced on every `/flow` run. The system auto-detects feature complexity and spawns specialized agents:
+Every `/flow` run creates a 3-specialist Agent Team. TDD is always-on by design:
 
 ```
 /claude-harness:flow "Add authentication"
 
-→ Phase 1: Complexity Detection
-  - Auto-classifies: simple / standard / complex
-  - Spawns domain-specific agents based on analysis
+→ Phase 1: Team Setup
+  - Creates team: "{project}-{feature-id}"
+  - Lead enters delegate mode (coordinates only)
+  - Spawns 3 specialists: test-writer, implementer, reviewer
 
-→ Phase 2: Agent Swarm (Research → Implement → Review)
-  - Research Agent: Analyzes codebase, identifies patterns, checks failures
-  - Implement Agent: Executes plan with domain specialists
-  - Review Agent: Code review, verification, quality gates
+→ Phase 2: RED — test-writer writes failing tests
+  - Explores test patterns for the project
+  - Writes tests covering unit, integration, edge cases
+  - Verification gate: tests must exist and FAIL
 
-→ Phase 3: Domain Specialists (spawned as needed)
-  - react-specialist (frontend components)
-  - backend-developer (API routes)
-  - database-administrator (schema)
-  - code-reviewer (mandatory)
+→ Phase 3: GREEN — implementer makes tests pass
+  - Reads tests, implements minimal code
+  - Can message test-writer directly for clarification
+  - Verification gate: all tests must PASS
 
-→ Phase 4: Parallel Execution
-  - Independent tasks run simultaneously
-  - Handoffs managed via agents/handoffs.json
+→ Phase 4: REFACTOR — reviewer validates
+  - Reviews implementation, messages implementer with issues
+  - Direct reviewer ↔ implementer dialogue (no lead intermediation)
+  - Max 2 review rounds, tests must stay green
 
-→ Phase 5: Verification Loop
-  - All commands must pass
-  - Re-spawns agents on failure (max 3 cycles)
+→ Phase 5: Verification & Cleanup
+  - All verification commands must pass
+  - Team shut down, memory persisted
 
-→ Phase 6: Memory Persistence
-  - Records successes/failures
-  - Updates patterns
+→ Phase 6: Checkpoint & Merge
+  - Commit, push, create PR
+  - Auto-merge when approved
 ```
 
 ## Impact Analysis
@@ -747,6 +691,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **6.0.0** | **Agent Teams as Sole Orchestration Model**: Replaced the entire subagent pipeline (Research → Implement → Review via Task tool) with Claude Code Agent Teams. Every feature now gets a 3-specialist team: **test-writer** (RED phase — writes failing tests), **implementer** (GREEN phase — minimal code to pass tests), **reviewer** (REFACTOR phase — direct dialogue with implementer for quality). TDD is always-on by design — no `--tdd` flag needed. Lead operates in delegate mode (coordinates only, doesn't write code). Specialists can message each other directly (reviewer ↔ implementer) instead of lossy lead-intermediated handoffs. New `TeammateIdle` and `TaskCompleted` hooks enforce verification quality gates. Parallel multi-feature mode now uses Agent Team with one teammate per feature instead of fire-and-forget subagents. `setup.sh` auto-enables `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var. Loop-state schema bumped to v6. Removed: domain agent selection matrix, complexity-based pipeline, `--tdd` flag, subagent_type references. |
 | **5.2.0** | **Consolidated Workflow + Enforced Agent Swarms**: Merged /do, /do-tdd, and /orchestrate into unified /flow command with flags (--tdd, --plan-only). Agent swarms (Research → Implement → Review) are now enforced in every flow run. Auto-detects feature complexity (simple/standard/complex) and spawns specialized domain agents. Command count reduced from 8 to 5. |
 | **5.1.4** | **Fix Autonomous Archive**: Passing features were not being archived during autonomous mode. Phase A.4.6 (Auto-Merge) updated status to "passing" but never moved the feature from `active.json` to `archive.json`. Added explicit archive step (new step 29) in Phase A.5 (Post-Feature Cleanup) that moves completed features to archive after merge. The normal flow Phase 6 already had this logic — autonomous mode was missing it. |
 | **5.1.3** | **Dynamic Command Sync**: Replaced 5 hardcoded simplified command stubs in `setup.sh` with a dynamic copy loop that copies ALL `.md` files from the plugin's `commands/` directory. Previously 5 commands (flow, do-tdd, prd-breakdown, worktree, setup) were completely missing from target projects, and the 5 existing stubs were outdated simplified versions. Now all commands are auto-discovered, always full-version, and automatically synced on version upgrade. |

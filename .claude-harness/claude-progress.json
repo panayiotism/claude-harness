@@ -1,30 +1,32 @@
 {
-  "lastUpdated": "2026-02-07T12:00:00Z",
+  "lastUpdated": "2026-02-07T15:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Plugin upgrade v5.1.4 → v5.2.0 via /setup - new files for worktrees, config, handoffs, semantic entities/constraints, change-log, and auto-synced commands",
+    "summary": "Major v6.0.0 release: Replaced entire subagent pipeline with Agent Teams as sole orchestration model. Removed worktree support and --inline/--tdd flags. 3-specialist team (test-writer, implementer, reviewer) enforces TDD by design.",
     "completedTasks": [
-      "Ran /claude-harness:setup to upgrade from v5.1.4 to v5.2.0",
-      "Created new v5.2.0 files: entities.json, constraints.json, change-log.json, handoffs.json, registry.json, config.json, init.sh",
-      "Auto-synced 7 command files to .claude/commands/",
-      "Updated .gitignore with harness ephemeral patterns",
-      "Updated .plugin-version to v5.2.0"
+      "Replaced subagent pipeline with 3-specialist Agent Teams (test-writer, implementer, reviewer)",
+      "Removed --tdd flag (TDD always-on via team structure)",
+      "Removed worktree command and all worktree references",
+      "Removed --inline flag (inline is now the only mode)",
+      "Added TeammateIdle and TaskCompleted quality gate hooks",
+      "Updated setup.sh to auto-enable CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+      "Synced all .claude/commands/ files with source commands/",
+      "Cleaned up all stale subagent/swarm references from README and other files"
     ],
     "blockers": [],
     "nextSteps": [
-      "Run /claude-harness:start to compile context and sync GitHub",
-      "Use /claude-harness:flow for end-to-end automated workflow",
-      "Test worktree support with /claude-harness:worktree"
+      "Run /claude-harness:setup on a test project to verify Agent Teams env var",
+      "Test /flow with Agent Teams specialist team",
+      "Test /flow --autonomous with sequential team-per-feature"
     ]
   },
   "recentChanges": [
+    "v6.0.0: Agent Teams as sole orchestration, removed worktrees/--tdd/--inline, always-on TDD",
+    "v5.2.1: Fix setup.sh for all cases including fresh install",
     "v5.2.0: Plugin upgrade - worktrees, config, handoffs, semantic entities/constraints, auto-synced commands",
     "v5.0.0: Opus 4.6 optimizations - effort controls, Agent Teams, 128K output, adaptive loops",
     "v4.5.1: Fix version tracking - dynamic setup.md, stale state detection, cleanup legacy loops/",
-    "v4.5.0: Native Tasks integration - 5-task workflow chain with visual progress tracking",
-    "v4.4.2: Fix Stop hook - convert from prompt-type (unreliable JSON) to command-type (shell script)",
-    "v4.4.1: End-to-end /flow command + Stop hook schema fix",
-    "v4.4.0: Automated end-to-end /flow command, prompt-based hooks, GitHub caching, parallel memory reads"
+    "v4.5.0: Native Tasks integration - 5-task workflow chain with visual progress tracking"
   ],
   "knownIssues": [],
   "environmentState": {

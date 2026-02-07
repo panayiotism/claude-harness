@@ -1,9 +1,9 @@
 ---
 description: Unified end-to-end workflow - creates, implements, checkpoints, and merges features automatically
-argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "bug description" | --autonomous | --tdd | --plan-only
+argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "bug description" | --autonomous | --plan-only
 ---
 
-The single command for all development workflows. Handles the entire feature lifecycle from creation to merge with enforced agent swarms for higher quality results.
+The single command for all development workflows. Handles the entire feature lifecycle from creation to merge with Agent Teams orchestration (test-writer, implementer, reviewer specialists).
 
 Arguments: $ARGUMENTS
 
@@ -15,7 +15,6 @@ Arguments: $ARGUMENTS
 
 ```
 /claude-harness:flow "Add dark mode support"           # Standard workflow
-/claude-harness:flow --tdd "Add auth system"           # TDD: tests first
 /claude-harness:flow --autonomous                      # Batch process all features
 /claude-harness:flow --plan-only "Big refactor"        # Plan only, implement later
 ```
@@ -24,8 +23,8 @@ Arguments: $ARGUMENTS
 1. **Context** - Auto-compile memory
 2. **Creation** - GitHub issue, branch, feature entry
 3. **Planning** - Architecture analysis, approach selection
-4. **Agent Pipeline** - Auto-select specialized agents based on complexity
-5. **Implementation** - Agent-driven: Research → Implement → Review
+4. **Team Setup** - Create specialist team (test-writer, implementer, reviewer)
+5. **Implementation** - Team-driven TDD: RED → GREEN → REFACTOR
 6. **Checkpoint** - Auto-commit when tests pass
 7. **Merge** - Auto-merge when PR approved (optional)
 
@@ -67,70 +66,77 @@ On models without effort controls, all phases run at default effort (no change i
 2. **Parse options**:
    - `--no-merge`: Skip automatic merge phase (stop at checkpoint)
    - `--quick`: Skip planning phase
-   - `--inline`: Skip worktree creation
-   - `--tdd`: Enforce TDD (RED-GREEN-REFACTOR). Tests must exist before implementation code.
    - `--plan-only`: Stop after Phase 3 (planning). Resume later with feature ID.
-   - `--autonomous`: Outer loop mode - iterate through all active features with TDD, checkpoint, merge, repeat
+   - `--autonomous`: Outer loop mode - iterate through all active features, checkpoint, merge, repeat
 
 3. **Mode validation**:
-   - If `--autonomous`: Force `--inline`, compatible with `--no-merge` and `--quick`. **Proceed to Autonomous Wrapper.**
-   - If `--plan-only`: Compatible with `--tdd`. Proceeds through Phases 0-3 then STOPS.
-   - If `--tdd` (without `--autonomous`): Enables TDD phases in Phase 4 (see Phase 4.1).
+   - If `--autonomous`: Compatible with `--no-merge` and `--quick`. **Proceed to Autonomous Wrapper.**
+   - If `--plan-only`: Proceeds through Phases 0-3 then STOPS.
+
+**Note**: TDD (RED-GREEN-REFACTOR) is always-on. The specialist team structure (test-writer → implementer → reviewer) enforces TDD by design. No `--tdd` flag needed.
 
 ---
 
-## Phase 0.5: Multi-Select Parallel Spawning
+## Phase 0.5: Multi-Select Parallel Team
 
 **When user selects 2+ features from interactive menu** (empty args with multiSelect):
 
-3.5. **Create worktrees and spawn parallel agents**:
-   - For each selected feature:
-     - Create git worktree: `git worktree add ../repo-{feature-id} feature/{feature-id}`
-     - Spawn background subagent via Task tool:
-       ```
-       subagent_type: "general-purpose"
-       run_in_background: true
-       prompt: |
-         You are implementing a feature in a parallel development session.
-         Feature ID: {feature-id}
-         Worktree Path: {absolute-path}
-         Branch: feature/{feature-id}
+3.5. **Create Agent Team for parallel features**:
+   - Create agent team: `"{project}-parallel-{timestamp}"`
+   - Lead enters **delegate mode** (coordinates only, doesn't implement)
+   - For each selected feature, spawn a teammate:
+     ```
+     Spawn teammate "{feature-id}" with prompt:
+       You are implementing feature {feature-id}: {feature-name}.
+       Branch: feature/{feature-id}
 
-         1. cd {worktree-path}
-         2. Read feature from .claude-harness/features/active.json
-         3. Run the full flow pipeline including agent stages:
-            - Explore agent for research
-            - Domain-specific implementation agent(s)
-            - Code-reviewer agent for review
-         4. Run all verification commands
-         5. Commit + push + create PR
+       1. Checkout branch: git checkout feature/{feature-id}
+       2. Read feature from .claude-harness/features/active.json
+       3. Execute full TDD lifecycle:
+          - Write failing tests (RED)
+          - Implement minimal code to pass tests (GREEN)
+          - Refactor for quality (REFACTOR)
+       4. Run all verification commands
+       5. Commit + push + create PR
 
-         You MUST use specialized agents for implementation.
-         Do NOT skip the research or review steps.
-       ```
-   - Display spawning status:
+       ## Coordination Rules
+       - If you create shared utilities, message all teammates about the new file
+       - If you discover a file another teammate needs, message them
+       - Do NOT modify files outside your feature scope
+       - Mark your task as complete when PR is created
+
+       ## Verification Commands
+       {auto-detected from config.json}
+     ```
+   - Create shared tasks for each feature in the team task list
+   - Display team status:
      ```
      ┌─────────────────────────────────────────────────────────────────┐
-     │  PARALLEL AGENTS SPAWNED                                       │
-     │  Feature         Worktree                      Task ID         │
-     │  ─────────────────────────────────────────────────────────────  │
-     │  feature-001     ../repo-feature-001/          {task-id-1}     │
-     │  feature-002     ../repo-feature-002/          {task-id-2}     │
+     │  AGENT TEAM: Parallel Feature Development                      │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Team: {team-name}                                             │
+     │  Mode: Delegate (lead coordinates only)                        │
      │                                                                │
-     │  Agents running in background.                                 │
-     │  Check progress: /tasks or TaskOutput tool                     │
+     │  Teammate         Feature              Status                  │
+     │  ─────────────────────────────────────────────────────────────  │
+     │  {feature-001}    {feature-name-1}      Spawned                │
+     │  {feature-002}    {feature-name-2}      Spawned                │
+     │                                                                │
+     │  Navigate: Shift+Up/Down to select teammate                    │
+     │  Tasks: Ctrl+T to view shared task list                        │
      └─────────────────────────────────────────────────────────────────┘
      ```
-   - **Return control to user** - agents continue working independently
-   - **EXIT flow** (each subagent handles its own full lifecycle)
+   - Lead monitors teammates via `TeammateIdle` notifications
+   - When all teammates complete: shut down teammates, clean up team
+   - **Lead stays active as coordinator** until all features are done
 
 ---
 
 ## Autonomous Wrapper (if --autonomous)
 
-When `--autonomous` is set, the entire flow operates as an outer agentic loop that iterates through all active features. Each feature goes through the full lifecycle (context → planning → TDD implementation → checkpoint → merge) before moving to the next.
+When `--autonomous` is set, the entire flow operates as an outer agentic loop that iterates through all active features. Each feature goes through the full lifecycle (context → planning → team-driven TDD → checkpoint → merge) before moving to the next.
 
-**IMPORTANT**: This wrapper replaces the normal Phase 1-7 flow. Each iteration runs the standard phases internally with TDD enforcement.
+**IMPORTANT**: This wrapper replaces the normal Phase 1-7 flow. Each iteration creates a specialist team (test-writer, implementer, reviewer) for the feature, runs TDD, then cleans up the team before moving to the next feature.
 
 ### Autonomous Effort Controls
 
@@ -138,10 +144,10 @@ When `--autonomous` is set, the entire flow operates as an outer agentic loop th
 |-------|--------|-----|
 | Feature Selection / Conflict Detection | low | Mechanical git operations and list filtering |
 | Context Compilation | low | Mechanical data loading |
-| TDD Test Planning | high | Requires understanding feature behavior to design tests |
-| RED (write failing tests) | high | Must define expected behavior precisely |
-| GREEN (implement to pass tests) | high | Core coding work, escalate to max on retry |
-| REFACTOR | max | Deep structural analysis benefits most from max reasoning |
+| Team Setup / Test Planning | high | Requires understanding feature behavior to design tests |
+| RED (test-writer writes tests) | high | Must define expected behavior precisely |
+| GREEN (implementer passes tests) | high | Core coding work, escalate to max on retry |
+| REFACTOR (reviewer validates) | max | Deep structural analysis benefits most from max reasoning |
 | Verification / Debug | max | Root-cause analysis needs deepest reasoning |
 | Checkpoint / Merge | low | Mechanical commit/push/merge operations |
 
@@ -152,7 +158,7 @@ Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-
 ### Phase A.1: Initialize Autonomous State
 
 4. **Read feature backlog**:
-   - Detect worktree mode and set paths (same as Phase 1 step 3)
+   - Set paths: `FEATURES_FILE=".claude-harness/features/active.json"`, `MEMORY_DIR=".claude-harness/memory/"`
    - Read `${FEATURES_FILE}` to get all features
    - Filter features where `status` is NOT `"passing"`
    - If no eligible features exist:
@@ -296,9 +302,9 @@ Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-
 
 ---
 
-### Phase A.4: Execute Feature Flow with TDD
+### Phase A.4: Execute Feature Flow with Team
 
-This phase runs the standard flow Phases 1-7 with TDD enforcement and autonomous overrides.
+This phase runs the standard flow Phases 1-7 with a specialist team per feature and autonomous overrides.
 
 #### A.4.1: Context Compilation
 
@@ -314,49 +320,22 @@ This phase runs the standard flow Phases 1-7 with TDD enforcement and autonomous
     - If feature needs a GitHub issue or branch: Run Phase 2 (Feature Creation) normally
     - Most features in autonomous mode will already exist in `active.json`, so this phase is typically skipped
 
-#### A.4.3: TDD Planning
+#### A.4.3: Planning
 
 18. **Run Phase 3** (Planning) unless `--quick`:
     - Standard planning steps (query procedural memory, analyze requirements, generate plan)
 
-19. **Inject TDD test planning** (MANDATORY in autonomous mode):
-    ```
-    ┌─────────────────────────────────────────────────────────────────┐
-    │  TDD: Generating Test Specifications for {feature-id}         │
-    └─────────────────────────────────────────────────────────────────┘
-    ```
-    - Analyze feature requirements
-    - Auto-detect test patterns for project language:
-      - TypeScript: `**/*.test.ts`, `**/*.spec.ts`, `**/__tests__/**`
-      - JavaScript: `**/*.test.js`, `**/*.spec.js`, `**/__tests__/**`
-      - Python: `**/test_*.py`, `**/*_test.py`, `**/tests/**`
-      - Go: `**/*_test.go`
-      - Shell/Bash: `**/test_*.sh`, `**/*_test.sh`
-    - Generate test specifications with tests as FIRST steps:
-      ```json
-      {
-        "steps": [
-          {"step": 1, "type": "test", "phase": "red", "description": "Write failing test for X"},
-          {"step": 2, "type": "test", "phase": "red", "description": "Write failing test for Y"},
-          {"step": 3, "type": "implementation", "phase": "green", "description": "Implement X"},
-          {"step": 4, "type": "implementation", "phase": "green", "description": "Implement Y"},
-          {"step": 5, "type": "refactor", "phase": "refactor", "description": "Refactor if needed"}
-        ]
-      }
-      ```
-    - Store test plan in feature entry or session context
-
-20. **Create task chain** (Phase 3.5) with TDD-specific tasks:
+19. **Create task chain** (Phase 3.5) with TDD tasks:
     - Task 1: "Research {feature}" - activeForm: "Researching {feature}"
-    - Task 2: "Plan {feature} (TDD)" - activeForm: "Planning TDD for {feature}"
+    - Task 2: "Plan {feature}" - activeForm: "Planning {feature}"
     - Task 3: "Write tests for {feature} (RED)" - activeForm: "Writing failing tests"
     - Task 4: "Implement {feature} (GREEN)" - activeForm: "Implementing to pass tests"
-    - Task 5: "Refactor {feature}" - activeForm: "Refactoring {feature}"
+    - Task 5: "Review {feature} (REFACTOR)" - activeForm: "Reviewing {feature}"
     - Task 6: "Verify {feature}" - activeForm: "Verifying {feature}"
     - Task 7: "Checkpoint {feature}" - activeForm: "Creating checkpoint"
     - **REQUIRED**: If TaskCreate fails, retry once. If still failing, log error and continue with manual tracking in loop-state.
 
-#### A.4.4: TDD Implementation (RED-GREEN-REFACTOR)
+#### A.4.4: Team-Driven Implementation (RED-GREEN-REFACTOR)
 
 **Branch verification** (MANDATORY):
 ```bash
@@ -364,11 +343,11 @@ CURRENT_BRANCH=$(git branch --show-current)
 ```
 - **STOP if on main/master** - fetch and checkout feature branch
 
-21. **Initialize loop state** (v5 with TDD + agent tracking):
+21. **Initialize loop state** (v6 with team tracking):
     - Write to `.claude-harness/sessions/{session-id}/loop-state.json`:
       ```json
       {
-        "version": 5,
+        "version": 6,
         "feature": "{feature-id}",
         "featureName": "{description}",
         "type": "feature",
@@ -378,15 +357,13 @@ CURRENT_BRANCH=$(git branch --show-current)
         "startedAt": "{ISO timestamp}",
         "history": [],
         "tdd": {
-          "enabled": true,
           "phase": null,
           "testsWritten": [],
           "testStatus": null
         },
-        "agents": {
-          "enabled": true,
-          "complexity": "{auto-detected}",
-          "pipeline": ["{from agent assessment}"],
+        "team": {
+          "teamName": "{project}-{feature-id}",
+          "roster": ["test-writer", "implementer", "reviewer"],
           "results": [],
           "reviewCycles": 0
         },
@@ -399,42 +376,38 @@ CURRENT_BRANCH=$(git branch --show-current)
       }
       ```
 
-22. **TDD Phase: RED (Write Failing Tests)** (effort: high):
+22. **Create team and spawn specialists**:
+    - Create agent team: `"{project}-{feature-id}"`
+    - Lead enters **delegate mode** (coordinates only, doesn't write code)
+    - Spawn 3 teammates with context:
+      - **test-writer**: feature requirements, test patterns from project, acceptance criteria, past failures to avoid
+      - **implementer**: feature requirements, plan from Phase 3, codebase patterns, past failures to avoid
+      - **reviewer**: feature requirements, codebase conventions, security concerns if applicable
+    - Require plan approval for all teammates (lead reviews their approach before they write code)
+
+23. **RED — test-writer writes failing tests** (effort: high):
     ```
     ┌─────────────────────────────────────────────────────────────────┐
-    │  RED PHASE: Write Failing Tests for {feature-id}              │
-    ├─────────────────────────────────────────────────────────────────┤
-    │  Write tests that define the expected behavior.                │
-    │  Tests MUST fail initially (no implementation yet).            │
+    │  RED PHASE: test-writer writes failing tests for {feature-id} │
     └─────────────────────────────────────────────────────────────────┘
     ```
-
-    **Step 22a: Write test files** (agent-assisted):
-    - Spawn Explore agent to research test patterns in the project
-    - Spawn qa-expert agent to write test files based on TDD test plan (step 19)
-    - Tests should cover: unit tests, integration tests, edge cases
-
-    **Step 22b: Verify tests FAIL (correct RED state)**
-    - Run test command
-    - If tests **FAIL**: Correct! Proceed to GREEN phase
-    - If tests **PASS** without implementation:
-      - Log warning: "Tests pass without implementation - may be too trivial or over-mocking"
-      - In autonomous mode: continue anyway (don't prompt)
+    - Lead assigns task to test-writer: "Write failing tests for {feature-name}"
+    - test-writer explores test patterns, writes tests covering: unit tests, integration tests, edge cases
+    - Lead waits for task completion (`TeammateIdle` notification)
+    - **Verification gate**: tests must exist and FAIL (no implementation yet)
+    - If tests **PASS** without implementation: log warning, continue anyway (don't prompt in autonomous)
     - Update TDD state: `tdd.phase = "red"`, `tdd.testStatus = "failing"`
     - Update `tddStats.totalTestsWritten` in autonomous state
 
-23. **TDD Phase: GREEN (Minimal Implementation)** (effort: high, escalate to max):
+24. **GREEN — implementer makes tests pass** (effort: high, escalate to max):
     ```
     ┌─────────────────────────────────────────────────────────────────┐
-    │  GREEN PHASE: Make Tests Pass for {feature-id}                │
-    ├─────────────────────────────────────────────────────────────────┤
-    │  Write the MINIMAL code needed to make tests pass.             │
-    │  Don't over-engineer. Don't optimize yet.                      │
+    │  GREEN PHASE: implementer makes tests pass for {feature-id}   │
     └─────────────────────────────────────────────────────────────────┘
     ```
-
-    - **Agent pipeline applies**: Use the 3-stage pipeline (Research → Implement → Review) from Phase 4.2
-    - Explore agent researches, domain agent(s) implement minimal code, code-reviewer validates
+    - Lead messages implementer: "Tests written at {paths}. Make them pass with minimal code."
+    - Implementer reads tests, implements feature
+    - Implementer can message test-writer directly: "Test X expects Y but the API returns Z — intentional?" — direct collaboration
     - Run ALL verification commands (build, tests, lint, typecheck)
     - **If tests PASS**:
       - Update TDD state: `tdd.phase = "green"`, `tdd.testStatus = "passing"`
@@ -442,26 +415,25 @@ CURRENT_BRANCH=$(git branch --show-current)
     - **If tests FAIL**:
       - Record approach to history and to `${MEMORY_DIR}/procedural/failures.json`
       - Increment attempt counter
-      - Retry with different approach (up to maxAttempts)
+      - Lead messages implementer with failure context and suggests alternative approach
+      - Retry (up to maxAttempts)
       - **Effort escalation**: If attempt > 5, use max effort. If attempt > 10, also load full procedural memory.
 
-24. **TDD Phase: REFACTOR (Improve Code Quality)** (effort: max):
+25. **REFACTOR — reviewer validates and improves** (effort: max):
     ```
     ┌─────────────────────────────────────────────────────────────────┐
-    │  REFACTOR PHASE: Improve Code Quality for {feature-id}        │
-    ├─────────────────────────────────────────────────────────────────┤
-    │  Tests pass. Improve code while keeping tests green.           │
+    │  REFACTOR PHASE: reviewer validates {feature-id}              │
     └─────────────────────────────────────────────────────────────────┘
     ```
-
-    - In autonomous mode: always attempt refactoring (don't prompt)
-    - Spawn code-reviewer agent: "Analyze implementation for refactoring opportunities"
-    - Apply suggested improvements: remove duplication, improve naming, simplify logic
+    - Lead messages reviewer: "Implementation complete, tests passing. Review for quality."
+    - Reviewer reviews, messages implementer directly with issues
+    - Implementer fixes, notifies reviewer — **direct dialogue, no lead intermediation**
+    - Max 2 review rounds — lead intervenes if exceeded
     - Run tests after EACH refactoring change
     - **If tests break during refactoring**: Revert that specific change and stop refactoring
     - Update TDD state: `tdd.phase = "refactor"`
 
-25. **Final Verification Gate** (MANDATORY):
+26. **Final Verification Gate** (MANDATORY):
     - Run ALL verification commands one final time
     - ALL must pass to proceed to checkpoint
     - Record success to `${MEMORY_DIR}/procedural/successes.json`:
@@ -478,8 +450,13 @@ CURRENT_BRANCH=$(git branch --show-current)
       ```
     - Update loop status to `"completed"`
 
-26. **On escalation** (maxAttempts reached in autonomous mode):
+27. **Team cleanup**:
+    - Shut down all teammates: "Ask all teammates to shut down"
+    - Clean up team: "Clean up the team"
+
+28. **On escalation** (maxAttempts reached in autonomous mode):
     - Do NOT prompt user - autonomous mode handles this automatically
+    - Shut down team before moving on
     - Add to `failedFeatures` in autonomous state:
       ```json
       {
@@ -505,16 +482,16 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 #### A.4.5: Auto-Checkpoint
 
-27. **Run Phase 5** (Auto-Checkpoint) normally:
+29. **Run Phase 5** (Auto-Checkpoint) normally:
     - Update progress file
     - Persist to memory layers (episodic, semantic, procedural, learned)
-    - Commit with TDD suffix: `feat({feature-id}): {description} [TDD]`
+    - Commit: `feat({feature-id}): {description}`
     - Push to remote
-    - Create/update PR with TDD note in body
+    - Create/update PR
 
 #### A.4.6: Auto-Merge (unless --no-merge)
 
-28. **Run Phase 6** (Auto-Merge) unless `--no-merge`:
+30. **Run Phase 6** (Auto-Merge) unless `--no-merge`:
     - Check PR status (CI, reviews)
     - If ready: merge (squash), close issue, delete branch, update status to "passing", **archive feature to `${ARCHIVE_FILE}`**
     - If needs review: mark feature as checkpointed but not merged, continue to next feature
@@ -559,8 +536,8 @@ CURRENT_BRANCH=$(git branch --show-current)
     ```
 
 32. **Reset session state**:
-    - Reset loop-state.json to idle (v5 schema)
-    - Clear TDD state, agent pipeline state
+    - Reset loop-state.json to idle (v6 schema)
+    - Clear TDD state, team state
     - Clear task references (if tasks were enabled)
 
 33. **Brief per-feature report**:
@@ -647,21 +624,11 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 **IMPORTANT**: Read all memory layers IN PARALLEL for speed optimization.
 
-3. **Detect worktree mode and set paths**:
+3. **Set paths**:
    ```bash
-   GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
-   GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
-
-   if [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
-       IS_WORKTREE=true
-       MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
-       FEATURES_FILE="${MAIN_REPO_PATH}/.claude-harness/features/active.json"
-       MEMORY_DIR="${MAIN_REPO_PATH}/.claude-harness/memory/"
-   else
-       IS_WORKTREE=false
-       FEATURES_FILE=".claude-harness/features/active.json"
-       MEMORY_DIR=".claude-harness/memory/"
-   fi
+   FEATURES_FILE=".claude-harness/features/active.json"
+   MEMORY_DIR=".claude-harness/memory/"
+   ARCHIVE_FILE=".claude-harness/features/archive.json"
    ```
 
 4. **Parse and cache GitHub repo** (MANDATORY - do this ONCE for entire flow):
@@ -753,11 +720,6 @@ CURRENT_BRANCH=$(git branch --show-current)
       }
       ```
 
-12. **Handle worktree** (unless --inline):
-    - If NOT --inline: Create worktree and display instructions to continue in worktree
-    - If --inline: Continue in current directory
-    - **Note**: For /flow, prefer --inline for seamless automation
-
 ---
 
 ## Phase 3: Planning (unless --quick)
@@ -827,92 +789,46 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 ---
 
-## Phase 3.7: Agent Pipeline Planning (MANDATORY)
+## Phase 3.7: Team Roster Setup (MANDATORY)
 
-**Every feature uses specialized agents for implementation.** This phase auto-detects complexity and builds the agent pipeline.
+**Every feature uses an Agent Team with 3 specialists.** This phase prepares the team roster.
 
-15.8. **Assess feature complexity** (auto-detect from Phase 3 plan):
-   - Count estimated files to modify
-   - Identify file types and domains (frontend, backend, database, etc.)
-   - Check for security-sensitive operations (auth, tokens, encryption)
-   - Calculate complexity:
-     - **Simple** (1-2 files, single domain, no security concerns)
-     - **Standard** (3-5 files, or 2+ domains, or any security concern)
-     - **Complex** (6+ files, or 3+ domains, or database migrations)
+15.8. **Build team roster**:
+   - Every feature gets the same 3-specialist team:
+     - **test-writer**: Owns test files. Writes failing tests that define expected behavior (RED phase).
+     - **implementer**: Owns source files. Writes minimal code to make tests pass (GREEN phase).
+     - **reviewer**: Reviews implementation, messages implementer directly with issues (REFACTOR phase).
 
-15.9. **Build agent pipeline** based on complexity:
+15.9. **Prepare specialist context** (from Phase 3 plan):
+   - **test-writer context**: acceptance criteria, test patterns for project language, verification commands
+     - Auto-detect test patterns:
+       - TypeScript: `**/*.test.ts`, `**/*.spec.ts`, `**/__tests__/**`
+       - JavaScript: `**/*.test.js`, `**/*.spec.js`, `**/__tests__/**`
+       - Python: `**/test_*.py`, `**/*_test.py`, `**/tests/**`
+       - Go: `**/*_test.go`
+       - Shell/Bash: `**/test_*.sh`, `**/*_test.sh`
+   - **implementer context**: files to modify, codebase patterns, implementation plan, past failures to avoid
+   - **reviewer context**: codebase conventions, security concerns, quality standards
 
-   **Simple (agent-lite) - 2 agents minimum:**
-   - Stage 1: Explore agent (`subagent_type: Explore`) - research codebase patterns
-   - Stage 2: Implement + code-reviewer for post-implementation review
-
-   **Standard (agent-standard) - 3+ agents:**
-   - Stage 1: Explore agent - research codebase patterns and dependencies
-   - Stage 2: Domain-specific implementation agent(s) (parallel if independent files)
-   - Stage 3: code-reviewer, plus security-auditor if security-sensitive
-
-   **Complex (agent-full) - 4+ agents:**
-   - Stage 1: Explore agent - deep research
-   - Stage 2: Plan agent (`subagent_type: Plan`) - architecture design from research
-   - Stage 3: Domain-specific implementation agent(s) (parallel where possible)
-   - Stage 4: code-reviewer + qa-expert + security-auditor (if applicable)
-
-   **Domain agent selection matrix:**
-   | Domain | subagent_type | Triggers |
-   |--------|---------------|----------|
-   | React/Frontend | react-specialist | .tsx, .jsx, component, UI |
-   | Backend/API | backend-developer | route.ts, api/, endpoint, REST |
-   | Next.js | nextjs-developer | app/, pages/, Next.js specific |
-   | Database | database-administrator | prisma, schema, migration, SQL |
-   | Python | python-pro | .py files |
-   | TypeScript | typescript-pro | complex type work, generics |
-   | Go | golang-pro | .go files |
-   | Rust | rust-engineer | .rs files |
-   | Shell/Bash | general-purpose | .sh files |
-
-   **Quality agents:**
-   | Type | subagent_type | When to include |
-   |------|---------------|-----------------|
-   | Review | code-reviewer | Always for standard/complex |
-   | Security | security-auditor | Auth, tokens, encryption, API keys |
-   | Testing | qa-expert | When `--tdd` flag is set |
-   | Performance | performance-engineer | Performance-critical code |
-
-   **Effort levels per agent role** (Opus 4.6+):
-   | Agent Role | Effort | Why |
-   |------------|--------|-----|
-   | Explore (research) | high | Exploration needs careful analysis |
-   | Plan (architecture) | max | Architecture decisions are critical |
-   | Implementation agents | high | Core coding work |
-   | code-reviewer | max | Review requires deepest reasoning to catch issues |
-   | security-auditor | max | Security analysis must be thorough |
-   | qa-expert | high | Test design needs good reasoning |
-
-15.10. **Store agent pipeline in loop state**:
-    - Add to loop-state (v5 schema, see step 17):
+15.10. **Store team roster in loop state**:
+    - Add to loop-state (v6 schema, see step 17):
       ```json
       {
-        "agents": {
-          "enabled": true,
-          "complexity": "simple|standard|complex",
-          "pipeline": [
-            {"stage": 1, "role": "explore", "subagent_type": "Explore", "status": "pending"},
-            {"stage": 2, "role": "implement", "subagent_type": "{detected}", "status": "pending"},
-            {"stage": 3, "role": "review", "subagent_type": "code-reviewer", "status": "pending"}
-          ],
+        "team": {
+          "teamName": "{project}-{feature-id}",
+          "roster": ["test-writer", "implementer", "reviewer"],
           "results": [],
           "reviewCycles": 0
         }
       }
       ```
 
-15.11. **Display agent pipeline**:
+15.11. **Display team roster**:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
-    │  AGENT PIPELINE: {complexity}                                   │
-    │  Stage 1: Explore → Stage 2: Implement → Stage 3: Review       │
-    │  Agents: {N} specialized agents selected                        │
-    │  Domains: {detected domains}                                    │
+    │  TEAM ROSTER: 3 specialists                                    │
+    │  test-writer → implementer → reviewer                          │
+    │  Mode: Delegate (lead coordinates, specialists implement)      │
     └─────────────────────────────────────────────────────────────────┘
     ```
 
@@ -930,8 +846,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     │  Feature: feature-XXX                                           │
     │  Issue: #{issue}                                                │
     │  Branch: feature/feature-XXX                                    │
-    │  Agent Pipeline: {complexity} ({N} agents)                      │
-    │  TDD: {enabled/disabled}                                        │
+    │  Team: 3 specialists (test-writer, implementer, reviewer)       │
     ├─────────────────────────────────────────────────────────────────┤
     │  Resume: /claude-harness:flow feature-XXX                       │
     └─────────────────────────────────────────────────────────────────┘
@@ -940,9 +855,9 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 ---
 
-## Phase 4: Implementation (Agent-Driven)
+## Phase 4: Implementation (Team-Driven)
 
-**IMPORTANT**: Implementation MUST use the agent pipeline from Phase 3.7. Direct inline implementation without agents is NOT permitted.
+**IMPORTANT**: Implementation MUST use an Agent Team with the roster from Phase 3.7. The lead coordinates in delegate mode while specialists do the work.
 
 16. **Branch verification** (MANDATORY):
     ```bash
@@ -951,11 +866,11 @@ CURRENT_BRANCH=$(git branch --show-current)
     - **STOP if on main/master**
     - Fetch and checkout correct branch if needed
 
-17. **Initialize loop state** (v5 with agent + TDD + task integration):
+17. **Initialize loop state** (v6 with team + task integration):
     - Write to `.claude-harness/sessions/{session-id}/loop-state.json`:
       ```json
       {
-        "version": 5,
+        "version": 6,
         "feature": "feature-XXX",
         "featureName": "{description}",
         "type": "feature",
@@ -965,15 +880,13 @@ CURRENT_BRANCH=$(git branch --show-current)
         "startedAt": "{ISO timestamp}",
         "history": [],
         "tdd": {
-          "enabled": false,
           "phase": null,
           "testsWritten": [],
           "testStatus": null
         },
-        "agents": {
-          "enabled": true,
-          "complexity": "{from Phase 3.7}",
-          "pipeline": ["{from Phase 3.7}"],
+        "team": {
+          "teamName": "{project}-{feature-id}",
+          "roster": ["test-writer", "implementer", "reviewer"],
           "results": [],
           "reviewCycles": 0
         },
@@ -985,8 +898,6 @@ CURRENT_BRANCH=$(git branch --show-current)
         }
       }
       ```
-    - Set `tdd.enabled = true` if `--tdd` flag is set
-    - **Backward compatible**: If tasks.enabled is false or missing, ignore task integration
 
 17.5. **Update task status** (if tasks enabled):
     - Call `TaskUpdate` to mark "Implement" task (Task 3) as "in_progress"
@@ -997,122 +908,86 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 ---
 
-### Phase 4.1: TDD Phases (if --tdd)
+### Phase 4.1: Create Team and Spawn Specialists
 
-**Only executes when `--tdd` flag is set.** Inserts RED-GREEN-REFACTOR before standard agent implementation.
-
-17.6. **TDD Phase: RED (Write Failing Tests)** (effort: high):
-    ```
-    ┌─────────────────────────────────────────────────────────────────┐
-    │  RED PHASE: Write Failing Tests for {feature-id}               │
-    ├─────────────────────────────────────────────────────────────────┤
-    │  Write tests that define the expected behavior.                 │
-    │  Tests MUST fail initially (no implementation yet).             │
-    └─────────────────────────────────────────────────────────────────┘
-    ```
-
-    **Step 17.6a: Research test patterns** (agent-assisted):
-    - Spawn Explore agent: "Research test patterns, conventions, and fixtures used in this project"
-    - Auto-detect test patterns for project language:
-      - TypeScript: `**/*.test.ts`, `**/*.spec.ts`, `**/__tests__/**`
-      - JavaScript: `**/*.test.js`, `**/*.spec.js`, `**/__tests__/**`
-      - Python: `**/test_*.py`, `**/*_test.py`, `**/tests/**`
-      - Go: `**/*_test.go`
-      - Shell/Bash: `**/test_*.sh`, `**/*_test.sh`
-
-    **Step 17.6b: Write test files** (agent-assisted):
-    - Spawn qa-expert agent: "Write failing tests for {feature-name} based on acceptance criteria and project test patterns"
-    - Tests should cover: unit tests, integration tests, edge cases
-
-    **Step 17.6c: Verify tests FAIL (correct RED state)**:
-    - Run test command
-    - If tests **FAIL**: Correct! Update `tdd.phase = "red"`, `tdd.testStatus = "failing"`
-    - If tests **PASS** without implementation: Log warning, continue
-    - **Existence gate**: Test files MUST exist before proceeding to GREEN phase
-
-17.7. **TDD Phase: GREEN** - Proceeds to standard agent implementation (step 18) with constraint: write MINIMAL code to make tests pass. Do not over-engineer.
-
-17.8. **TDD Phase: REFACTOR** (after step 18 verification passes):
-    - Spawn code-reviewer agent: "Analyze implementation for refactoring opportunities: duplication, naming, unnecessary complexity"
-    - Apply suggested improvements
-    - Run tests after EACH refactoring change
-    - **If tests break during refactoring**: Revert that specific change and stop refactoring
-    - Update `tdd.phase = "refactor"`
-    - Commit suffix: `feat(feature-XXX): {description} [TDD]`
+18. **Create agent team and enter delegate mode**:
+    - Create team: `"{project}-{feature-id}"`
+    - Lead enters **delegate mode** (Shift+Tab) — coordinates only, doesn't touch code
+    - Spawn 3 teammates with context from Phase 3.7:
+      - **test-writer**: feature requirements, test patterns from project, acceptance criteria, past failures to avoid
+      - **implementer**: feature requirements, implementation plan from Phase 3, codebase patterns, past failures to avoid
+      - **reviewer**: feature requirements, codebase conventions, security concerns if applicable, verification commands
+    - Require plan approval for all teammates (lead reviews their approach before they write code)
+    - Display:
+      ```
+      ┌─────────────────────────────────────────────────────────────────┐
+      │  TEAM CREATED: {team-name}                                     │
+      │  Mode: Delegate (lead coordinates only)                        │
+      │  Teammates: test-writer, implementer, reviewer                 │
+      │  Navigate: Shift+Up/Down | Tasks: Ctrl+T                      │
+      └─────────────────────────────────────────────────────────────────┘
+      ```
 
 ---
 
-### Phase 4.2: Agent-Driven Implementation Loop
+### Phase 4.2: Team-Driven TDD (RED → GREEN → REFACTOR)
 
-18. **Execute agent-driven implementation** (effort: high, escalate to max on failure):
+**Step 1: RED — test-writer writes failing tests** (effort: high):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  RED PHASE: test-writer writes failing tests for {feature-id}  │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Tests define the expected behavior.                            │
+    │  Tests MUST fail initially (no implementation yet).             │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+    - Lead assigns task to test-writer: "Write failing tests for {feature-name} covering: unit tests, integration tests, edge cases"
+    - test-writer explores test patterns, writes test files
+    - Lead waits for task completion (`TeammateIdle` notification)
+    - **Verification gate**: tests must exist and FAIL (no implementation yet)
+    - If tests **PASS** without implementation: Log warning, continue
+    - Update TDD state: `tdd.phase = "red"`, `tdd.testStatus = "failing"`
 
-    **REQUIRED**: Implementation MUST use the agent pipeline from Phase 3.7.
+**Step 2: GREEN — implementer makes tests pass** (effort: high, escalate to max):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  GREEN PHASE: implementer makes tests pass for {feature-id}    │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Write MINIMAL code to make tests pass. Don't over-engineer.   │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+    - Lead messages implementer: "Tests written at {paths}. Make them pass with minimal code."
+    - Implementer reads test files, implements feature
+    - Implementer can message test-writer directly: "Test X expects Y but the API returns Z — intentional?" — **direct collaboration without lead**
+    - Lead waits for task completion (`TeammateIdle` notification)
+    - **Post-implementation verification**: Run ALL verification commands (build, tests, lint, typecheck)
+    - If tests **PASS**: Update `tdd.phase = "green"`, `tdd.testStatus = "passing"`. Proceed to REFACTOR.
+    - If tests **FAIL**:
+      - Lead messages implementer with failure context and suggests alternative approach
+      - Increment attempt counter, retry (up to maxAttempts)
+      - **Effort escalation**: If attempt > 5, use max effort. If attempt > 10, also load full procedural memory.
 
-    **Stage 1: Research Agent** (REQUIRED for all complexity levels):
-    - Spawn Explore agent via Task tool:
-      - `subagent_type`: "Explore"
-      - Prompt: "Research the codebase for {feature-name}. Find existing patterns, conventions, related files, and dependencies. Report: (1) files to modify, (2) patterns to follow, (3) potential pitfalls, (4) test patterns."
-    - Wait for result
-    - **Validation gate**: Result MUST contain files list AND patterns. If empty: retry once with more specific prompt.
-    - Store research output in loop state `agents.results[]`
-    - Update pipeline stage 1 status to "completed"
+**Step 3: REFACTOR — reviewer validates and improves** (effort: max):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  REFACTOR PHASE: reviewer validates {feature-id}               │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Tests pass. Improve code while keeping tests green.            │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+    - Lead messages reviewer: "Implementation complete, tests passing. Review for quality."
+    - Reviewer reviews code, messages implementer directly with issues:
+      - "Line 42 swallows the exception" → implementer: "Should I rethrow or log?" → reviewer: "Rethrow"
+      - **Direct dialogue, no lead intermediation**
+    - Implementer fixes issues, notifies reviewer
+    - Max 2 review rounds (tracked in `team.reviewCycles`) — lead intervenes if exceeded
+    - Run tests after EACH refactoring change
+    - **If tests break during refactoring**: Revert that specific change and stop refactoring
+    - Update TDD state: `tdd.phase = "refactor"`
 
-    **Stage 2: Implementation Agent(s)** (REQUIRED):
-    - For each implementation agent in the pipeline:
-      - Spawn via Task tool with appropriate `subagent_type`
-      - Include in prompt:
-        - Research results from Stage 1
-        - Plan from Phase 3
-        - Past failures to avoid (from procedural memory)
-        - If `--tdd`: "Write MINIMAL code to make tests pass. Do NOT over-engineer."
-      - Prompt template:
-        ```
-        You are the {role} specialist implementing {feature-name}.
+---
 
-        ## Research Context (from exploration agent)
-        {Stage 1 results}
-
-        ## Implementation Plan
-        {Phase 3 plan steps}
-
-        ## Past Failures to Avoid
-        {from procedural memory}
-
-        ## Your Task
-        {specific implementation instructions}
-
-        ## Files to Modify
-        {from research + plan}
-
-        ## REQUIRED Output Format
-        Report: files_modified (list), files_created (list), approach_taken (string), tests_added (boolean), issues_encountered (list)
-        ```
-    - If multiple implementation agents (different domains): spawn in PARALLEL (single message, multiple Task calls)
-    - Wait for all results
-    - **Validation gate**: Each agent MUST report files_modified. Log warning for empty results.
-    - Store outputs in loop state `agents.results[]`
-    - Update pipeline stage 2 status to "completed"
-
-    **Stage 3: Review Agent** (REQUIRED for standard/complex, recommended for simple):
-    - Spawn code-reviewer agent via Task tool:
-      - Include: all files modified by Stage 2, feature requirements, acceptance criteria
-      - Prompt: "Review the following changes for {feature-name}. Check for: correctness, edge cases, error handling, consistency with codebase patterns, security issues. Report: issues_found (list with severity), suggestions (list), approved (boolean)."
-    - If security-sensitive: ALSO spawn security-auditor in parallel
-    - Wait for review results
-    - **Validation gate**: Review agent MUST return approved: true/false
-    - If review finds critical issues (severity: high):
-      - Feed issues back to implementation agent for a fix pass
-      - Re-run review (max 2 review cycles, tracked in `agents.reviewCycles`)
-    - Store review output in loop state `agents.results[]`
-    - Update pipeline stage 3 status to "completed"
-
-    **Agent handoff management:**
-    - Pass previous agent's results as context to next agent
-    - Track agent results in `.claude-harness/agents/context.json`
-    - On agent failure: retry once, then try secondary agent from same category, then STOP and report
-
-    **Post-agent verification**: Run ALL verification commands (build, test, lint, typecheck)
-    - **Effort escalation**: If attempt > 5, use max effort. If attempt > 10, also load full procedural memory.
+### Phase 4.3: Verification and Team Cleanup
 
 19. **STREAMING MEMORY UPDATES** (after EACH verification attempt):
     - **If verification failed**:
@@ -1129,7 +1004,8 @@ CURRENT_BRANCH=$(git branch --show-current)
         }
         ```
       - Increment attempt counter
-      - Try different approach (up to maxAttempts)
+      - Lead messages implementer with failure details and alternative approach
+      - Retry (up to maxAttempts)
 
     - **If verification passed**:
       - Immediately append to `${MEMORY_DIR}/procedural/successes.json`:
@@ -1149,9 +1025,14 @@ CURRENT_BRANCH=$(git branch --show-current)
         - Mark "Verify" task (Task 4) as "completed"
         - Mark "Checkpoint" task (Task 5) as "in_progress"
         - Display: `Tasks: [✓] Research [✓] Plan [✓] Implement [✓] Verify [→] Checkpoint`
-      - **Proceed to Phase 5 (Checkpoint)**
 
-20. **On escalation** (max attempts reached):
+20. **Team cleanup**:
+    - Shut down all teammates: "Ask all teammates to shut down"
+    - Clean up team: "Clean up the team"
+    - **Proceed to Phase 5 (Checkpoint)**
+
+21. **On escalation** (max attempts reached):
+    - Shut down team before escalating
     - Show attempt summary
     - Offer options: increase attempts, get help, abort
     - Do NOT proceed to checkpoint
@@ -1298,23 +1179,21 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 | Command | Behavior |
 |---------|----------|
-| `/claude-harness:flow "Add X"` | Full lifecycle: agents → implement → checkpoint → merge |
+| `/claude-harness:flow "Add X"` | Full lifecycle: team TDD (RED→GREEN→REFACTOR) → checkpoint → merge |
 | `/claude-harness:flow feature-XXX` | Resume existing feature from current phase |
-| `/claude-harness:flow --tdd "Add X"` | TDD: RED-GREEN-REFACTOR with agent assistance |
 | `/claude-harness:flow --no-merge "Add X"` | Stop at checkpoint (don't auto-merge) |
 | `/claude-harness:flow --quick "Simple fix"` | Skip planning phase |
-| `/claude-harness:flow --inline "Tiny change"` | Skip worktree (work in current dir) |
 | `/claude-harness:flow --plan-only "Big feature"` | Plan only, implement later with feature ID |
 | `/claude-harness:flow --fix feature-001 "Bug"` | Create and complete a bug fix |
-| `/claude-harness:flow --autonomous` | Batch process all active features with TDD |
+| `/claude-harness:flow --autonomous` | Batch process all active features with team per feature |
 | `/claude-harness:flow --autonomous --no-merge` | Batch process, stop each at checkpoint |
-| `/claude-harness:flow --autonomous --quick` | Autonomous without planning (TDD still enforced) |
+| `/claude-harness:flow --autonomous --quick` | Autonomous without planning phase |
 
 **Flag combinations:**
-- `--tdd --no-merge`: TDD workflow, stop at PR creation
-- `--tdd --plan-only`: Plan TDD approach, implement later
-- `--quick --inline`: Fastest path for trivial changes
+- `--no-merge --plan-only`: Plan and review approach before implementing
 - `--autonomous --no-merge --quick`: Fast batch processing without merge
+
+**Note**: TDD is always-on. Every feature gets a 3-specialist team (test-writer, implementer, reviewer) that enforces RED-GREEN-REFACTOR by design.
 
 ---
 
@@ -1322,11 +1201,9 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 | Mode | Use Case |
 |------|----------|
-| Default (`/flow "desc"`) | Standard feature with auto agent pipeline |
-| `--tdd` | Features where test coverage is critical |
+| Default (`/flow "desc"`) | Standard feature with specialist team (TDD always-on) |
 | `--no-merge` | When you want to review PR before merging |
 | `--plan-only` | Complex features that need upfront design review |
 | `--quick` | Simple fixes where planning is overhead |
-| `--inline` | Quick changes that don't need worktree isolation |
 | `--autonomous` | Batch processing an entire feature backlog unattended |
-| Empty args (menu) | Select multiple features for parallel agent spawning |
+| Empty args (menu) | Select multiple features for parallel team processing |

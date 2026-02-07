@@ -1,8 +1,8 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v5.1.4
+# Claude Harness SessionStart Hook v6.0.0
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
-# Added: GitHub repo caching for workflow optimization
+# Added: GitHub repo caching, Agent Teams as sole orchestration model
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
@@ -107,34 +107,6 @@ elif [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
     # Check if migration to v3.0 is needed (legacy v2.x detection)
     if [ ! -d "$HARNESS_DIR/memory" ]; then
         NEEDS_MIGRATION=true
-    fi
-fi
-
-# ============================================================================
-# WORKTREE DETECTION (v4.0.0)
-# ============================================================================
-
-# Detect if we're in a git worktree
-IS_WORKTREE=false
-MAIN_REPO_PATH=""
-WORKTREE_BRANCH=""
-
-GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
-GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
-
-# If git-common-dir differs from .git, we're in a worktree
-if [ -n "$GIT_COMMON_DIR" ] && [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
-    IS_WORKTREE=true
-    # Extract main repo path from git-common-dir (remove trailing .git)
-    MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
-    MAIN_HARNESS_DIR="$MAIN_REPO_PATH/.claude-harness"
-    WORKTREE_BRANCH=$(git branch --show-current 2>/dev/null)
-
-    # Use main repo's shared state for features and memory
-    if [ -d "$MAIN_HARNESS_DIR" ]; then
-        FEATURES_FILE="$MAIN_HARNESS_DIR/features/active.json"
-        # Keep local session state in worktree
-        # HARNESS_DIR stays as the worktree's .claude-harness for sessions
     fi
 fi
 
@@ -317,7 +289,7 @@ if [ -n "$LOOP_LINE" ]; then
 │  $MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
 │  /claude-harness:flow         End-to-end (recommended)          │
-│  Flags: --tdd --no-merge --plan-only --autonomous --fix         │
+│  Flags: --no-merge --plan-only --autonomous --fix         │
 └─────────────────────────────────────────────────────────────────┘"
     else
         USER_MSG="
@@ -331,7 +303,7 @@ if [ -n "$LOOP_LINE" ]; then
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
 │  /claude-harness:flow        End-to-end (recommended)           │
-│  Flags: --tdd --no-merge --plan-only --autonomous --fix         │
+│  Flags: --no-merge --plan-only --autonomous --fix         │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
 └─────────────────────────────────────────────────────────────────┘"
     fi
@@ -350,7 +322,7 @@ elif [ "$IS_V3" = true ]; then
 │  /claude-harness:flow          Unified workflow (recommended)  │
 │  /claude-harness:checkpoint    Manual commit + persist memory   │
 │  /claude-harness:merge         Merge PRs + close issues         │
-│  Flags: --tdd --no-merge --plan-only --autonomous --quick      │
+│  Flags: --no-merge --plan-only --autonomous --quick      │
 └─────────────────────────────────────────────────────────────────┘"
 else
     # v2.x display
@@ -364,7 +336,7 @@ else
 │  /claude-harness:flow        Unified workflow (recommended)     │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
 │  /claude-harness:merge       Merge PRs + close issues           │
-│  Flags: --tdd --no-merge --plan-only --autonomous --quick       │
+│  Flags: --no-merge --plan-only --autonomous --quick       │
 └─────────────────────────────────────────────────────────────────┘"
 fi
 
@@ -380,12 +352,6 @@ if [ "$NEEDS_MIGRATION" = true ]; then
      🔄 v2.x detected - run /claude-harness:setup to upgrade to v3.0"
 fi
 
-# Add worktree notice if in a worktree
-if [ "$IS_WORKTREE" = true ]; then
-    USER_MSG="$USER_MSG
-     🌳 WORKTREE MODE: $WORKTREE_BRANCH (main: $MAIN_REPO_PATH)"
-fi
-
 # ============================================================================
 # BUILD CLAUDE CONTEXT
 # ============================================================================
@@ -397,10 +363,11 @@ CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
 
-# Opus 4.6 capabilities awareness (v5.1.4)
+# Opus 4.6 capabilities awareness (v6.0.0)
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== OPUS 4.6 CAPABILITIES ==="
-CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n128K output tokens | Effort controls (low/medium/high/max) | Agent Teams | Adaptive thinking"
+CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n128K output tokens | Effort controls (low/medium/high/max) | Agent Teams (required) | Adaptive thinking"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEffort guidance: Use low for mechanical phases, max for planning/debugging. See command docs for per-phase effort tables."
+CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nAgent Teams: Every feature uses a 3-specialist team (test-writer, implementer, reviewer). TDD always-on."
 
 # Add cached GitHub repo info
 if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
@@ -408,17 +375,6 @@ if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nOwner: $GITHUB_OWNER"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nRepo: $GITHUB_REPO"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nIMPORTANT: Use these cached values for ALL GitHub API calls. Do NOT re-parse git remote."
-fi
-
-# Add worktree context if in a worktree
-if [ "$IS_WORKTREE" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== WORKTREE MODE (v4.0.0) ==="
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nBranch: $WORKTREE_BRANCH"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nMain Repo: $MAIN_REPO_PATH"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nShared State: $MAIN_HARNESS_DIR (features, memory)"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nLocal State: $HARNESS_DIR (sessions)"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nIMPORTANT: Read features/memory from main repo, write sessions locally."
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWhen running /checkpoint, changes are pushed from this worktree."
 fi
 
 if [ "$IS_V3" = true ]; then
@@ -476,7 +432,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v5.2 WORKFLOW (5 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - Unified workflow with enforced agent swarms (RECOMMENDED)\n4. /claude-harness:checkpoint - Manual commit + push + PR\n5. /claude-harness:merge - Merge PRs, close issues\nFlags: --tdd --no-merge --plan-only --autonomous --quick --inline --fix\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v6.0 WORKFLOW (5 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - Unified workflow with Agent Teams (RECOMMENDED)\n4. /claude-harness:checkpoint - Manual commit + push + PR\n5. /claude-harness:merge - Merge PRs, close issues\nFlags: --no-merge --plan-only --autonomous --quick --fix\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi

@@ -340,7 +340,6 @@ mkdir -p .claude-harness/impact
 mkdir -p .claude-harness/features/tests
 mkdir -p .claude-harness/agents
 mkdir -p .claude-harness/sessions
-mkdir -p .claude-harness/worktrees
 mkdir -p .claude-harness/prd
 # Note: memory/working and loops are session-scoped, not created at setup
 
@@ -583,15 +582,6 @@ create_file ".claude-harness/prd/subagent-prompts.json" '{
 # .claude-harness/sessions/{session-id}/loop-state.json
 
 # ============================================================================
-# 9.5. WORKTREES: Registry for parallel development worktrees
-# ============================================================================
-
-create_file ".claude-harness/worktrees/registry.json" '{
-  "version": 1,
-  "worktrees": []
-}'
-
-# ============================================================================
 # 10. CONFIG: Plugin configuration
 # ============================================================================
 
@@ -626,6 +616,11 @@ create_file ".claude-harness/config.json" '{
     "autoReflectOnCheckpoint": false,
     "autoApproveHighConfidence": true,
     "minConfidenceForAuto": "high"
+  },
+  "agentTeams": {
+    "maxTeammates": 3,
+    "displayMode": "auto",
+    "delegateMode": true
   }
 }'
 
@@ -778,10 +773,10 @@ echo "=== Environment Ready (v${DISPLAY_VERSION}) ==="
 echo "Commands (5 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
-echo "  /claude-harness:flow        - Unified workflow with agent swarms (recommended)"
+echo "  /claude-harness:flow        - Unified workflow with Agent Teams (recommended)"
 echo "  /claude-harness:checkpoint  - Save progress, persist memory"
 echo "  /claude-harness:merge       - Merge PRs, close issues"
-echo "  Flags: --tdd --no-merge --plan-only --autonomous --quick --inline --fix"
+echo "  Flags: --no-merge --plan-only --autonomous --quick --fix"
 INITEOF
 )
 create_file ".claude-harness/init.sh" "$INIT_CONTENT" "command"
@@ -860,6 +855,9 @@ create_file ".claude/settings.local.json" '{
         ]
       }
     ]
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "permissions": {
     "allow": [
@@ -999,8 +997,6 @@ echo "  │   └── tests/"
 echo "  ├── agents/"
 echo "  │   ├── context.json"
 echo "  │   └── handoffs.json"
-echo "  ├── worktrees/"
-echo "  │   └── registry.json         (worktree tracking)"
 echo "  ├── sessions/               (gitignored, per-instance)"
 echo "  │   └── {uuid}/             (session-scoped state)"
 echo "  └── config.json"
@@ -1021,14 +1017,14 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:flow --no-merge \"description\" for step-by-step control"
 echo "  5. Run /claude-harness:flow --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v5.1.4 Features (NEW - Autonomous Multi-Feature Processing):"
-echo "  • Autonomous mode - /flow --autonomous processes entire feature backlog with TDD"
-echo "  • TDD enforcement - Red-Green-Refactor cycle enforced in autonomous loop"
-echo "  • Conflict detection - Git rebase check skips conflicting features automatically"
-echo "  • Batch processing - Iterates features, checkpoints, merges, clears, repeats"
-echo "  • Effort controls - Per-phase effort optimization (low for mechanical, max for planning/debugging)"
-echo "  • Agent Teams integration - Native parallel agent spawning in flow command"
-echo "  • 128K output support - Richer PRD analysis with exhaustive subagent output"
+echo "v6.0.0 Features (NEW - Agent Teams as Sole Orchestration):"
+echo "  • Agent Teams - Every feature gets a 3-specialist team (test-writer, implementer, reviewer)"
+echo "  • TDD always-on - RED-GREEN-REFACTOR enforced by team structure, no flag needed"
+echo "  • Direct collaboration - Reviewer and implementer message each other directly"
+echo "  • Delegate mode - Lead coordinates only, specialists write code"
+echo "  • Quality gates - TeammateIdle and TaskCompleted hooks enforce verification"
+echo "  • Autonomous mode - /flow --autonomous with specialist team per feature"
+echo "  • Effort controls - Per-phase optimization (low for mechanical, max for planning/debugging)"
 echo ""
 echo "v4.5.1 Features:"
 echo "  • Dynamic versioning - setup.md reads version from plugin.json, no hardcoding"
@@ -1057,11 +1053,6 @@ echo "  • Multi-agent Decomposition - Product Analyst, Architect, QA Lead work
 echo "  • Smart Feature Generation - Extracts requirements, resolves dependencies, assigns priorities"
 echo "  • PRD Bootstrap - Quickly create feature lists for new projects"
 echo "  • Flexible Input - Inline PRD, file-based, GitHub issues, or interactive paste"
-echo "  • Git Worktree Support - True parallel development with isolated directories"
-echo "  • Auto-worktree for /do - Each new feature gets its own worktree by default"
-echo "  • --inline flag - Skip worktree for quick fixes in same directory"
-echo "  • /worktree command - Manage worktrees (create, list, remove)"
-echo "  • Worktree-aware /start - Detects worktree mode, loads shared state"
 echo "  • Automatic Session Cleanup - Old sessions cleaned on exit (PID-based)"
 echo "  • Parallel Work Streams - Multiple Claude instances on different features"
 echo "  • Session-Scoped State - Isolated state per instance (sessions/{uuid}/)"

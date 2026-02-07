@@ -33,8 +33,8 @@ On every session start:
 ## Available Commands (5 total)
 - `/claude-harness:setup` - Initialize harness in project
 - `/claude-harness:start` - Start session, compile context
-- `/claude-harness:flow` - **Unified workflow with enforced agent swarms** (recommended)
-  - Flags: `--tdd` `--no-merge` `--plan-only` `--autonomous` `--quick` `--inline` `--fix`
+- `/claude-harness:flow` - **Unified workflow with Agent Teams orchestration** (recommended)
+  - Flags: `--no-merge` `--plan-only` `--autonomous` `--quick` `--fix`
 - `/claude-harness:checkpoint` - Manual commit + push + PR
 - `/claude-harness:merge` - Merge all PRs, auto-version, release
 
