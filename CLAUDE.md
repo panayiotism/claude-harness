@@ -30,14 +30,12 @@ On every session start:
 - Commit with descriptive messages
 - Leave codebase in clean, working state
 
-## Available Commands (8 total)
+## Available Commands (5 total)
 - `/claude-harness:setup` - Initialize harness in project
 - `/claude-harness:start` - Start session, compile context
-- `/claude-harness:flow` - **End-to-end automated workflow** (recommended)
-- `/claude-harness:do` - **Step-by-step workflow**: features and fixes (manual control)
-- `/claude-harness:do-tdd` - **TDD workflow**: tests first, then implement
+- `/claude-harness:flow` - **Unified workflow with enforced agent swarms** (recommended)
+  - Flags: `--tdd` `--no-merge` `--plan-only` `--autonomous` `--quick` `--inline` `--fix`
 - `/claude-harness:checkpoint` - Manual commit + push + PR
-- `/claude-harness:orchestrate` - Spawn multi-agent team (advanced)
 - `/claude-harness:merge` - Merge all PRs, auto-version, release
 
 ## Progress Tracking

@@ -81,9 +81,9 @@ fi
 
 if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
     if [ "$LOOP_TYPE" = "fix" ]; then
-        ADDITIONAL_CONTEXT="[ACTIVE FIX IN PROGRESS]\nFix: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT/$LOOP_MAX\n\nResume with: /claude-harness:flow $LOOP_FEATURE (recommended - automated completion)\nOr: /claude-harness:do $LOOP_FEATURE (step-by-step control)"
+        ADDITIONAL_CONTEXT="[ACTIVE FIX IN PROGRESS]\nFix: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT/$LOOP_MAX\n\nResume with: /claude-harness:flow $LOOP_FEATURE"
     else
-        ADDITIONAL_CONTEXT="[ACTIVE FEATURE IN PROGRESS]\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT/$LOOP_MAX\n\nResume with: /claude-harness:flow $LOOP_FEATURE (recommended - automated completion)\nOr: /claude-harness:do $LOOP_FEATURE (step-by-step control)"
+        ADDITIONAL_CONTEXT="[ACTIVE FEATURE IN PROGRESS]\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT/$LOOP_MAX\n\nResume with: /claude-harness:flow $LOOP_FEATURE"
     fi
 fi
 

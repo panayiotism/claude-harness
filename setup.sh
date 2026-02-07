@@ -760,7 +760,7 @@ if [ -f ".claude-harness/agents/context.json" ]; then
     session=$(grep -o '"activeFeature":"[^"]*"' .claude-harness/agents/context.json 2>/dev/null | cut -d'"' -f4)
     if [ -n "$session" ]; then
         echo "Active orchestration: $session"
-        echo "Run /claude-harness:orchestrate to resume"
+        echo "Run /claude-harness:flow to resume"
     else
         echo "No active orchestration"
     fi
@@ -775,15 +775,13 @@ fi
 echo ""
 DISPLAY_VERSION=$(cat .claude-harness/.plugin-version 2>/dev/null || echo "unknown")
 echo "=== Environment Ready (v${DISPLAY_VERSION}) ==="
-echo "Commands (8 total):"
+echo "Commands (5 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
-echo "  /claude-harness:flow        - End-to-end automated workflow (recommended)"
-echo "  /claude-harness:do          - Step-by-step workflow (manual control)"
-echo "  /claude-harness:do-tdd      - TDD workflow (tests first)"
+echo "  /claude-harness:flow        - Unified workflow with agent swarms (recommended)"
 echo "  /claude-harness:checkpoint  - Save progress, persist memory"
-echo "  /claude-harness:orchestrate - Spawn multi-agent team"
 echo "  /claude-harness:merge       - Merge PRs, close issues"
+echo "  Flags: --tdd --no-merge --plan-only --autonomous --quick --inline --fix"
 INITEOF
 )
 create_file ".claude-harness/init.sh" "$INIT_CONTENT" "command"
@@ -1020,8 +1018,8 @@ echo ""
 echo "  1. Edit CLAUDE.md to describe your project"
 echo "  2. Run /claude-harness:start to compile context and see status"
 echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end automation (recommended)"
-echo "  4. Run /claude-harness:do \"feature description\" for step-by-step control"
-echo "  5. Run /claude-harness:do --fix feature-XXX \"bug\" to create bug fixes"
+echo "  4. Run /claude-harness:flow --no-merge \"description\" for step-by-step control"
+echo "  5. Run /claude-harness:flow --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
 echo "v5.1.4 Features (NEW - Autonomous Multi-Feature Processing):"
 echo "  • Autonomous mode - /flow --autonomous processes entire feature backlog with TDD"
@@ -1029,7 +1027,7 @@ echo "  • TDD enforcement - Red-Green-Refactor cycle enforced in autonomous lo
 echo "  • Conflict detection - Git rebase check skips conflicting features automatically"
 echo "  • Batch processing - Iterates features, checkpoints, merges, clears, repeats"
 echo "  • Effort controls - Per-phase effort optimization (low for mechanical, max for planning/debugging)"
-echo "  • Agent Teams integration - Native parallel agent spawning in orchestrate/do/do-tdd"
+echo "  • Agent Teams integration - Native parallel agent spawning in flow command"
 echo "  • 128K output support - Richer PRD analysis with exhaustive subagent output"
 echo ""
 echo "v4.5.1 Features:"

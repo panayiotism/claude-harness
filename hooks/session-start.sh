@@ -317,7 +317,7 @@ if [ -n "$LOOP_LINE" ]; then
 │  $MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
 │  /claude-harness:flow         End-to-end (recommended)          │
-│  /claude-harness:do           Step-by-step workflow             │
+│  Flags: --tdd --no-merge --plan-only --autonomous --fix         │
 └─────────────────────────────────────────────────────────────────┘"
     else
         USER_MSG="
@@ -331,7 +331,7 @@ if [ -n "$LOOP_LINE" ]; then
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
 │  /claude-harness:flow        End-to-end (recommended)           │
-│  /claude-harness:do          Step-by-step workflow              │
+│  Flags: --tdd --no-merge --plan-only --autonomous --fix         │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
 └─────────────────────────────────────────────────────────────────┘"
     fi
@@ -347,12 +347,10 @@ elif [ "$IS_V3" = true ]; then
 ├─────────────────────────────────────────────────────────────────┤
 │  /claude-harness:setup         Initialize harness (one-time)  │
 │  /claude-harness:start         Compile context + GitHub sync   │
-│  /claude-harness:flow          End-to-end workflow (recommended)│
-│  /claude-harness:do            Step-by-step workflow            │
-│  /claude-harness:do-tdd        TDD workflow (tests first)       │
+│  /claude-harness:flow          Unified workflow (recommended)  │
 │  /claude-harness:checkpoint    Manual commit + persist memory   │
-│  /claude-harness:orchestrate   Spawn multi-agent team           │
 │  /claude-harness:merge         Merge PRs + close issues         │
+│  Flags: --tdd --no-merge --plan-only --autonomous --quick      │
 └─────────────────────────────────────────────────────────────────┘"
 else
     # v2.x display
@@ -363,11 +361,10 @@ else
 │  $STATUS_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
 │  Commands:                                                      │
-│  /claude-harness:flow        End-to-end workflow (recommended)  │
-│  /claude-harness:do          Step-by-step workflow              │
-│  /claude-harness:orchestrate Spawn multi-agent team             │
+│  /claude-harness:flow        Unified workflow (recommended)     │
 │  /claude-harness:checkpoint  Commit, push, create/update PR     │
 │  /claude-harness:merge       Merge PRs + close issues           │
+│  Flags: --tdd --no-merge --plan-only --autonomous --quick       │
 └─────────────────────────────────────────────────────────────────┘"
 fi
 
@@ -439,7 +436,7 @@ if [ "$IS_V3" = true ]; then
     # Add failure prevention context if there are failures to avoid
     if [ "$FAILURES_COUNT" -gt 0 ]; then
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** FAILURE PREVENTION ACTIVE ***"
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n$FAILURES_COUNT past failures recorded. /claude-harness:do automatically checks these before implementation."
+        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n$FAILURES_COUNT past failures recorded. /claude-harness:flow automatically checks these before implementation."
     fi
 fi
 
@@ -461,7 +458,7 @@ fi
 
 # Add active loop context (PRIORITY)
 if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress\n\nResume options:\n  /claude-harness:flow $LOOP_FEATURE  (recommended - automated completion)\n  /claude-harness:do $LOOP_FEATURE    (step-by-step control)"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress\n\nResume: /claude-harness:flow $LOOP_FEATURE"
 
     if [ "$IS_V3" = true ]; then
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nPast failures for this feature are recorded in memory/procedural/failures.json."
@@ -470,7 +467,7 @@ if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
 fi
 
 if [ -n "$ORCH_FEATURE" ] && [ "$ORCH_FEATURE" != "null" ] && [ "$ORCH_PHASE" != "completed" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTIVE ORCHESTRATION:\nFeature: $ORCH_FEATURE\nPhase: $ORCH_PHASE\nResume with: /claude-harness:orchestrate $ORCH_FEATURE"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTIVE ORCHESTRATION:\nFeature: $ORCH_FEATURE\nPhase: $ORCH_PHASE\nResume with: /claude-harness:flow $ORCH_FEATURE"
 fi
 
 if [ -n "$LAST_SUMMARY" ]; then
@@ -479,7 +476,7 @@ fi
 
 # V3 specific recommendations
 if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v5.0 WORKFLOW (8 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - End-to-end workflow (RECOMMENDED)\n4. /claude-harness:do - Step-by-step workflow\n5. /claude-harness:do-tdd - TDD workflow (tests first)\n6. /claude-harness:checkpoint - Manual commit + push + PR\n7. /claude-harness:orchestrate - Multi-agent team (advanced)\n8. /claude-harness:merge - Merge PRs, close issues\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v5.2 WORKFLOW (5 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - Unified workflow with enforced agent swarms (RECOMMENDED)\n4. /claude-harness:checkpoint - Manual commit + push + PR\n5. /claude-harness:merge - Merge PRs, close issues\nFlags: --tdd --no-merge --plan-only --autonomous --quick --inline --fix\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
 else
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
 fi

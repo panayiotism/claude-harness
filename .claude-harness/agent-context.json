@@ -24,7 +24,7 @@
   "activeConstraints": [],
   "sharedState": {
     "discoveredPatterns": {
-      "loopArchitecture": "/implement for single-agent, /orchestrate for multi-agent"
+      "loopArchitecture": "/flow for all workflows with enforced agent pipeline"
     },
     "fileIndex": {
       "components": [],
@@ -35,7 +35,7 @@
         "commands/start.md",
         "commands/feature.md",
         "commands/checkpoint.md",
-        "commands/orchestrate.md",
+        "commands/flow.md",
         "commands/merge-all.md",
         "commands/setup.md",
         "commands/implement.md",

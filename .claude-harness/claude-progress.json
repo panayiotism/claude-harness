@@ -1,33 +1,30 @@
 {
-  "lastUpdated": "2026-02-06T15:00:00Z",
+  "lastUpdated": "2026-02-07T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Opus 4.6 optimizations - effort controls, Agent Teams, 128K output (v5.0.0)",
+    "summary": "Plugin upgrade v5.1.4 → v5.2.0 via /setup - new files for worktrees, config, handoffs, semantic entities/constraints, change-log, and auto-synced commands",
     "completedTasks": [
-      "Added effort-aware phases to flow.md, do.md, do-tdd.md with per-phase effort tables",
-      "Added Agent Teams integration to orchestrate.md, do.md, do-tdd.md with Task tool fallback",
-      "Updated prd-breakdown.md for 128K output with exhaustive subagent analysis",
-      "Increased maxAttempts from 10 to 15 across all commands",
-      "Added adaptive loop strategy with progressive effort escalation",
-      "Updated session-start.sh with Opus 4.6 capabilities banner",
-      "Updated pre-compact.sh with native compaction awareness",
-      "Bumped version to 5.0.0 across all files"
+      "Ran /claude-harness:setup to upgrade from v5.1.4 to v5.2.0",
+      "Created new v5.2.0 files: entities.json, constraints.json, change-log.json, handoffs.json, registry.json, config.json, init.sh",
+      "Auto-synced 7 command files to .claude/commands/",
+      "Updated .gitignore with harness ephemeral patterns",
+      "Updated .plugin-version to v5.2.0"
     ],
     "blockers": [],
     "nextSteps": [
-      "Run /claude-harness:setup on target projects to deploy v5.0.0",
-      "Test effort controls in a /flow workflow",
-      "Test Agent Teams spawning in /orchestrate"
+      "Run /claude-harness:start to compile context and sync GitHub",
+      "Use /claude-harness:flow for end-to-end automated workflow",
+      "Test worktree support with /claude-harness:worktree"
     ]
   },
   "recentChanges": [
+    "v5.2.0: Plugin upgrade - worktrees, config, handoffs, semantic entities/constraints, auto-synced commands",
     "v5.0.0: Opus 4.6 optimizations - effort controls, Agent Teams, 128K output, adaptive loops",
     "v4.5.1: Fix version tracking - dynamic setup.md, stale state detection, cleanup legacy loops/",
     "v4.5.0: Native Tasks integration - 5-task workflow chain with visual progress tracking",
     "v4.4.2: Fix Stop hook - convert from prompt-type (unreliable JSON) to command-type (shell script)",
     "v4.4.1: End-to-end /flow command + Stop hook schema fix",
-    "v4.4.0: Automated end-to-end /flow command, prompt-based hooks, GitHub caching, parallel memory reads",
-    "v4.3.0: Enforce GitHub issue creation - mandatory with full body templates"
+    "v4.4.0: Automated end-to-end /flow command, prompt-based hooks, GitHub caching, parallel memory reads"
   ],
   "knownIssues": [],
   "environmentState": {

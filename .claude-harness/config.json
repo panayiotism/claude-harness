@@ -1,0 +1,33 @@
+{
+  "version": 3,
+  "projectName": "claude-harness",
+  "techStack": "Unknown",
+  "verification": {
+    "build": "",
+    "tests": "",
+    "lint": "",
+    "typecheck": ""
+  },
+  "memory": {
+    "episodicMaxEntries": 50,
+    "contextCompilationEnabled": true
+  },
+  "failurePrevention": {
+    "enabled": true,
+    "similarityThreshold": 0.7
+  },
+  "impactAnalysis": {
+    "enabled": true,
+    "warnOnHighImpact": true
+  },
+  "testDriven": {
+    "enabled": true,
+    "generateTestsBeforeImplementation": true
+  },
+  "reflection": {
+    "enabled": true,
+    "autoReflectOnCheckpoint": false,
+    "autoApproveHighConfidence": true,
+    "minConfidenceForAuto": "high"
+  }
+}
