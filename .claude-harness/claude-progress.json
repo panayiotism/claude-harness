@@ -1,32 +1,33 @@
 {
-  "lastUpdated": "2026-02-08T11:00:00Z",
+  "lastUpdated": "2026-02-08T11:30:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v6.2.0: Migrated /prd-breakdown from legacy subagent pipeline to Agent Teams. Added preflight check, replaced Subagent 1/2/3 with product-analyst/architect/qa-lead teammates, switched from Task tool spawning to Agent Teams delegate mode with TeammateIdle completion. Renamed subagent-prompts.json to analyst-prompts.json.",
+    "summary": "v6.2.0-6.2.1: Two fixes. (1) Migrated /prd-breakdown from subagent pipeline to Agent Teams. (2) Fixed delegate mode loss after context compaction in --autonomous mode by persisting leadMode/leadModeRule to autonomous-state.json v2, re-reading from disk at every loop iteration, and adding a mandatory delegation gate before team creation.",
     "completedTasks": [
-      "Rewrote prd-breakdown.md Phase 1 from subagent to Agent Teams pattern",
-      "Added Phase 0.5 Agent Teams preflight check",
-      "Updated synced copy at .claude/commands/prd-breakdown.md",
-      "Updated README.md subagent references and directory tree",
-      "Renamed subagent-prompts.json to analyst-prompts.json in setup.sh",
-      "Added v6.2.0 changelog entry",
-      "Bumped version to 6.2.0 in plugin.json and .plugin-version"
+      "Migrated prd-breakdown Phase 1 from subagents to Agent Teams teammates",
+      "Added Agent Teams preflight check to prd-breakdown",
+      "Renamed subagent-prompts.json to analyst-prompts.json",
+      "Added leadMode and leadModeRule to autonomous-state.json v2 schema",
+      "Added delegation re-read at Phase A.2 (loop start) and Phase A.6 (continuation)",
+      "Added mandatory delegation gate at Phase A.4.4 (before team creation)",
+      "Added leadMode to loop-state team object in all 3 schema locations",
+      "Bumped version to 6.2.1"
     ],
     "blockers": [],
     "nextSteps": [
-      "Test /prd-breakdown with Agent Teams enabled",
-      "Consider migrating any remaining subagent references in RELEASES/ (historical, low priority)"
+      "Test /flow --autonomous with context compaction to verify delegation persists",
+      "Test /prd-breakdown with Agent Teams enabled"
     ]
   },
   "recentChanges": [
-    "v6.2.0: PRD Breakdown Agent Teams migration - subagents → teammates, preflight check, analyst-prompts.json",
+    "v6.2.1: Fix delegate mode loss after context compaction - leadMode persisted to disk, re-read at loop iterations",
+    "v6.2.0: PRD Breakdown Agent Teams migration - subagents to teammates, preflight check, analyst-prompts.json",
     "v6.1.0: Stale cache detection - GitHub version check, fix-stale-cache.sh bootstrap",
     "v6.0.1: v6 upgrade cleanup - migrate_to_v6() removes worktrees, handoffs, stale commands",
     "v6.0.0: Agent Teams as sole orchestration, removed worktrees/--tdd/--inline, always-on TDD",
     "v5.2.1: Fix setup.sh for all cases including fresh install",
     "v5.2.0: Plugin upgrade - worktrees, config, handoffs, semantic entities/constraints, auto-synced commands",
-    "v5.0.0: Opus 4.6 optimizations - effort controls, Agent Teams, 128K output, adaptive loops",
-    "v4.5.1: Fix version tracking - dynamic setup.md, stale state detection, cleanup legacy loops/"
+    "v5.0.0: Opus 4.6 optimizations - effort controls, Agent Teams, 128K output, adaptive loops"
   ],
   "knownIssues": [],
   "environmentState": {

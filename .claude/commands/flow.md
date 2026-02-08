@@ -184,6 +184,10 @@ Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-
    - Read `.claude-harness/sessions/{session-id}/autonomous-state.json`
    - If file exists and `mode` is `"autonomous"`:
      - Display resume summary: completed/skipped/failed counts
+     - **Check `leadMode` field** (backward compatibility):
+       - If present: Use as-is
+       - If missing (v1 schema): Add `"leadMode": "delegate"` and `"leadModeRule"` to the file (migrate to v2), then write back
+     - **Re-assert delegation rule from `leadModeRule`** (compaction defense)
      - Resume from where it left off (skip already completed features)
    - If file does not exist: create fresh state (step 6)
 
@@ -191,8 +195,10 @@ Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-
    - Write to `.claude-harness/sessions/{session-id}/autonomous-state.json`:
      ```json
      {
-       "version": 1,
+       "version": 2,
        "mode": "autonomous",
+       "leadMode": "delegate",
+       "leadModeRule": "Lead coordinates ONLY. Do NOT write code, do NOT modify source files, do NOT implement features directly. ALWAYS create an Agent Team with 3 specialists (test-writer, implementer, reviewer) and delegate all implementation work to them.",
        "startedAt": "{ISO timestamp}",
        "iteration": 0,
        "maxIterations": 20,
@@ -228,6 +234,7 @@ Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-
    │  AUTONOMOUS MODE                                               │
    ├─────────────────────────────────────────────────────────────────┤
    │  Features to process: {N}                                      │
+   │  Lead: DELEGATE (coordinates only, does not code)              │
    │  Mode: TDD (Red-Green-Refactor) enforced                      │
    │  Max iterations: 20                                            │
    │  Merge: {auto / --no-merge}                                   │
@@ -243,13 +250,25 @@ Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-
 
 ### Phase A.2: Feature Selection (LOOP START)
 
-10. **Re-read feature backlog**:
+10. **Re-read feature backlog AND delegation mode**:
     - Read `${FEATURES_FILE}` (may have changed after merges from prior iterations)
     - Filter features where:
       - `status` is NOT `"passing"`
       - `id` is NOT in `skippedFeatures` list
       - `id` is NOT in `failedFeatures` list
     - If no eligible features remain: **proceed to Phase A.7** (completion report)
+    - **Re-read delegation mode** (MANDATORY — survives context compaction):
+      - Read `.claude-harness/sessions/{session-id}/autonomous-state.json`
+      - Extract `leadMode` and `leadModeRule` fields
+      - If `leadMode` is `"delegate"` (or missing — default to delegate):
+        ```
+        ┌─────────────────────────────────────────────────────────────────┐
+        │  DELEGATION MODE ACTIVE                                        │
+        │  You are the LEAD COORDINATOR. Do NOT write code directly.     │
+        │  You MUST create an Agent Team for this feature.               │
+        │  Specialists: test-writer, implementer, reviewer               │
+        └─────────────────────────────────────────────────────────────────┘
+        ```
 
 11. **Select next feature**:
     - Choose the feature with the **lowest ID** (deterministic ordering)
@@ -352,6 +371,19 @@ CURRENT_BRANCH=$(git branch --show-current)
 ```
 - **STOP if on main/master** - fetch and checkout feature branch
 
+**Delegation mode gate** (MANDATORY — prevents direct implementation):
+- Read `leadMode` from `.claude-harness/sessions/{session-id}/autonomous-state.json`
+- **ASSERT**: `leadMode` MUST be `"delegate"`
+- Display:
+  ```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  DELEGATION CHECK: Lead is in DELEGATE mode                    │
+  │  Action: Create Agent Team, do NOT implement directly          │
+  └─────────────────────────────────────────────────────────────────┘
+  ```
+- If `leadMode` is missing: Set it to `"delegate"` in autonomous-state.json (self-heal)
+- **CRITICAL**: If you find yourself about to write code, modify source files, or implement features directly — STOP. Re-read this gate. You are the coordinator. Spawn the team.
+
 21. **Initialize loop state** (v6 with team tracking):
     - Write to `.claude-harness/sessions/{session-id}/loop-state.json`:
       ```json
@@ -372,6 +404,7 @@ CURRENT_BRANCH=$(git branch --show-current)
         },
         "team": {
           "teamName": "{project}-{feature-id}",
+          "leadMode": "delegate",
           "roster": ["test-writer", "implementer", "reviewer"],
           "results": [],
           "reviewCycles": 0
@@ -582,6 +615,8 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 35. **If continuing**:
     - Write updated autonomous state to disk
+    - **Re-read `leadModeRule` from autonomous-state.json** (compaction defense):
+      - Display: `"Delegation mode: {leadMode} — proceeding to next feature"`
     - **Go back to Phase A.2** (feature selection)
 
 ---
@@ -825,6 +860,7 @@ CURRENT_BRANCH=$(git branch --show-current)
       {
         "team": {
           "teamName": "{project}-{feature-id}",
+          "leadMode": "delegate",
           "roster": ["test-writer", "implementer", "reviewer"],
           "results": [],
           "reviewCycles": 0
@@ -895,6 +931,7 @@ CURRENT_BRANCH=$(git branch --show-current)
         },
         "team": {
           "teamName": "{project}-{feature-id}",
+          "leadMode": "delegate",
           "roster": ["test-writer", "implementer", "reviewer"],
           "results": [],
           "reviewCycles": 0

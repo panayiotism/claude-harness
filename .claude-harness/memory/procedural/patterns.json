@@ -31,6 +31,10 @@
     {
       "pattern": "When migrating orchestration patterns, update ALL copies: commands/, .claude/commands/ (synced copy), setup.sh (file creation), README.md (docs + directory tree)",
       "source": "v6.2.0"
+    },
+    {
+      "pattern": "Critical behavioral instructions (like delegate mode) must be persisted to state files on disk and re-read at loop iteration points — conversation-only instructions are lost during context compaction",
+      "source": "v6.2.1"
     }
   ]
 }

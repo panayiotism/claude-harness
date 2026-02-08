@@ -243,6 +243,15 @@
       "rationale": "Aligns file naming with Agent Teams terminology. Prompts are now provided inline at teammate spawn time rather than loaded from external file, but the file is kept for reference/customization.",
       "alternatives": ["Keep old filename", "Remove the prompts file entirely"],
       "impact": "setup.sh, README.md directory tree"
+    },
+    {
+      "id": "dec-20260208-003",
+      "timestamp": "2026-02-08T11:30:00Z",
+      "feature": "v6.2.1",
+      "decision": "Persist delegation mode to autonomous-state.json and re-read at every loop iteration",
+      "rationale": "Delegation instructions existed only in conversation context, which gets lost during context compaction in long autonomous sessions. Writing leadMode and leadModeRule to disk and re-reading at Phase A.2, A.4.4 gate, and A.6 ensures the instruction survives compaction.",
+      "alternatives": ["Add a hook to reinforce delegate mode", "Only re-read at Phase A.4.4", "Store in context.json instead"],
+      "impact": "commands/flow.md (autonomous-state.json v2, loop-state team object, 3 re-read points)"
     }
   ]
 }
