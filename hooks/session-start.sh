@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v6.1.0
+# Claude Harness SessionStart Hook v6.3.0
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 # Added: GitHub repo caching, Agent Teams as sole orchestration model
@@ -121,6 +121,7 @@ SESSIONEOF
 # This is more reliable than SessionEnd which may not trigger on /clear or crash
 
 SESSIONS_DIR="$HARNESS_DIR/sessions"
+RECOVERY_DIR="$SESSIONS_DIR/.recovery"
 CLEANED_COUNT=0
 
 if [ -d "$SESSIONS_DIR" ]; then
@@ -133,15 +134,55 @@ if [ -d "$SESSIONS_DIR" ]; then
         # Skip current session
         [ "$session_id" = "$SESSION_ID" ] && continue
 
+        # Skip recovery directory
+        [ "$session_id" = ".recovery" ] && continue
+
         # Skip if no session.json
         [ -f "$session_file" ] || continue
 
         # Get PID from session.json (works without jq)
         pid=$(grep '"pid"' "$session_file" 2>/dev/null | grep -o '[0-9]\+')
 
-        # If no PID or process doesn't exist, session is stale - delete it
+        # If no PID or process doesn't exist, session is stale
         # Use ps -p instead of kill -0 (more reliable on WSL)
         if [ -z "$pid" ] || ! ps -p "$pid" > /dev/null 2>&1; then
+
+            # v6.3.0: Check for interrupted loop state before deleting
+            loop_file="$session_dir/loop-state.json"
+            if [ -f "$loop_file" ]; then
+                loop_status=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+
+                if [ "$loop_status" = "in_progress" ]; then
+                    loop_feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+                    loop_attempt=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
+                    tdd_phase=$(grep -o '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+                    team_name=$(grep -o '"teamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+
+                    mkdir -p "$RECOVERY_DIR"
+
+                    # Write interrupt marker
+                    cat > "$RECOVERY_DIR/interrupted.json" << INTEOF
+{
+  "version": 1,
+  "interruptedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "staleSessionId": "$session_id",
+  "feature": "$loop_feature",
+  "attemptAtInterrupt": ${loop_attempt:-1},
+  "tddPhase": "${tdd_phase:-null}",
+  "staleTeamName": "${team_name:-null}",
+  "reason": "stale-session-detected"
+}
+INTEOF
+
+                    # Preserve loop-state for resume analysis
+                    cp "$loop_file" "$RECOVERY_DIR/loop-state.json" 2>/dev/null
+
+                    # Preserve autonomous-state if it exists
+                    [ -f "$session_dir/autonomous-state.json" ] && \
+                        cp "$session_dir/autonomous-state.json" "$RECOVERY_DIR/autonomous-state.json" 2>/dev/null
+                fi
+            fi
+
             rm -rf "$session_dir"
             CLEANED_COUNT=$((CLEANED_COUNT + 1))
         fi
@@ -277,6 +318,18 @@ if [ -f "$LOOP_FILE" ]; then
     fi
 fi
 
+# v6.3.0: Check for interrupt recovery marker
+INT_FEATURE=""
+INT_ATTEMPT=""
+INT_TEAM=""
+INT_PHASE=""
+if [ -f "$RECOVERY_DIR/interrupted.json" ]; then
+    INT_FEATURE=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    INT_ATTEMPT=$(grep -o '"attemptAtInterrupt"[[:space:]]*:[[:space:]]*[0-9]*' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
+    INT_TEAM=$(grep -o '"staleTeamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    INT_PHASE=$(grep -o '"tddPhase"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+fi
+
 # Get last session summary
 LAST_SUMMARY=""
 if [ -f "$HARNESS_DIR/claude-progress.json" ]; then
@@ -287,9 +340,13 @@ fi
 # BUILD USER-VISIBLE MESSAGE
 # ============================================================================
 
-# Check for active loop first (highest priority)
+# Check for interrupted or active loop (highest priority)
 LOOP_LINE=""
-if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
+if [ -n "$INT_FEATURE" ]; then
+    # Interrupted session takes priority over active loop
+    LOOP_LINE="INTERRUPTED: $INT_FEATURE (attempt $INT_ATTEMPT, phase: ${INT_PHASE:-unknown})"
+    LOOP_FEATURE="$INT_FEATURE"  # For resume command in banner
+elif [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
     LOOP_LINE="ACTIVE LOOP: $LOOP_FEATURE (attempt $LOOP_ATTEMPT/$LOOP_MAX)"
 fi
 
@@ -510,6 +567,17 @@ if [ "$TOTAL_FEATURES" != "0" ]; then
     else
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nFeatures: $PENDING_FEATURES pending / $TOTAL_FEATURES total"
     fi
+fi
+
+# v6.3.0: Add interrupt recovery context (highest priority)
+if [ -n "$INT_FEATURE" ]; then
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** INTERRUPTED SESSION DETECTED ***"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nFeature: $INT_FEATURE was interrupted at attempt $INT_ATTEMPT"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTDD Phase: ${INT_PHASE:-unknown}"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nStale team: ${INT_TEAM:-none} (DEAD - do NOT reuse)"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nRecovery file: .claude-harness/sessions/.recovery/interrupted.json"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nResume: /claude-harness:flow $INT_FEATURE"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nIMPORTANT: On resume, flow will offer recovery options. Do NOT retry same approach blindly."
 fi
 
 # Add active loop context (PRIORITY)

@@ -1,24 +1,59 @@
 #!/bin/bash
-# Stop Hook v5.1.4 - Check if feature completed, suggest checkpoint
-# Runs when user stops/interrupts Claude Code
-# Uses loop-state.json file check instead of prompt-based analysis
+# Stop Hook v6.3.0 - Detect completion, mark active sessions on natural stop
+# Runs when Claude finishes responding (NOT on user interrupt - Ctrl+C/Escape)
+# Within 5-second timeout (hooks.json)
 
 HARNESS_DIR="${CLAUDE_PROJECT_DIR:-.}/.claude-harness"
 SESSIONS_DIR="$HARNESS_DIR/sessions"
+RECOVERY_DIR="$SESSIONS_DIR/.recovery"
 
-# Check all session directories for completed loop states
+# Check all session directories for loop states
 for session_dir in "$SESSIONS_DIR"/*/; do
   [ -d "$session_dir" ] || continue
+  [ "$(basename "$session_dir")" = ".recovery" ] && continue
 
   loop_state="$session_dir/loop-state.json"
   [ -f "$loop_state" ] || continue
 
-  # Check if status is "completed" (without jq)
-  status=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_state" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
-  feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_state" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
+  # Read status and feature (without jq)
+  status=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_state" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+  feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_state" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 
   if [ "$status" = "completed" ] && [ -n "$feature" ]; then
     echo "Feature $feature completed. Run /claude-harness:checkpoint or /claude-harness:flow $feature to finalize."
+    # Clean up stale recovery markers for this feature
+    if [ -f "$RECOVERY_DIR/interrupted.json" ]; then
+      rec_feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+      if [ "$rec_feature" = "$feature" ]; then
+        rm -f "$RECOVERY_DIR/interrupted.json" "$RECOVERY_DIR/loop-state.json" "$RECOVERY_DIR/autonomous-state.json"
+        rmdir "$RECOVERY_DIR" 2>/dev/null
+      fi
+    fi
+    exit 0
+  fi
+
+  # For in_progress states on natural stop: Claude finished responding but
+  # the feature isn't done. This is NOT a user interrupt (those don't trigger
+  # Stop), but could be output limit, premature stop, etc.
+  if [ "$status" = "in_progress" ] && [ -n "$feature" ]; then
+    attempt=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$loop_state" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
+    tdd_phase=$(grep -o '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_state" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    team_name=$(grep -o '"teamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_state" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+
+    mkdir -p "$RECOVERY_DIR"
+    cat > "$RECOVERY_DIR/interrupted.json" << INTEOF
+{
+  "version": 1,
+  "interruptedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "staleSessionId": "$(basename "$session_dir")",
+  "feature": "$feature",
+  "attemptAtInterrupt": ${attempt:-1},
+  "tddPhase": "${tdd_phase:-null}",
+  "staleTeamName": "${team_name:-null}",
+  "reason": "natural-stop-while-in-progress"
+}
+INTEOF
+    echo "Feature $feature still in progress (attempt ${attempt:-1}). Resume with /claude-harness:flow $feature"
     exit 0
   fi
 done

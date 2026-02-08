@@ -181,6 +181,18 @@ Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-
      **EXIT** - nothing to process
 
 5. **Check for resume** (if `autonomous-state.json` already exists):
+   - **Check for interrupt recovery** (v6.3.0):
+     - Read `.claude-harness/sessions/.recovery/interrupted.json`
+     - If marker exists:
+       - The previous autonomous session was interrupted
+       - If marker's `feature` matches `currentFeature` in autonomous state:
+         - Record interrupted attempt in loop-state history:
+           ```json
+           { "attempt": {N}, "approach": "interrupted-by-user", "result": "interrupted", "timestamp": "{interruptedAt}" }
+           ```
+         - Increment attempt counter for current feature
+       - Read preserved `autonomous-state.json` from `.recovery/` if current file is missing
+       - Delete recovery marker files after processing
    - Read `.claude-harness/sessions/{session-id}/autonomous-state.json`
    - If file exists and `mode` is `"autonomous"`:
      - Display resume summary: completed/skipped/failed counts
@@ -957,6 +969,11 @@ CURRENT_BRANCH=$(git branch --show-current)
 ### Phase 4.1: Create Team and Spawn Specialists
 
 18. **Create agent team and enter delegate mode**:
+    - **STALE TEAM GUARD** (v6.3.0): Before creating team, check if `team.teamName`
+      in loop-state references a dead team from a previous session:
+      - If `team.teamName` is not null AND this is a resume (attempt > 1 or recovering from interrupt):
+        - Log: `"Stale team reference detected: {teamName}. Creating fresh team."`
+        - Clear team state: set `teamName` to null, `results` to `[]`, `reviewCycles` to 0
     - Create team: `"{project}-{feature-id}"`
     - Lead enters **delegate mode** (Shift+Tab) — coordinates only, doesn't touch code
     - Spawn 3 teammates with context from Phase 3.7:
@@ -1191,15 +1208,72 @@ CURRENT_BRANCH=$(git branch --show-current)
 ## Resume Behavior
 
 31. `/claude-harness:flow feature-XXX` (existing feature):
-    - Check feature status in active.json
-    - Resume from appropriate phase:
+    - **Check for interrupt recovery marker** (PRIORITY — v6.3.0):
+      - Read `.claude-harness/sessions/.recovery/interrupted.json`
+      - If marker exists AND marker's `feature` matches the resumed feature:
+        - Read preserved `loop-state.json` from `.claude-harness/sessions/.recovery/`
+        - Display interrupt recovery banner:
+          ```
+          ┌─────────────────────────────────────────────────────────────────┐
+          │  INTERRUPTED SESSION DETECTED                                  │
+          ├─────────────────────────────────────────────────────────────────┤
+          │  Feature: {feature-id} - {feature-name}                       │
+          │  Interrupted at: {interruptedAt}                               │
+          │  TDD Phase: {tddPhase}                                        │
+          │  Attempt: {attemptAtInterrupt}/{maxAttempts}                   │
+          │  Stale Team: {staleTeamName} (DEAD - will create new)         │
+          ├─────────────────────────────────────────────────────────────────┤
+          │  Recovery Options:                                             │
+          │  1. FRESH APPROACH (recommended) - new team, increment attempt │
+          │  2. RETRY SAME - new team, same attempt counter               │
+          │  3. RESET - start from Phase 3 (Planning) with fresh state    │
+          └─────────────────────────────────────────────────────────────────┘
+          ```
+        - **In autonomous mode**: Always choose option 1 (FRESH APPROACH) automatically
+        - **In standard mode**: Present recovery options to user via `AskUserQuestion`
+        - **Recovery actions** (shared across all options):
+          - Clear stale team reference: set `team.teamName` to null, `team.results` to `[]`, `team.reviewCycles` to 0
+          - Copy preserved loop-state to current session directory (restore attempt history)
+          - Delete recovery marker files after handling:
+            ```bash
+            rm -f .claude-harness/sessions/.recovery/interrupted.json
+            rm -f .claude-harness/sessions/.recovery/loop-state.json
+            rm -f .claude-harness/sessions/.recovery/autonomous-state.json
+            rmdir .claude-harness/sessions/.recovery 2>/dev/null
+            ```
+        - **Option 1 (FRESH APPROACH)**:
+          - Increment attempt counter by 1
+          - Record the interrupted attempt in history:
+            ```json
+            {
+              "attempt": {N},
+              "approach": "interrupted-by-user",
+              "result": "interrupted",
+              "timestamp": "{interruptedAt}",
+              "note": "Session interrupted before completion"
+            }
+            ```
+          - Load procedural memory (`failures.json`) to avoid repeating approaches
+          - Proceed to Phase 4 with fresh team creation
+        - **Option 2 (RETRY SAME)**:
+          - Keep attempt counter unchanged
+          - Do NOT add to history (treat as if attempt never happened)
+          - Proceed to Phase 4 with fresh team creation
+        - **Option 3 (RESET)**:
+          - Reset attempt counter to 1
+          - Clear history array
+          - Clear TDD state
+          - Proceed to Phase 3 (Planning)
+    - **If no interrupt marker**: Resume from feature status in active.json:
       - `pending`: Start at Phase 3 (Planning)
       - `in_progress`: Resume at Phase 4 (Implementation)
+        - **Stale team guard**: If `team.teamName` in loop-state references a team that is no longer active (e.g., from a previous session), clear team state and create a fresh team
       - `needs_review`: Check at Phase 6 (Merge)
       - `passing`: Already complete
 
 32. Interrupted flow:
-    - State preserved in session-scoped files
+    - State preserved via interrupt recovery marker in `.claude-harness/sessions/.recovery/`
+    - Dead Agent Teams automatically detected and replaced with fresh teams
     - Resume with `/claude-harness:flow feature-XXX`
 
 ---

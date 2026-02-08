@@ -230,6 +230,22 @@ Before anything else, check if legacy root-level harness files need migration:
 ## Phase 3: Loop & Orchestration State
 
 12. **Check active loop state** (PRIORITY):
+   - **Check for interrupt recovery** (v6.3.0 — highest priority):
+     - Read `.claude-harness/sessions/.recovery/interrupted.json`
+     - If marker file exists:
+       ```
+       ┌─────────────────────────────────────────────────────────────────┐
+       │  INTERRUPTED SESSION DETECTED                                  │
+       ├─────────────────────────────────────────────────────────────────┤
+       │  Feature: {feature}                                            │
+       │  TDD Phase: {tddPhase}                                        │
+       │  Attempt: {attemptAtInterrupt}/{maxAttempts}                   │
+       │  Stale Team: {staleTeamName} (dead — will create new)         │
+       │                                                                │
+       │  Resume: /claude-harness:flow {feature}                        │
+       │  (Recovery options will be presented on resume)                │
+       └─────────────────────────────────────────────────────────────────┘
+       ```
    - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
    - If session file doesn't exist, check legacy paths: `.claude-harness/loops/state.json` or `.claude-harness/loop-state.json`
    - Check `type` field to determine if this is a feature or fix
