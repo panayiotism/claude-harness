@@ -1,33 +1,37 @@
 {
-  "lastUpdated": "2026-02-08T11:30:00Z",
+  "lastUpdated": "2026-02-08T15:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v6.2.0-6.2.1: Two fixes. (1) Migrated /prd-breakdown from subagent pipeline to Agent Teams. (2) Fixed delegate mode loss after context compaction in --autonomous mode by persisting leadMode/leadModeRule to autonomous-state.json v2, re-reading from disk at every loop iteration, and adding a mandatory delegation gate before team creation.",
+    "summary": "v6.4.0: Full Hook Coverage. Expanded from 7 to 14 hook registrations across 12 event types. Created 6 new hooks: PreToolUse (branch safety + state protection with dual matchers), PostToolUse (async streaming verification after code edits), SubagentStart (teammate context injection with feature/TDD/failures/rules), PostToolUseFailure (real-time failure learning to failures.json), PermissionRequest (autonomous mode acceleration — auto-approve safe ops, auto-deny destructive), SessionStart-compact (post-compaction context recovery). Enhanced 2 existing hooks: TaskCompleted (TDD phase validation gate — RED=fail, GREEN=pass, REFACTOR=pass), TeammateIdle (lint + typecheck gates, collect all failures).",
     "completedTasks": [
-      "Migrated prd-breakdown Phase 1 from subagents to Agent Teams teammates",
-      "Added Agent Teams preflight check to prd-breakdown",
-      "Renamed subagent-prompts.json to analyst-prompts.json",
-      "Added leadMode and leadModeRule to autonomous-state.json v2 schema",
-      "Added delegation re-read at Phase A.2 (loop start) and Phase A.6 (continuation)",
-      "Added mandatory delegation gate at Phase A.4.4 (before team creation)",
-      "Added leadMode to loop-state team object in all 3 schema locations",
-      "Bumped version to 6.2.1"
+      "Created hooks/pre-tool-use.sh (branch safety + state protection, dual matchers)",
+      "Created hooks/post-tool-use.sh (async streaming verification)",
+      "Created hooks/subagent-start.sh (teammate context injection)",
+      "Created hooks/post-tool-use-failure.sh (real-time failure learning)",
+      "Created hooks/permission-request.sh (autonomous mode acceleration)",
+      "Created hooks/session-start-compact.sh (post-compaction context recovery)",
+      "Enhanced hooks/task-completed.sh with TDD phase validation",
+      "Enhanced hooks/teammate-idle.sh with lint + typecheck gates",
+      "Updated hooks/hooks.json with 8 new registrations (15 total)",
+      "Bumped version to 6.4.0"
     ],
     "blockers": [],
     "nextSteps": [
-      "Test /flow --autonomous with context compaction to verify delegation persists",
-      "Test /prd-breakdown with Agent Teams enabled"
+      "Test PreToolUse by attempting dangerous git commands in a /flow session",
+      "Test PostToolUse async verification by editing code files",
+      "Test SubagentStart context injection with Agent Teams",
+      "Test PermissionRequest in autonomous mode",
+      "Test TDD phase validation in task-completed.sh"
     ]
   },
   "recentChanges": [
+    "v6.4.0: Full hook coverage - 14 registrations across 12 event types, 6 new hooks, 2 enhanced",
+    "v6.3.0: Interrupt recovery - stale session detection, recovery markers, 3 resume options, stale team guard",
     "v6.2.1: Fix delegate mode loss after context compaction - leadMode persisted to disk, re-read at loop iterations",
     "v6.2.0: PRD Breakdown Agent Teams migration - subagents to teammates, preflight check, analyst-prompts.json",
     "v6.1.0: Stale cache detection - GitHub version check, fix-stale-cache.sh bootstrap",
     "v6.0.1: v6 upgrade cleanup - migrate_to_v6() removes worktrees, handoffs, stale commands",
-    "v6.0.0: Agent Teams as sole orchestration, removed worktrees/--tdd/--inline, always-on TDD",
-    "v5.2.1: Fix setup.sh for all cases including fresh install",
-    "v5.2.0: Plugin upgrade - worktrees, config, handoffs, semantic entities/constraints, auto-synced commands",
-    "v5.0.0: Opus 4.6 optimizations - effort controls, Agent Teams, 128K output, adaptive loops"
+    "v6.0.0: Agent Teams as sole orchestration, removed worktrees/--tdd/--inline, always-on TDD"
   ],
   "knownIssues": [],
   "environmentState": {

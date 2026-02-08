@@ -252,6 +252,60 @@
       "rationale": "Delegation instructions existed only in conversation context, which gets lost during context compaction in long autonomous sessions. Writing leadMode and leadModeRule to disk and re-reading at Phase A.2, A.4.4 gate, and A.6 ensures the instruction survives compaction.",
       "alternatives": ["Add a hook to reinforce delegate mode", "Only re-read at Phase A.4.4", "Store in context.json instead"],
       "impact": "commands/flow.md (autonomous-state.json v2, loop-state team object, 3 re-read points)"
+    },
+    {
+      "id": "dec-20260208-004",
+      "timestamp": "2026-02-08T13:00:00Z",
+      "feature": "v6.3.0",
+      "decision": "Use marker file (.recovery/interrupted.json) instead of mutating loop-state.json in bash",
+      "rationale": "Bash JSON mutation via sed is fragile and error-prone. A separate marker file is idempotent, robust, and requires no jq dependency. The file's existence IS the state.",
+      "alternatives": ["sed-based JSON status replacement", "python3 JSON manipulation", "Add interrupted field to loop-state.json"],
+      "impact": "hooks/session-start.sh, hooks/stop.sh, commands/flow.md"
+    },
+    {
+      "id": "dec-20260208-005",
+      "timestamp": "2026-02-08T13:00:00Z",
+      "feature": "v6.3.0",
+      "decision": "Primary interrupt detection in session-start.sh stale session cleanup, not Stop hook",
+      "rationale": "Stop hook does NOT fire on user interrupts (Ctrl+C/Escape) — only on natural stops. The session-start.sh stale session cleanup (PID check) is the only reliable way to detect interrupted sessions. Stop hook serves as secondary detection for natural stops.",
+      "alternatives": ["Rely solely on Stop hook", "Add a custom interrupt signal handler", "Use PreCompact hook"],
+      "impact": "hooks/session-start.sh (primary), hooks/stop.sh (secondary)"
+    },
+    {
+      "id": "dec-20260208-006",
+      "timestamp": "2026-02-08T13:00:00Z",
+      "feature": "v6.3.0",
+      "decision": "Offer 3 recovery options on interrupt resume (fresh approach, retry same, reset)",
+      "rationale": "Users interrupt for different reasons: wrong approach (need fresh), accidental (retry same), or fundamental issue (need reset). Autonomous mode auto-selects fresh approach since no user is present to choose.",
+      "alternatives": ["Always increment attempt", "Always reset to attempt 1", "Only offer 2 options"],
+      "impact": "commands/flow.md Resume Behavior section"
+    },
+    {
+      "id": "dec-20260208-007",
+      "timestamp": "2026-02-08T15:00:00Z",
+      "feature": "v6.4.0",
+      "decision": "Use PreToolUse with dual matchers (Bash + Edit|Write) instead of a single catch-all",
+      "rationale": "Different tool types need different validation logic. Bash needs command string analysis (git checkout main, push --force), while Edit/Write needs file path analysis (loop-state.json, hooks/). Single script handles both via tool_name branching, but separate matchers ensure the hook only fires for relevant tools.",
+      "alternatives": ["Single matcher-less hook that checks all tools", "Separate scripts per matcher"],
+      "impact": "hooks/pre-tool-use.sh, hooks/hooks.json (2 PreToolUse entries)"
+    },
+    {
+      "id": "dec-20260208-008",
+      "timestamp": "2026-02-08T15:00:00Z",
+      "feature": "v6.4.0",
+      "decision": "PostToolUse runs async for non-blocking streaming verification",
+      "rationale": "Running tests synchronously after every Edit/Write would block the agent for 5-30 seconds per edit. Async mode runs tests in background and delivers results next turn via additionalContext, enabling the agent to continue working while verification happens.",
+      "alternatives": ["Synchronous verification (blocking)", "Only verify on TeammateIdle (late feedback)", "Custom test-watcher daemon"],
+      "impact": "hooks/post-tool-use.sh, hooks/hooks.json (async: true)"
+    },
+    {
+      "id": "dec-20260208-009",
+      "timestamp": "2026-02-08T15:00:00Z",
+      "feature": "v6.4.0",
+      "decision": "PermissionRequest hook is no-op in standard mode, only activates in autonomous mode",
+      "rationale": "In standard mode, users can review and approve permissions themselves. Auto-approving would reduce user control. In autonomous mode, there's no user present, so safe operations should auto-approve and destructive ones should auto-deny to prevent the agent from getting stuck on permission prompts.",
+      "alternatives": ["Always active with configurable allow lists", "Auto-approve all in autonomous mode", "Never auto-approve (let Claude Code handle it)"],
+      "impact": "hooks/permission-request.sh"
     }
   ]
 }

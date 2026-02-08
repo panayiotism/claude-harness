@@ -35,6 +35,30 @@
     {
       "pattern": "Critical behavioral instructions (like delegate mode) must be persisted to state files on disk and re-read at loop iteration points — conversation-only instructions are lost during context compaction",
       "source": "v6.2.1"
+    },
+    {
+      "pattern": "Stop hook does NOT fire on user interrupt (Ctrl+C/Escape) — only on natural stops. Use session-start.sh stale PID detection for interrupt recovery, not Stop hook",
+      "source": "v6.3.0"
+    },
+    {
+      "pattern": "Use marker files for cross-session state transfer instead of mutating JSON in bash — a file's existence IS the state, no jq/sed fragility",
+      "source": "v6.3.0"
+    },
+    {
+      "pattern": "PreToolUse hooks should use permissionDecision: deny (not exit 2) to block tool calls — exit 2 shows error in verbose mode only, while deny blocks with visible feedback",
+      "source": "v6.4.0"
+    },
+    {
+      "pattern": "PostToolUse with async: true delivers results next turn via additionalContext — use for non-blocking verification, not for blocking gates",
+      "source": "v6.4.0"
+    },
+    {
+      "pattern": "SubagentStart additionalContext should be compact (~500 chars) — teammates get this on every spawn, so bloated context wastes tokens across all parallel agents",
+      "source": "v6.4.0"
+    },
+    {
+      "pattern": "PermissionRequest hooks should be no-op in standard mode — only activate in autonomous mode where no user is present to approve/deny",
+      "source": "v6.4.0"
     }
   ]
 }
