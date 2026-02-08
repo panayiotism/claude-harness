@@ -27,6 +27,10 @@
     {
       "pattern": "New model capabilities should be added as advisory annotations that are backward-compatible with older models",
       "source": "v5.0.0"
+    },
+    {
+      "pattern": "When migrating orchestration patterns, update ALL copies: commands/, .claude/commands/ (synced copy), setup.sh (file creation), README.md (docs + directory tree)",
+      "source": "v6.2.0"
     }
   ]
 }

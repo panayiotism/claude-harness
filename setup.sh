@@ -604,7 +604,7 @@ create_file ".claude-harness/agents/context.json" '{
 # 8.5. PRD: Product Requirements Document analysis
 # ============================================================================
 
-create_file ".claude-harness/prd/subagent-prompts.json" '{
+create_file ".claude-harness/prd/analyst-prompts.json" '{
   "version": 1,
   "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
   "prompts": {

@@ -1,7 +1,7 @@
 {
   "name": "claude-harness",
   "description": "Long-running agent harness with PRD analysis, unified workflow, 5-layer memory architecture, failure prevention, self-improving skills, always-on TDD via Agent Teams (test-writer, implementer, reviewer specialists), bug fix tracking, GitHub integration, Agent Teams as sole orchestration model, parallel work streams, native Tasks integration, effort-optimized phases, 128K output support, autonomous multi-feature batch processing, dynamic command sync, and consolidated command set (5 commands)",
-  "version": "6.1.0",
+  "version": "6.2.0",
   "author": {
     "name": "panayiotis"
   }

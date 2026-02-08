@@ -39,26 +39,35 @@ Arguments: $ARGUMENTS
      }
      ```
 
-## Phase 1: Parallel Subagent Analysis
+## Phase 0.5: Agent Teams Preflight
 
-4. **Load subagent prompt templates**:
-   - Read `.claude-harness/prd/subagent-prompts.json`
-   - Get prompts for Product Analyst, Architect, QA Lead
+**BLOCKER — Agent Teams required:**
+Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to `1`. If it is NOT:
+- Display: "BLOCKER: Agent Teams is not enabled. Run /claude-harness:setup, then restart Claude Code (env vars from settings.local.json take effect on next launch)."
+- **STOP. Do NOT proceed to any subsequent phase.**
 
-5. **Spawn 3 parallel subagents** (all at once using Task tool or Agent Teams):
+---
 
-   **Opus 4.6 Enhancement**: With 128K output tokens available, each subagent can produce
-   significantly richer and more exhaustive analysis. Append to each subagent prompt:
+## Phase 1: Parallel Agent Teams Analysis
+
+4. **Create analyst team and enter delegate mode**:
+   - Create agent team: `"{project}-prd-analysis"`
+   - Lead enters **delegate mode** (coordinates only, doesn't analyze)
+
+5. **Spawn 3 analyst teammates** (all at once):
+
+   **Opus 4.6 Enhancement**: With 128K output tokens available, each teammate can produce
+   significantly richer and more exhaustive analysis. Append to each teammate prompt:
    "Provide exhaustive analysis with detailed rationale for every recommendation.
    Generate comprehensive acceptance criteria including edge cases and error scenarios."
 
-   **Subagent 1: Product Analyst**
+   **Teammate: product-analyst**
    - Extracts business goals, user personas, functional requirements
    - Identifies non-functional requirements, dependencies, constraints
    - **With 128K output**: Include full user journey mapping for each persona, not just bullet points
    - Output: JSON with structured requirements list
 
-   **Subagent 2: Architect**
+   **Teammate: architect**
    - Reviews feasibility and technical complexity
    - Proposes implementation order (dependency graph)
    - Identifies risks and mitigations
@@ -66,20 +75,20 @@ Arguments: $ARGUMENTS
    - **With 128K output**: Include complete dependency graph with risk assessment per edge and migration paths
    - Output: JSON with complexity scores, dependencies, risk assessment
 
-   **Subagent 3: QA Lead**
+   **Teammate: qa-lead**
    - Defines acceptance criteria for each requirement
    - Identifies edge cases and error scenarios
    - Specifies performance/security requirements
    - **With 128K output**: Include comprehensive test matrix with boundary conditions, error paths, and integration scenarios
    - Output: JSON with verification framework and test scenarios
 
-6. **Wait for all agents to complete**:
-   - Set timeout of 10 minutes per agent
-   - Display progress: "⏳ Analyzing with Product Analyst... Architect... QA Lead..."
-   - On timeout: Retry with focused prompt (REQUIRED). If second attempt times out, proceed with partial results and log gap.
+6. **Wait for all teammates to complete**:
+   - Lead waits for each teammate via `TeammateIdle` notifications
+   - Display progress: "Analyzing with product-analyst... architect... qa-lead..."
+   - On timeout: Message teammate to wrap up. If still idle after second prompt, proceed with partial results and log gap.
 
 7. **Merge analysis results**:
-   - Combine outputs from all 3 agents
+   - Combine outputs from all 3 teammates
    - Save to `.claude-harness/prd/analysis.json`:
      ```json
      {
@@ -102,6 +111,10 @@ Arguments: $ARGUMENTS
        }
      }
      ```
+
+7.5. **Team cleanup**:
+   - Shut down all teammates: "Ask all teammates to shut down"
+   - Clean up team: "Clean up the team"
 
 ## Phase 2: Breakdown Generation
 
@@ -337,7 +350,7 @@ Arguments: $ARGUMENTS
 |----------|--------|
 | PRD not provided | Prompt via AskUserQuestion |
 | PRD too large (>100KB) | Warn user, ask to focus section |
-| Subagent timeout (>10min) | Retry with simpler prompt, or skip that agent |
+| Teammate timeout (>10min) | Message teammate to wrap up, proceed with partial results |
 | GitHub fetch fails (no MCP) | Fall back to interactive input |
 | Invalid markdown | Parse as plaintext, still extract |
 | Feature ID collision | Use timestamp suffix for uniqueness |
@@ -353,9 +366,10 @@ Arguments: $ARGUMENTS
 - **With `/start`**: Shows PRD analysis summary from prior sessions
 - **With memory**: Records decomposition patterns to procedural memory for future PRDs
 
-## Subagent Prompts
+## Analyst Prompts
 
-All three subagent prompts are stored in `.claude-harness/prd/subagent-prompts.json` and include:
-- Complete PRD context
+Each teammate receives inline context at spawn time including:
+- Complete PRD content
+- Role-specific analysis instructions
 - Expected JSON output format
 - Schema validation rules

@@ -372,7 +372,7 @@ REFACTOR → reviewer validates, messages implementer directly with issues
 **PRD Breakdown Workflow:**
 ```
 📄 Input         → Read PRD from inline, file, or GitHub
-🔍 Analyze       → 3 parallel subagents analyze requirements
+🔍 Analyze       → 3 parallel Agent Teams analysts analyze requirements
   • Product Analyst: Extracts business goals, requirements, personas
   • Architect: Assesses feasibility, tech stack, dependencies, risks
   • QA Lead: Defines acceptance criteria, test scenarios, verification
@@ -441,7 +441,7 @@ This is useful when you want to:
 │   ├── metadata.json             # PRD metadata and hash
 │   ├── analysis.json             # Analysis results
 │   ├── breakdown.json            # Decomposed features
-│   └── subagent-prompts.json     # Reusable analysis prompts
+│   └── analyst-prompts.json      # Reusable analysis prompts
 ├── loops/
 │   └── state.json                # Agentic loop state
 ├── sessions/                     # Per-session state (gitignored)
@@ -707,6 +707,7 @@ Then restart Claude Code and run `/claude-harness:setup` in your project.
 
 | Version | Changes |
 |---------|---------|
+| **6.2.0** | **PRD Breakdown Agent Teams Migration**: Migrated `/prd-breakdown` command from legacy subagent pipeline to Agent Teams. Analysis now uses a 3-teammate team (product-analyst, architect, qa-lead) with lead in delegate mode and TeammateIdle-based completion, consistent with `/flow`. Added Agent Teams preflight check. Renamed `subagent-prompts.json` → `analyst-prompts.json`. |
 | **6.1.0** | **Stale Plugin Cache Detection & Self-Healing**: `session-start.sh` now checks GitHub for the latest version (24h TTL cache) and shows a prominent warning if the plugin cache is outdated. New `fix-stale-cache.sh` bootstrap script downloads the latest version, replaces the stale cache, and updates `installed_plugins.json`. Fixes the self-referential version detection loop where both the cached plugin and project `.plugin-version` show the same stale version. |
 | **6.0.1** | **v6 Upgrade Cleanup**: `setup.sh` now auto-cleans v5.x artifacts on upgrade — removes `worktrees/` directory, `agents/handoffs.json`, stale `worktree.md` command, and `pendingHandoffs` from context.json. Removed handoffs.json creation and all `pendingHandoffs` references from commands. |
 | **6.0.0** | **Agent Teams as Sole Orchestration Model**: Replaced the entire subagent pipeline (Research → Implement → Review via Task tool) with Claude Code Agent Teams. Every feature now gets a 3-specialist team: **test-writer** (RED phase — writes failing tests), **implementer** (GREEN phase — minimal code to pass tests), **reviewer** (REFACTOR phase — direct dialogue with implementer for quality). TDD is always-on by design — no `--tdd` flag needed. Lead operates in delegate mode (coordinates only, doesn't write code). Specialists can message each other directly (reviewer ↔ implementer) instead of lossy lead-intermediated handoffs. New `TeammateIdle` and `TaskCompleted` hooks enforce verification quality gates. Parallel multi-feature mode now uses Agent Team with one teammate per feature instead of fire-and-forget subagents. `setup.sh` auto-enables `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var. Loop-state schema bumped to v6. Removed: domain agent selection matrix, complexity-based pipeline, `--tdd` flag, subagent_type references. |

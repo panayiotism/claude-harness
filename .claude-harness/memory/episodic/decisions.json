@@ -225,6 +225,24 @@
       "rationale": "Stuck users can't benefit from session-start.sh improvements (they're running the old cached version). A curl-piped script runs independently of the cache, downloads the latest tarball, replaces the cache dir, and updates installed_plugins.json. Pattern proven safe by dev-mode.sh.",
       "alternatives": ["Require manual cache deletion + reinstall", "Embed update logic in session-start hook"],
       "impact": "fix-stale-cache.sh, ~/.claude/plugins/"
+    },
+    {
+      "id": "dec-20260208-001",
+      "timestamp": "2026-02-08T11:00:00Z",
+      "feature": "v6.2.0",
+      "decision": "Migrate prd-breakdown from subagent pipeline to Agent Teams with same patterns as /flow",
+      "rationale": "v6.0.0 established Agent Teams as sole orchestration model but prd-breakdown was missed. Using same teammate pattern (delegate mode, TeammateIdle notifications, team cleanup) ensures consistency across all commands.",
+      "alternatives": ["Keep subagent/Task tool approach for PRD only", "Remove parallel analysis entirely"],
+      "impact": "commands/prd-breakdown.md, .claude/commands/prd-breakdown.md, setup.sh, README.md"
+    },
+    {
+      "id": "dec-20260208-002",
+      "timestamp": "2026-02-08T11:00:00Z",
+      "feature": "v6.2.0",
+      "decision": "Rename subagent-prompts.json to analyst-prompts.json",
+      "rationale": "Aligns file naming with Agent Teams terminology. Prompts are now provided inline at teammate spawn time rather than loaded from external file, but the file is kept for reference/customization.",
+      "alternatives": ["Keep old filename", "Remove the prompts file entirely"],
+      "impact": "setup.sh, README.md directory tree"
     }
   ]
 }
