@@ -25,6 +25,7 @@
     ]
   },
   "recentChanges": [
+    "v6.4.1: Fix PreToolUse blocking /flow state writes - removed loop-state.json and active.json from Edit/Write guard",
     "v6.4.0: Full hook coverage - 14 registrations across 12 event types, 6 new hooks, 2 enhanced",
     "v6.3.0: Interrupt recovery - stale session detection, recovery markers, 3 resume options, stale team guard",
     "v6.2.1: Fix delegate mode loss after context compaction - leadMode persisted to disk, re-read at loop iterations",

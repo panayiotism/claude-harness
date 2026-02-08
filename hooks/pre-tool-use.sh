@@ -84,17 +84,10 @@ if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ]; then
 
     DENY_REASON=""
 
-    # Block writes to loop-state.json (managed by flow command)
-    if echo "$FILE_PATH" | grep -qE '\.claude-harness/sessions/.*/loop-state\.json'; then
-        DENY_REASON="BLOCKED: loop-state.json is managed by /flow. Do not edit directly."
-    fi
-
-    # Block writes to active.json (managed by flow command)
-    if echo "$FILE_PATH" | grep -qE '\.claude-harness/features/active\.json'; then
-        DENY_REASON="BLOCKED: active.json is managed by /flow. Use flow commands to update features."
-    fi
-
     # Block writes to hooks (self-modification prevention)
+    # Note: loop-state.json and active.json are NOT blocked here because /flow
+    # legitimately writes these files using Write/Edit tools. The hook cannot
+    # distinguish between /flow state management and accidental writes.
     if echo "$FILE_PATH" | grep -qE 'hooks/(hooks\.json|.*\.sh)$'; then
         DENY_REASON="BLOCKED: Hook files are managed by the harness plugin. Do not self-modify."
     fi
