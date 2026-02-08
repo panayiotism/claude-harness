@@ -684,6 +684,22 @@ claude mcp add github -s user
 }
 ```
 
+## Troubleshooting
+
+### Stuck on Old Plugin Version
+
+If your project shows an old version (e.g., v4.4.2) even after running `claude plugin update`, your plugin cache is stale. This is a [known Claude Code issue](https://github.com/anthropics/claude-code/issues/19197) — `plugin update` updates metadata but doesn't re-download files.
+
+**Fix:** Run this in your terminal (outside Claude Code):
+
+```bash
+bash <(curl -sf https://raw.githubusercontent.com/panayiotism/claude-harness/main/fix-stale-cache.sh)
+```
+
+Then restart Claude Code and run `/claude-harness:setup` in your project.
+
+**For plugin developers:** Use `./dev-mode.sh enable` to symlink the cache to your source repo for instant updates.
+
 ## Changelog
 
 > **v4.1.0 Release Notes**: See [RELEASES/v4.1.0.md](./RELEASES/v4.1.0.md) for full details on auto-issue creation and GitHub integration.
@@ -691,6 +707,7 @@ claude mcp add github -s user
 
 | Version | Changes |
 |---------|---------|
+| **6.1.0** | **Stale Plugin Cache Detection & Self-Healing**: `session-start.sh` now checks GitHub for the latest version (24h TTL cache) and shows a prominent warning if the plugin cache is outdated. New `fix-stale-cache.sh` bootstrap script downloads the latest version, replaces the stale cache, and updates `installed_plugins.json`. Fixes the self-referential version detection loop where both the cached plugin and project `.plugin-version` show the same stale version. |
 | **6.0.1** | **v6 Upgrade Cleanup**: `setup.sh` now auto-cleans v5.x artifacts on upgrade — removes `worktrees/` directory, `agents/handoffs.json`, stale `worktree.md` command, and `pendingHandoffs` from context.json. Removed handoffs.json creation and all `pendingHandoffs` references from commands. |
 | **6.0.0** | **Agent Teams as Sole Orchestration Model**: Replaced the entire subagent pipeline (Research → Implement → Review via Task tool) with Claude Code Agent Teams. Every feature now gets a 3-specialist team: **test-writer** (RED phase — writes failing tests), **implementer** (GREEN phase — minimal code to pass tests), **reviewer** (REFACTOR phase — direct dialogue with implementer for quality). TDD is always-on by design — no `--tdd` flag needed. Lead operates in delegate mode (coordinates only, doesn't write code). Specialists can message each other directly (reviewer ↔ implementer) instead of lossy lead-intermediated handoffs. New `TeammateIdle` and `TaskCompleted` hooks enforce verification quality gates. Parallel multi-feature mode now uses Agent Team with one teammate per feature instead of fire-and-forget subagents. `setup.sh` auto-enables `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var. Loop-state schema bumped to v6. Removed: domain agent selection matrix, complexity-based pipeline, `--tdd` flag, subagent_type references. |
 | **5.2.0** | **Consolidated Workflow + Enforced Agent Swarms**: Merged /do, /do-tdd, and /orchestrate into unified /flow command with flags (--tdd, --plan-only). Agent swarms (Research → Implement → Review) are now enforced in every flow run. Auto-detects feature complexity (simple/standard/complex) and spawns specialized domain agents. Command count reduced from 8 to 5. |

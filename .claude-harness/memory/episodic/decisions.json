@@ -207,6 +207,24 @@
       "rationale": "Agent Teams is required for v6+ (all workflows depend on it). Blocking early prevents confusing failures deep in the workflow. Hooks can't set env vars (child process), so user must run setup + restart.",
       "alternatives": ["Warning only (non-blocking)", "Auto-enable via hook (impossible — child process)"],
       "impact": "hooks/session-start.sh, commands/flow.md"
+    },
+    {
+      "id": "dec-20260207-007",
+      "timestamp": "2026-02-07T17:00:00Z",
+      "feature": "v6.1.0",
+      "decision": "External GitHub version check to detect stale plugin cache",
+      "rationale": "The version detection was self-referential — both PLUGIN_VERSION and .plugin-version came from the same stale cache, so no mismatch was ever detected. An external check (GitHub API) breaks the loop.",
+      "alternatives": ["Rely on claude plugin update (broken)", "Only document manual fix", "Auto-update cache from hook (too invasive)"],
+      "impact": "hooks/session-start.sh, fix-stale-cache.sh (new)"
+    },
+    {
+      "id": "dec-20260207-008",
+      "timestamp": "2026-02-07T17:00:00Z",
+      "feature": "v6.1.0",
+      "decision": "Self-contained fix-stale-cache.sh bootstrap script runnable via curl pipe",
+      "rationale": "Stuck users can't benefit from session-start.sh improvements (they're running the old cached version). A curl-piped script runs independently of the cache, downloads the latest tarball, replaces the cache dir, and updates installed_plugins.json. Pattern proven safe by dev-mode.sh.",
+      "alternatives": ["Require manual cache deletion + reinstall", "Embed update logic in session-start hook"],
+      "impact": "fix-stale-cache.sh, ~/.claude/plugins/"
     }
   ]
 }

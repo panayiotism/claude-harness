@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v6.0.0
+# Claude Harness SessionStart Hook v6.1.0
 # Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
 # Enhanced with session-scoped state for parallel work streams
 # Added: GitHub repo caching, Agent Teams as sole orchestration model
@@ -32,6 +32,65 @@ if [ -n "$REMOTE_URL" ]; then
     fi
     # Remove .git suffix if present
     GITHUB_REPO="${GITHUB_REPO%.git}"
+fi
+
+# ============================================================================
+# STALE PLUGIN CACHE DETECTION (v6.1.0 - External version check)
+# ============================================================================
+# The plugin cache can become stale if `claude plugin update` fails to
+# re-download files. We check GitHub for the latest version with a 24h TTL.
+
+PLUGIN_REPO="panayiotism/claude-harness"
+CACHE_CHECK_FILE="$HOME/.claude/plugins/cache/claude-harness/.version-check"
+CACHE_TTL=86400  # 24 hours
+LATEST_VERSION=""
+CACHE_IS_STALE=false
+
+check_latest_version() {
+    local now
+    now=$(date +%s)
+
+    # Check if cached result is still fresh
+    if [ -f "$CACHE_CHECK_FILE" ]; then
+        local cached_time cached_ver
+        cached_time=$(head -1 "$CACHE_CHECK_FILE" 2>/dev/null)
+        cached_ver=$(tail -1 "$CACHE_CHECK_FILE" 2>/dev/null)
+        if [ -n "$cached_time" ] && [ -n "$cached_ver" ]; then
+            local age=$((now - cached_time))
+            if [ "$age" -lt "$CACHE_TTL" ]; then
+                LATEST_VERSION="$cached_ver"
+                return 0
+            fi
+        fi
+    fi
+
+    # Fetch latest version from GitHub (try gh first, fall back to curl)
+    local fetched_ver=""
+    if command -v gh &>/dev/null; then
+        fetched_ver=$(gh api "repos/$PLUGIN_REPO/contents/.claude-plugin/plugin.json" \
+            --jq '.content' 2>/dev/null | base64 -d 2>/dev/null | \
+            grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
+    fi
+    if [ -z "$fetched_ver" ]; then
+        fetched_ver=$(curl -sf --max-time 5 \
+            "https://raw.githubusercontent.com/$PLUGIN_REPO/main/.claude-plugin/plugin.json" \
+            2>/dev/null | grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
+    fi
+
+    if [ -n "$fetched_ver" ]; then
+        LATEST_VERSION="$fetched_ver"
+        mkdir -p "$(dirname "$CACHE_CHECK_FILE")"
+        printf '%s\n%s\n' "$now" "$fetched_ver" > "$CACHE_CHECK_FILE"
+    fi
+}
+
+# Run the check (network failures are silently ignored)
+check_latest_version 2>/dev/null
+
+# Compare cached plugin version against latest from GitHub
+PLUGIN_VERSION_CACHED=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
+if [ -n "$LATEST_VERSION" ] && [ -n "$PLUGIN_VERSION_CACHED" ] && [ "$LATEST_VERSION" != "$PLUGIN_VERSION_CACHED" ]; then
+    CACHE_IS_STALE=true
 fi
 
 # ============================================================================
@@ -359,6 +418,19 @@ if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
      Run /claude-harness:setup then restart Claude Code (the env var takes effect on next launch)."
 fi
 
+# Stale plugin cache warning (highest severity)
+if [ "$CACHE_IS_STALE" = true ]; then
+    USER_MSG="$USER_MSG
+     ============================================================
+     STALE PLUGIN CACHE: v$PLUGIN_VERSION_CACHED installed (v$LATEST_VERSION available)
+     claude plugin update does not refresh files.
+
+     To fix, run in your terminal (outside Claude Code):
+       bash <(curl -sf https://raw.githubusercontent.com/$PLUGIN_REPO/main/fix-stale-cache.sh)
+     Then restart Claude Code.
+     ============================================================"
+fi
+
 # ============================================================================
 # BUILD CLAUDE CONTEXT
 # ============================================================================
@@ -382,6 +454,15 @@ if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nCLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set to '1'."
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nDO NOT run /flow or any implementation workflow."
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell the user: run /claude-harness:setup, then restart Claude Code (env vars from settings.local.json take effect on next launch)."
+fi
+
+# Stale cache blocker for Claude
+if [ "$CACHE_IS_STALE" = true ]; then
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** STALE PLUGIN CACHE DETECTED ***"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nInstalled: v$PLUGIN_VERSION_CACHED | Latest: v$LATEST_VERSION"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nThe plugin cache is outdated. All commands and hooks are running old versions."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell the user to run: bash <(curl -sf https://raw.githubusercontent.com/$PLUGIN_REPO/main/fix-stale-cache.sh)"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nThen restart Claude Code and run /claude-harness:setup in their project."
 fi
 
 # Add cached GitHub repo info

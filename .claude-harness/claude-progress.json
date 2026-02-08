@@ -1,25 +1,24 @@
 {
-  "lastUpdated": "2026-02-07T16:00:00Z",
+  "lastUpdated": "2026-02-07T17:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v6.0.1: Added v6 upgrade cleanup to setup.sh. migrate_to_v6() removes worktrees/, handoffs.json, stale worktree.md, and pendingHandoffs from target projects on upgrade. Removed all pendingHandoffs references from commands.",
+    "summary": "v6.1.0: Stale plugin cache detection and self-healing. session-start.sh checks GitHub for latest version (24h TTL). fix-stale-cache.sh bootstrap script replaces stale caches. Fixes the self-referential version detection loop.",
     "completedTasks": [
-      "Added migrate_to_v6() function to setup.sh for automatic cleanup on upgrade",
-      "Removed agents/handoffs.json creation from setup.sh",
-      "Removed pendingHandoffs from agents/context.json template and live file",
-      "Cleaned handoffs references from init.sh, start.md, checkpoint.md, setup.md",
-      "Deleted stale .claude-harness/agents/handoffs.json from repo",
-      "Synced .claude/commands/ copies",
-      "Bumped version to 6.0.1"
+      "Added external GitHub version check to session-start.sh with 24h TTL cache",
+      "Created fix-stale-cache.sh bootstrap script for stuck users",
+      "Added stale cache warning to user banner and Claude context",
+      "Added Troubleshooting section to README with one-liner fix",
+      "Bumped version to 6.1.0"
     ],
     "blockers": [],
     "nextSteps": [
-      "Run /claude-harness:setup on a test project to verify v6 migration",
-      "Test /flow with Agent Teams specialist team",
-      "Test /flow --autonomous with sequential team-per-feature"
+      "Run fix-stale-cache.sh to update the local plugin cache from v4.4.2 to v6.1.0",
+      "Or run ./dev-mode.sh enable as immediate workaround",
+      "Test /flow with Agent Teams specialist team"
     ]
   },
   "recentChanges": [
+    "v6.1.0: Stale cache detection - GitHub version check, fix-stale-cache.sh bootstrap",
     "v6.0.1: v6 upgrade cleanup - migrate_to_v6() removes worktrees, handoffs, stale commands",
     "v6.0.0: Agent Teams as sole orchestration, removed worktrees/--tdd/--inline, always-on TDD",
     "v5.2.1: Fix setup.sh for all cases including fresh install",
