@@ -325,77 +325,81 @@ if [ "$IS_V3" = true ]; then
     MEMORY_LINE="Memory: $EPISODIC_COUNT decisions | $FAILURES_COUNT failures | $RULES_COUNT rules"
 fi
 
-# Build the box output (65 chars wide inner content)
-STATUS_PADDED=$(printf "%-61s" "$STATUS_LINE")
-
 # Build box based on version and state
 if [ -n "$LOOP_LINE" ]; then
     # Active loop - highest priority display
-    LOOP_PADDED=$(printf "%-61s" "$LOOP_LINE")
     RESUME_CMD="/claude-harness:flow $LOOP_FEATURE"
-    RESUME_PADDED=$(printf "%-61s" "Resume: $RESUME_CMD (or /do for step-by-step)")
+    TITLE_TEXT="CLAUDE HARNESS v$PLUGIN_VERSION"
+    TITLE_PADDED=$(printf "%-63s" "  $TITLE_TEXT")
+    LOOP_PADDED=$(printf "%-63s" "  $LOOP_LINE")
+    RESUME_PADDED=$(printf "%-63s" "  Resume: $RESUME_CMD")
+    STATUS_PADDED_L=$(printf "%-63s" "  $STATUS_LINE")
 
     if [ "$IS_V3" = true ]; then
-        MEMORY_PADDED=$(printf "%-61s" "$MEMORY_LINE")
+        MEMORY_PADDED=$(printf "%-63s" "  $MEMORY_LINE")
         USER_MSG="
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v$PLUGIN_VERSION (Memory Architecture)     │
+│$TITLE_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  $LOOP_PADDED│
-│  $RESUME_PADDED│
+│$LOOP_PADDED│
+│$RESUME_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  $STATUS_PADDED│
-│  $MEMORY_PADDED│
+│$STATUS_PADDED_L│
+│$MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:flow         End-to-end (recommended)          │
-│  Flags: --no-merge --plan-only --autonomous --fix         │
+│  /claude-harness:flow        Unified workflow (recommended)   │
+│  Flags: --no-merge --plan-only --autonomous --quick --fix   │
 └─────────────────────────────────────────────────────────────────┘"
     else
         USER_MSG="
 ┌─────────────────────────────────────────────────────────────────┐
-│                     CLAUDE HARNESS v$PLUGIN_VERSION                       │
+│$TITLE_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  $LOOP_PADDED│
-│  $RESUME_PADDED│
+│$LOOP_PADDED│
+│$RESUME_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  $STATUS_PADDED│
+│$STATUS_PADDED_L│
 ├─────────────────────────────────────────────────────────────────┤
-│  Commands:                                                      │
-│  /claude-harness:flow        End-to-end (recommended)           │
-│  Flags: --no-merge --plan-only --autonomous --fix         │
-│  /claude-harness:checkpoint  Commit, push, create/update PR     │
+│  /claude-harness:flow        Unified workflow (recommended)   │
+│  /claude-harness:checkpoint  Manual commit + persist memory   │
+│  Flags: --no-merge --plan-only --autonomous --quick --fix   │
 └─────────────────────────────────────────────────────────────────┘"
     fi
 elif [ "$IS_V3" = true ]; then
     # v3.0 display without active loop
-    MEMORY_PADDED=$(printf "%-61s" "$MEMORY_LINE")
+    TITLE_TEXT="CLAUDE HARNESS v$PLUGIN_VERSION"
+    TITLE_PADDED=$(printf "%-63s" "  $TITLE_TEXT")
+    MEMORY_PADDED=$(printf "%-63s" "  $MEMORY_LINE")
+    STATUS_PADDED_V3=$(printf "%-63s" "  $STATUS_LINE")
     USER_MSG="
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v$PLUGIN_VERSION (Memory Architecture)     │
+│$TITLE_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  $STATUS_PADDED│
-│  $MEMORY_PADDED│
+│$STATUS_PADDED_V3│
+│$MEMORY_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:setup         Initialize harness (one-time)  │
-│  /claude-harness:start         Compile context + GitHub sync   │
-│  /claude-harness:flow          Unified workflow (recommended)  │
-│  /claude-harness:checkpoint    Manual commit + persist memory   │
-│  /claude-harness:merge         Merge PRs + close issues         │
-│  Flags: --no-merge --plan-only --autonomous --quick      │
+│  /claude-harness:setup       Initialize harness (one-time)    │
+│  /claude-harness:start       Compile context + GitHub sync    │
+│  /claude-harness:flow        Unified workflow (recommended)   │
+│  /claude-harness:checkpoint  Manual commit + persist memory   │
+│  /claude-harness:merge       Merge PRs + close issues         │
+│  Flags: --no-merge --plan-only --autonomous --quick --fix   │
 └─────────────────────────────────────────────────────────────────┘"
 else
     # v2.x display
+    TITLE_TEXT="CLAUDE HARNESS v$PLUGIN_VERSION"
+    TITLE_PADDED=$(printf "%-63s" "  $TITLE_TEXT")
+    STATUS_PADDED_V2=$(printf "%-63s" "  $STATUS_LINE")
     USER_MSG="
 ┌─────────────────────────────────────────────────────────────────┐
-│                     CLAUDE HARNESS v$PLUGIN_VERSION                       │
+│$TITLE_PADDED│
 ├─────────────────────────────────────────────────────────────────┤
-│  $STATUS_PADDED│
+│$STATUS_PADDED_V2│
 ├─────────────────────────────────────────────────────────────────┤
-│  Commands:                                                      │
-│  /claude-harness:flow        Unified workflow (recommended)     │
-│  /claude-harness:checkpoint  Commit, push, create/update PR     │
-│  /claude-harness:merge       Merge PRs + close issues           │
-│  Flags: --no-merge --plan-only --autonomous --quick       │
+│  /claude-harness:flow        Unified workflow (recommended)   │
+│  /claude-harness:checkpoint  Manual commit + persist memory   │
+│  /claude-harness:merge       Merge PRs + close issues         │
+│  Flags: --no-merge --plan-only --autonomous --quick --fix   │
 └─────────────────────────────────────────────────────────────────┘"
 fi
 
