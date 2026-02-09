@@ -63,6 +63,7 @@ detect_project_info() {
     TEST_CMD=""
     LINT_CMD=""
     TYPECHECK_CMD=""
+    ACCEPTANCE_CMD=""
 
     # Detect tech stack
     if [ -f "package.json" ]; then
@@ -119,6 +120,18 @@ detect_project_info() {
             LANGUAGE="TypeScript"
         fi
 
+        # Detect acceptance/E2E test framework
+        ACCEPTANCE_CMD=""
+        if grep -q '"test:e2e"' package.json 2>/dev/null; then
+            ACCEPTANCE_CMD="npm run test:e2e"
+        elif grep -q '"test:acceptance"' package.json 2>/dev/null; then
+            ACCEPTANCE_CMD="npm run test:acceptance"
+        elif grep -q "playwright" package.json 2>/dev/null; then
+            ACCEPTANCE_CMD="npx playwright test"
+        elif grep -q "cypress" package.json 2>/dev/null; then
+            ACCEPTANCE_CMD="npx cypress run"
+        fi
+
         SCRIPTS=$(grep -A 20 '"scripts"' package.json 2>/dev/null | grep -E '^\s+"[^"]+":' | head -5 | sed 's/.*"\([^"]*\)".*/- npm run \1/' || echo "")
 
     elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
@@ -135,6 +148,14 @@ detect_project_info() {
             TECH_STACK="Flask/FastAPI"
             FRAMEWORK="fastapi"
             SCRIPTS="- python app.py\n- pytest"
+        fi
+
+        # Detect acceptance/E2E test directory
+        ACCEPTANCE_CMD=""
+        if [ -d "tests/acceptance" ]; then
+            ACCEPTANCE_CMD="pytest tests/acceptance/"
+        elif [ -d "tests/e2e" ]; then
+            ACCEPTANCE_CMD="pytest tests/e2e/"
         fi
 
     elif [ -f "Cargo.toml" ]; then
@@ -641,7 +662,8 @@ create_file ".claude-harness/config.json" '{
     "build": "'$BUILD_CMD'",
     "tests": "'$TEST_CMD'",
     "lint": "'$LINT_CMD'",
-    "typecheck": "'$TYPECHECK_CMD'"
+    "typecheck": "'$TYPECHECK_CMD'",
+    "acceptance": "'$ACCEPTANCE_CMD'"
   },
   "memory": {
     "episodicMaxEntries": 50,

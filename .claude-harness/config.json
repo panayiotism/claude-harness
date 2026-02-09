@@ -6,7 +6,8 @@
     "build": "",
     "tests": "",
     "lint": "",
-    "typecheck": ""
+    "typecheck": "",
+    "acceptance": ""
   },
   "memory": {
     "episodicMaxEntries": 50,

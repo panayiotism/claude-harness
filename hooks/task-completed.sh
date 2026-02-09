@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness TaskCompleted Hook v6.4.0
+# Claude Harness TaskCompleted Hook v6.5.0
 # Runs when an Agent Team task is being marked as complete
 # Exit code 0: allow completion
 # Exit code 2: prevent completion, send feedback
@@ -71,6 +71,22 @@ if [ -n "$TDD_PHASE" ]; then
                         exit 2
                     fi
                     ;;
+                accept)
+                    if [ $TEST_EXIT -ne 0 ]; then
+                        echo "TDD ACCEPT phase: Unit tests must still PASS during acceptance testing. Your acceptance fix broke unit tests." >&2
+                        exit 2
+                    fi
+                    # Also run acceptance tests if configured
+                    ACCEPT_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('acceptance',''))" 2>/dev/null)
+                    if [ -n "$ACCEPT_CMD" ] && [ "$ACCEPT_CMD" != "" ]; then
+                        eval "$ACCEPT_CMD" > /dev/null 2>&1
+                        ACCEPT_EXIT=$?
+                        if [ $ACCEPT_EXIT -ne 0 ]; then
+                            echo "TDD ACCEPT phase: Acceptance tests FAILED. The feature does not meet end-to-end expectations." >&2
+                            exit 2
+                        fi
+                    fi
+                    ;;
             esac
         fi
     fi
@@ -81,7 +97,7 @@ fi
 # ============================================================================
 
 # Only run verification for verify/checkpoint/review tasks
-if echo "$TASK_TITLE" | grep -qi "verify\|checkpoint\|review"; then
+if echo "$TASK_TITLE" | grep -qi "verify\|checkpoint\|review\|accept"; then
     CONFIG_FILE="$HARNESS_DIR/config.json"
     if [ -f "$CONFIG_FILE" ]; then
         FAILURES=""
@@ -105,6 +121,13 @@ if echo "$TASK_TITLE" | grep -qi "verify\|checkpoint\|review"; then
         if [ -n "$LINT_CMD" ] && [ "$LINT_CMD" != "" ]; then
             if ! eval "$LINT_CMD" > /dev/null 2>&1; then
                 FAILURES="${FAILURES}\n- Lint failed: $LINT_CMD"
+            fi
+        fi
+
+        ACCEPT_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('acceptance',''))" 2>/dev/null)
+        if [ -n "$ACCEPT_CMD" ] && [ "$ACCEPT_CMD" != "" ]; then
+            if ! eval "$ACCEPT_CMD" > /dev/null 2>&1; then
+                FAILURES="${FAILURES}\n- Acceptance tests failed: $ACCEPT_CMD"
             fi
         fi
 

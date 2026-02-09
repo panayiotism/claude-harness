@@ -24,7 +24,7 @@ Arguments: $ARGUMENTS
 2. **Creation** - GitHub issue, branch, feature entry
 3. **Planning** - Architecture analysis, approach selection
 4. **Team Setup** - Create specialist team (test-writer, implementer, reviewer)
-5. **Implementation** - Team-driven TDD: RED → GREEN → REFACTOR
+5. **Implementation** - Team-driven TDD: RED → GREEN → REFACTOR → ACCEPT
 6. **Checkpoint** - Auto-commit when tests pass
 7. **Merge** - Auto-merge when PR approved (optional)
 
@@ -41,6 +41,7 @@ Apply these effort levels per phase to optimize workflow efficiency:
 | Feature Creation | low | Template-based, deterministic steps |
 | Planning | max | Critical phase -- determines approach quality and avoids past failures |
 | Implementation | high | Core coding work benefits from careful reasoning |
+| Acceptance Testing | max | E2E verification needs deepest reasoning to design deterministic checks |
 | Verification/Debug | max | Root-cause analysis and debugging need deepest reasoning |
 | Checkpoint | low | Mechanical commit/push operations |
 | Merge | low | Mechanical merge operations |
@@ -82,7 +83,7 @@ Before anything else, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set 
    - If `--autonomous`: Compatible with `--no-merge` and `--quick`. **Proceed to Autonomous Wrapper.**
    - If `--plan-only`: Proceeds through Phases 0-3 then STOPS.
 
-**Note**: TDD (RED-GREEN-REFACTOR) is always-on. The specialist team structure (test-writer → implementer → reviewer) enforces TDD by design. No `--tdd` flag needed.
+**Note**: TDD (RED-GREEN-REFACTOR-ACCEPT) is always-on. The specialist team structure (test-writer → implementer → reviewer) enforces TDD by design. The reviewer also runs acceptance tests after REFACTOR to verify the feature works end-to-end. No `--tdd` flag needed.
 
 ---
 
@@ -157,6 +158,7 @@ When `--autonomous` is set, the entire flow operates as an outer agentic loop th
 | RED (test-writer writes tests) | high | Must define expected behavior precisely |
 | GREEN (implementer passes tests) | high | Core coding work, escalate to max on retry |
 | REFACTOR (reviewer validates) | max | Deep structural analysis benefits most from max reasoning |
+| ACCEPT (reviewer E2E verification) | max | Deterministic acceptance checks need deep reasoning |
 | Verification / Debug | max | Root-cause analysis needs deepest reasoning |
 | Checkpoint / Merge | low | Mechanical commit/push/merge operations |
 
@@ -223,7 +225,9 @@ Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-
        "tddStats": {
          "totalTestsWritten": 0,
          "totalTestsPassing": 0,
-         "featuresWithTDD": 0
+         "featuresWithTDD": 0,
+         "acceptanceTestsRun": 0,
+         "acceptanceTestsPassing": 0
        }
      }
      ```
@@ -247,7 +251,7 @@ Progressive escalation on retries (per feature): Attempts 1-5: high. Attempts 6-
    ├─────────────────────────────────────────────────────────────────┤
    │  Features to process: {N}                                      │
    │  Lead: DELEGATE (coordinates only, does not code)              │
-   │  Mode: TDD (Red-Green-Refactor) enforced                      │
+   │  Mode: TDD (Red-Green-Refactor-Accept) enforced                │
    │  Max iterations: 20                                            │
    │  Merge: {auto / --no-merge}                                   │
    │  Planning: {full / --quick}                                    │
@@ -371,11 +375,12 @@ This phase runs the standard flow Phases 1-7 with a specialist team per feature 
     - Task 3: "Write tests for {feature} (RED)" - activeForm: "Writing failing tests"
     - Task 4: "Implement {feature} (GREEN)" - activeForm: "Implementing to pass tests"
     - Task 5: "Review {feature} (REFACTOR)" - activeForm: "Reviewing {feature}"
-    - Task 6: "Verify {feature}" - activeForm: "Verifying {feature}"
-    - Task 7: "Checkpoint {feature}" - activeForm: "Creating checkpoint"
+    - Task 6: "Accept {feature} (E2E)" - activeForm: "Running acceptance tests"
+    - Task 7: "Verify {feature}" - activeForm: "Verifying {feature}"
+    - Task 8: "Checkpoint {feature}" - activeForm: "Creating checkpoint"
     - **REQUIRED**: If TaskCreate fails, retry once. If still failing, log error and continue with manual tracking in loop-state.
 
-#### A.4.4: Team-Driven Implementation (RED-GREEN-REFACTOR)
+#### A.4.4: Team-Driven Implementation (RED-GREEN-REFACTOR-ACCEPT)
 
 **Branch verification** (MANDATORY):
 ```bash
@@ -396,11 +401,11 @@ CURRENT_BRANCH=$(git branch --show-current)
 - If `leadMode` is missing: Set it to `"delegate"` in autonomous-state.json (self-heal)
 - **CRITICAL**: If you find yourself about to write code, modify source files, or implement features directly — STOP. Re-read this gate. You are the coordinator. Spawn the team.
 
-21. **Initialize loop state** (v6 with team tracking):
+21. **Initialize loop state** (v7 with team tracking + acceptance):
     - Write to `.claude-harness/sessions/{session-id}/loop-state.json`:
       ```json
       {
-        "version": 6,
+        "version": 7,
         "feature": "{feature-id}",
         "featureName": "{description}",
         "type": "feature",
@@ -412,14 +417,16 @@ CURRENT_BRANCH=$(git branch --show-current)
         "tdd": {
           "phase": null,
           "testsWritten": [],
-          "testStatus": null
+          "testStatus": null,
+          "acceptanceStatus": null
         },
         "team": {
           "teamName": "{project}-{feature-id}",
           "leadMode": "delegate",
           "roster": ["test-writer", "implementer", "reviewer"],
           "results": [],
-          "reviewCycles": 0
+          "reviewCycles": 0,
+          "acceptCycles": 0
         },
         "tasks": {
           "enabled": true,
@@ -436,7 +443,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     - Spawn 3 teammates with context:
       - **test-writer**: feature requirements, test patterns from project, acceptance criteria, past failures to avoid
       - **implementer**: feature requirements, plan from Phase 3, codebase patterns, past failures to avoid
-      - **reviewer**: feature requirements, codebase conventions, security concerns if applicable
+      - **reviewer**: feature requirements, codebase conventions, security concerns, acceptance test command (from `verification.acceptance` in config.json), feature acceptance criteria
     - Require plan approval for all teammates (lead reviews their approach before they write code)
 
 23. **RED — test-writer writes failing tests** (effort: high):
@@ -486,6 +493,47 @@ CURRENT_BRANCH=$(git branch --show-current)
     - Run tests after EACH refactoring change
     - **If tests break during refactoring**: Revert that specific change and stop refactoring
     - Update TDD state: `tdd.phase = "refactor"`
+
+25.5. **ACCEPT — reviewer runs acceptance tests** (effort: max):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  ACCEPT PHASE: reviewer verifies {feature-id} end-to-end      │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Unit tests pass. Now verify the feature works as a user       │
+    │  would experience it (deterministic acceptance criteria).      │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+    - Lead messages reviewer: "Unit tests and refactoring complete. Now write and run acceptance tests that verify this feature works **end-to-end from a user/production perspective**. Exercise the feature as a real user would and assert deterministic expected outcomes."
+    - **Reviewer acceptance test workflow**:
+      1. Read the feature's acceptance criteria (from GitHub issue body or feature entry)
+      2. Design deterministic acceptance scenarios that test the feature from the outside:
+         - For web apps: HTTP request → expected response body/status
+         - For CLIs: command execution → expected stdout/exit code
+         - For libraries: public API call → expected return value
+         - For data pipelines: input data → expected output data
+         - For config/docs: validate generated output matches expected structure
+      3. Write acceptance test file(s) that assert these scenarios
+      4. Run acceptance tests:
+         - **If `verification.acceptance` is configured in config.json**: Run that command
+         - **If not configured**: Run the acceptance tests using the project's standard test runner (`verification.tests`)
+      5. Report results to lead with pass/fail and evidence (actual vs expected output)
+    - **If acceptance tests PASS**:
+      - Update TDD state: `tdd.phase = "accept"`, `tdd.acceptanceStatus = "passing"`
+      - Update `tddStats.acceptanceTestsRun` and `tddStats.acceptanceTestsPassing` in autonomous state
+      - Proceed to Final Verification Gate
+    - **If acceptance tests FAIL**:
+      - Reviewer messages implementer directly with failure details:
+        - Include: specific failure, expected vs actual output, reproduction steps
+        - **Direct dialogue, no lead intermediation** (same pattern as REFACTOR)
+      - Implementer investigates and fixes the issue
+      - Implementer notifies reviewer when fix is applied
+      - Reviewer re-runs acceptance tests
+      - Run unit tests after EACH acceptance fix to prevent regression:
+        - **If unit tests break during acceptance fix**: Revert that specific change, notify reviewer
+      - **Max 2 acceptance rounds** (tracked in `team.acceptCycles`)
+      - If exceeded in autonomous mode: Log warning to `${MEMORY_DIR}/procedural/failures.json` with `"type": "acceptance"`, mark as partial acceptance, proceed to verification (don't block autonomous pipeline)
+      - Update `tddStats.acceptanceTestsRun` in autonomous state
+    - **Record acceptance test results to procedural memory** (regardless of outcome)
 
 26. **Final Verification Gate** (MANDATORY):
     - Run ALL verification commands one final time
@@ -590,7 +638,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     ```
 
 32. **Reset session state**:
-    - Reset loop-state.json to idle (v6 schema)
+    - Reset loop-state.json to idle (v7 schema)
     - Clear TDD state, team state
     - Clear task references (if tasks were enabled)
 
@@ -598,7 +646,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │  AUTONOMOUS: Feature {feature-id} COMPLETE                    │
-    │  RED -> GREEN -> REFACTOR                                     │
+    │  RED -> GREEN -> REFACTOR -> ACCEPT                           │
     │  Tests: {N} written, {N} passing                              │
     │  PR: #{number} {merged/awaiting review}                       │
     │  Attempts: {N} | Duration: {time}                             │
@@ -656,6 +704,8 @@ CURRENT_BRANCH=$(git branch --show-current)
     │  TDD Stats:                                                    │
     │  • Tests written: {N}                                          │
     │  • Tests passing: {N}                                          │
+    │  • Acceptance tests run: {N}                                   │
+    │  • Acceptance tests passing: {N}                               │
     │  • Features with TDD: {N}/{total}                              │
     │                                                                │
     │  Memory Updated:                                               │
@@ -822,10 +872,15 @@ CURRENT_BRANCH=$(git branch --show-current)
         - activeForm: "Verifying {feature}"
         - addBlockedBy: [Task 3 ID]
 
-      Task 5: "Checkpoint {feature}"
+      Task 5: "Accept {feature}"
+        - description: "Run acceptance tests to verify feature works end-to-end from user perspective"
+        - activeForm: "Running acceptance tests for {feature}"
+        - addBlockedBy: [Task 4 ID]
+
+      Task 6: "Checkpoint {feature}"
         - description: "Commit, push, create PR"
         - activeForm: "Creating checkpoint for {feature}"
-        - addBlockedBy: [Task 4 ID]
+        - addBlockedBy: [Task 5 ID]
       ```
     - Store task IDs in loop-state for reference
     - **REQUIRED**: If TaskCreate fails, retry once. If still failing, log error and continue with manual tracking in loop-state.
@@ -835,7 +890,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     ┌─────────────────────────────────────────────────────────────────┐
     │  FLOW: Task chain created                                       │
     │  Tasks: [ ] Research → [ ] Plan → [ ] Implement → [ ] Verify   │
-    │         → [ ] Checkpoint                                        │
+    │         → [ ] Accept → [ ] Checkpoint                           │
     └─────────────────────────────────────────────────────────────────┘
     ```
 
@@ -853,7 +908,7 @@ CURRENT_BRANCH=$(git branch --show-current)
    - Every feature gets the same 3-specialist team:
      - **test-writer**: Owns test files. Writes failing tests that define expected behavior (RED phase).
      - **implementer**: Owns source files. Writes minimal code to make tests pass (GREEN phase).
-     - **reviewer**: Reviews implementation, messages implementer directly with issues (REFACTOR phase).
+     - **reviewer**: Reviews implementation quality (REFACTOR phase), then writes and runs deterministic acceptance tests to verify the feature works end-to-end (ACCEPT phase). Messages implementer directly with issues in both phases.
 
 15.9. **Prepare specialist context** (from Phase 3 plan):
    - **test-writer context**: acceptance criteria, test patterns for project language, verification commands
@@ -864,10 +919,10 @@ CURRENT_BRANCH=$(git branch --show-current)
        - Go: `**/*_test.go`
        - Shell/Bash: `**/test_*.sh`, `**/*_test.sh`
    - **implementer context**: files to modify, codebase patterns, implementation plan, past failures to avoid
-   - **reviewer context**: codebase conventions, security concerns, quality standards
+   - **reviewer context**: codebase conventions, security concerns, quality standards, acceptance test command (from `verification.acceptance` in config.json), feature acceptance criteria from GitHub issue
 
 15.10. **Store team roster in loop state**:
-    - Add to loop-state (v6 schema, see step 17):
+    - Add to loop-state (v7 schema, see step 17):
       ```json
       {
         "team": {
@@ -875,7 +930,8 @@ CURRENT_BRANCH=$(git branch --show-current)
           "leadMode": "delegate",
           "roster": ["test-writer", "implementer", "reviewer"],
           "results": [],
-          "reviewCycles": 0
+          "reviewCycles": 0,
+          "acceptCycles": 0
         }
       }
       ```
@@ -923,11 +979,11 @@ CURRENT_BRANCH=$(git branch --show-current)
     - **STOP if on main/master**
     - Fetch and checkout correct branch if needed
 
-17. **Initialize loop state** (v6 with team + task integration):
+17. **Initialize loop state** (v7 with team + task + acceptance integration):
     - Write to `.claude-harness/sessions/{session-id}/loop-state.json`:
       ```json
       {
-        "version": 6,
+        "version": 7,
         "feature": "feature-XXX",
         "featureName": "{description}",
         "type": "feature",
@@ -939,14 +995,16 @@ CURRENT_BRANCH=$(git branch --show-current)
         "tdd": {
           "phase": null,
           "testsWritten": [],
-          "testStatus": null
+          "testStatus": null,
+          "acceptanceStatus": null
         },
         "team": {
           "teamName": "{project}-{feature-id}",
           "leadMode": "delegate",
           "roster": ["test-writer", "implementer", "reviewer"],
           "results": [],
-          "reviewCycles": 0
+          "reviewCycles": 0,
+          "acceptCycles": 0
         },
         "tasks": {
           "enabled": true,
@@ -961,7 +1019,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     - Call `TaskUpdate` to mark "Implement" task (Task 3) as "in_progress"
     - Display task progress:
       ```
-      Tasks: [✓] Research [✓] Plan [→] Implement [ ] Verify [ ] Checkpoint
+      Tasks: [✓] Research [✓] Plan [→] Implement [ ] Verify [ ] Accept [ ] Checkpoint
       ```
 
 ---
@@ -979,7 +1037,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     - Spawn 3 teammates with context from Phase 3.7:
       - **test-writer**: feature requirements, test patterns from project, acceptance criteria, past failures to avoid
       - **implementer**: feature requirements, implementation plan from Phase 3, codebase patterns, past failures to avoid
-      - **reviewer**: feature requirements, codebase conventions, security concerns if applicable, verification commands
+      - **reviewer**: feature requirements, codebase conventions, security concerns if applicable, verification commands, acceptance test command (from `verification.acceptance` in config.json), feature acceptance criteria
     - Require plan approval for all teammates (lead reviews their approach before they write code)
     - Display:
       ```
@@ -993,7 +1051,7 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 ---
 
-### Phase 4.2: Team-Driven TDD (RED → GREEN → REFACTOR)
+### Phase 4.2: Team-Driven TDD (RED → GREEN → REFACTOR → ACCEPT)
 
 **Step 1: RED — test-writer writes failing tests** (effort: high):
     ```
@@ -1048,6 +1106,51 @@ CURRENT_BRANCH=$(git branch --show-current)
     - **If tests break during refactoring**: Revert that specific change and stop refactoring
     - Update TDD state: `tdd.phase = "refactor"`
 
+**Step 4: ACCEPT — reviewer runs acceptance tests** (effort: max):
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  ACCEPT PHASE: reviewer verifies {feature-id} end-to-end      │
+    ├─────────────────────────────────────────────────────────────────┤
+    │  Unit tests pass. Now verify the feature works as a user       │
+    │  would experience it (deterministic acceptance criteria).      │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+    - Lead messages reviewer: "Unit tests and refactoring complete. Now write and run acceptance tests that verify this feature works **end-to-end from a user/production perspective**. Exercise the feature as a real user would and assert deterministic expected outcomes."
+    - **Reviewer acceptance test workflow**:
+      1. Read the feature's acceptance criteria (from GitHub issue body or feature entry)
+      2. Design deterministic acceptance scenarios that test the feature from the outside:
+         - For web apps: HTTP request → expected response body/status
+         - For CLIs: command execution → expected stdout/exit code
+         - For libraries: public API call → expected return value
+         - For data pipelines: input data → expected output data
+         - For config/docs: validate generated output matches expected structure
+      3. Write acceptance test file(s) that assert these scenarios
+      4. Run acceptance tests:
+         - **If `verification.acceptance` is configured in config.json**: Run that command
+         - **If not configured**: Run the acceptance tests using the project's standard test runner (`verification.tests`)
+      5. Report results to lead with pass/fail and evidence (actual vs expected output)
+    - **If acceptance tests PASS**:
+      - Update TDD state: `tdd.phase = "accept"`, `tdd.acceptanceStatus = "passing"`
+      - Proceed to Phase 4.3 (Verification and Team Cleanup)
+    - **If acceptance tests FAIL**:
+      - Reviewer messages implementer directly with failure details:
+        - Include: specific failure, expected vs actual output, reproduction steps
+        - Example: "Acceptance test 'user login redirects to dashboard' failed: expected 302 redirect to /dashboard, got 200 with login page. The session token is not being set."
+        - **Direct dialogue, no lead intermediation** (same pattern as REFACTOR)
+      - Implementer investigates and fixes the issue
+      - Implementer notifies reviewer when fix is applied
+      - Reviewer re-runs acceptance tests
+      - Run unit tests after EACH acceptance fix to prevent regression:
+        - **If unit tests break during acceptance fix**: Revert that specific change, notify reviewer
+      - **Max 2 acceptance rounds** (tracked in `team.acceptCycles`):
+        - If exceeded: Lead intervenes
+        - Lead can either:
+          a. Allow one more round with additional context from procedural memory
+          b. Mark acceptance as "partial" and proceed (with a warning recorded to memory)
+      - Update TDD state: `tdd.phase = "accept"`, `tdd.acceptanceStatus = "failing"`
+    - **Record acceptance test results to procedural memory** (regardless of outcome):
+      - Append to `${MEMORY_DIR}/procedural/successes.json` (if passed) or `${MEMORY_DIR}/procedural/failures.json` (if failed) with `"type": "acceptance"` tag
+
 ---
 
 ### Phase 4.3: Verification and Team Cleanup
@@ -1086,8 +1189,9 @@ CURRENT_BRANCH=$(git branch --show-current)
       - **Update tasks** (if enabled):
         - Mark "Implement" task (Task 3) as "completed"
         - Mark "Verify" task (Task 4) as "completed"
-        - Mark "Checkpoint" task (Task 5) as "in_progress"
-        - Display: `Tasks: [✓] Research [✓] Plan [✓] Implement [✓] Verify [→] Checkpoint`
+        - Mark "Accept" task (Task 5) as "completed"
+        - Mark "Checkpoint" task (Task 6) as "in_progress"
+        - Display: `Tasks: [✓] Research [✓] Plan [✓] Implement [✓] Verify [✓] Accept [→] Checkpoint`
 
 20. **Team cleanup**:
     - Shut down all teammates: "Ask all teammates to shut down"
@@ -1126,8 +1230,8 @@ CURRENT_BRANCH=$(git branch --show-current)
     - Update feature entry with prNumber
 
 24.5. **Complete checkpoint task** (if tasks enabled):
-    - Mark "Checkpoint" task (Task 5) as "completed"
-    - All tasks now complete: `[✓] Research [✓] Plan [✓] Implement [✓] Verify [✓] Checkpoint`
+    - Mark "Checkpoint" task (Task 6) as "completed"
+    - All tasks now complete: `[✓] Research [✓] Plan [✓] Implement [✓] Verify [✓] Accept [✓] Checkpoint`
 
 25. **Display checkpoint summary**:
     ```
@@ -1135,7 +1239,8 @@ CURRENT_BRANCH=$(git branch --show-current)
     │  FLOW: Checkpoint complete                                     │
     │  Commit: {hash}                                                 │
     │  PR: #{number} - awaiting review                               │
-    │  Tasks: [✓] Research [✓] Plan [✓] Implement [✓] Verify [✓] PR │
+    │  Tasks: [✓] Research [✓] Plan [✓] Implement [✓] Verify        │
+    │         [✓] Accept [✓] PR                                      │
     └─────────────────────────────────────────────────────────────────┘
     ```
 
@@ -1179,7 +1284,7 @@ CURRENT_BRANCH=$(git branch --show-current)
 ## Phase 7: Completion Report
 
 29.5. **Clean up tasks** (if tasks enabled):
-    - All 5 tasks should be "completed"
+    - All 6 tasks should be "completed"
     - Tasks remain in `~/.claude/tasks/` for history
     - Clear task references from loop-state
 
@@ -1192,7 +1297,7 @@ CURRENT_BRANCH=$(git branch --show-current)
     │  Description: {name}                                           │
     │  Issue: #{issue} (closed)                                      │
     │  PR: #{pr} (merged)                                            │
-    │  Tasks: 5/5 completed                                          │
+    │  Tasks: 6/6 completed                                          │
     │  Attempts: {N}                                                 │
     │  Duration: {time}                                              │
     ├─────────────────────────────────────────────────────────────────┤
@@ -1299,7 +1404,7 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 | Command | Behavior |
 |---------|----------|
-| `/claude-harness:flow "Add X"` | Full lifecycle: team TDD (RED→GREEN→REFACTOR) → checkpoint → merge |
+| `/claude-harness:flow "Add X"` | Full lifecycle: team TDD (RED→GREEN→REFACTOR→ACCEPT) → checkpoint → merge |
 | `/claude-harness:flow feature-XXX` | Resume existing feature from current phase |
 | `/claude-harness:flow --no-merge "Add X"` | Stop at checkpoint (don't auto-merge) |
 | `/claude-harness:flow --quick "Simple fix"` | Skip planning phase |
@@ -1313,7 +1418,7 @@ CURRENT_BRANCH=$(git branch --show-current)
 - `--no-merge --plan-only`: Plan and review approach before implementing
 - `--autonomous --no-merge --quick`: Fast batch processing without merge
 
-**Note**: TDD is always-on. Every feature gets a 3-specialist team (test-writer, implementer, reviewer) that enforces RED-GREEN-REFACTOR by design.
+**Note**: TDD is always-on. Every feature gets a 3-specialist team (test-writer, implementer, reviewer) that enforces RED-GREEN-REFACTOR-ACCEPT by design. After code review, the reviewer writes and runs deterministic acceptance tests to verify the feature works end-to-end.
 
 ---
 
