@@ -46,7 +46,7 @@ if [ -z "$TEST_CMD" ] || [ "$TEST_CMD" = "" ]; then
 fi
 
 # Run tests and capture output
-TEST_OUTPUT=$(eval "$TEST_CMD" 2>&1)
+TEST_OUTPUT=$(timeout 10 bash -c "$TEST_CMD" 2>&1)
 TEST_EXIT=$?
 
 # Truncate to last 20 lines

@@ -38,21 +38,21 @@ if [ -f "$CONFIG_FILE" ]; then
 
     # Tests
     if [ -n "$TEST_CMD" ] && [ "$TEST_CMD" != "" ]; then
-        if ! eval "$TEST_CMD" > /dev/null 2>&1; then
+        if ! timeout 10 bash -c "$TEST_CMD" > /dev/null 2>&1; then
             FAILURES="${FAILURES}\n- Tests failing: $TEST_CMD"
         fi
     fi
 
     # Lint (v6.4.0)
     if [ -n "$LINT_CMD" ] && [ "$LINT_CMD" != "" ]; then
-        if ! eval "$LINT_CMD" > /dev/null 2>&1; then
+        if ! timeout 10 bash -c "$LINT_CMD" > /dev/null 2>&1; then
             FAILURES="${FAILURES}\n- Lint failing: $LINT_CMD"
         fi
     fi
 
     # Typecheck (v6.4.0)
     if [ -n "$TC_CMD" ] && [ "$TC_CMD" != "" ]; then
-        if ! eval "$TC_CMD" > /dev/null 2>&1; then
+        if ! timeout 10 bash -c "$TC_CMD" > /dev/null 2>&1; then
             FAILURES="${FAILURES}\n- Typecheck failing: $TC_CMD"
         fi
     fi

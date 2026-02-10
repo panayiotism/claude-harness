@@ -18,6 +18,12 @@ TASK_TITLE="${CLAUDE_TASK_TITLE:-}"
 # Read stdin for additional context (teammate_name etc.)
 INPUT=$(cat 2>/dev/null || true)
 
+# Check if this is a verification-related task
+IS_VERIFY_TASK=""
+if echo "$TASK_TITLE" | grep -qi "verify\|checkpoint\|review\|accept"; then
+    IS_VERIFY_TASK="yes"
+fi
+
 # ============================================================================
 # TDD PHASE VALIDATION (v6.4.0)
 # ============================================================================
@@ -43,13 +49,13 @@ if [ -d "$SESSIONS_DIR" ]; then
 fi
 
 # If TDD phase is active, validate test expectations
-if [ -n "$TDD_PHASE" ]; then
+if [ -n "$TDD_PHASE" ] && [ -n "$IS_VERIFY_TASK" ]; then
     CONFIG_FILE="$HARNESS_DIR/config.json"
     if [ -f "$CONFIG_FILE" ]; then
         TEST_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('tests',''))" 2>/dev/null)
 
         if [ -n "$TEST_CMD" ] && [ "$TEST_CMD" != "" ]; then
-            eval "$TEST_CMD" > /dev/null 2>&1
+            timeout 10 bash -c "$TEST_CMD" > /dev/null 2>&1
             TEST_EXIT=$?
 
             case "$TDD_PHASE" in
@@ -79,7 +85,7 @@ if [ -n "$TDD_PHASE" ]; then
                     # Also run acceptance tests if configured
                     ACCEPT_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('acceptance',''))" 2>/dev/null)
                     if [ -n "$ACCEPT_CMD" ] && [ "$ACCEPT_CMD" != "" ]; then
-                        eval "$ACCEPT_CMD" > /dev/null 2>&1
+                        timeout 10 bash -c "$ACCEPT_CMD" > /dev/null 2>&1
                         ACCEPT_EXIT=$?
                         if [ $ACCEPT_EXIT -ne 0 ]; then
                             echo "TDD ACCEPT phase: Acceptance tests FAILED. The feature does not meet end-to-end expectations." >&2
@@ -107,26 +113,26 @@ if echo "$TASK_TITLE" | grep -qi "verify\|checkpoint\|review\|accept"; then
         LINT_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('lint',''))" 2>/dev/null)
 
         if [ -n "$BUILD_CMD" ] && [ "$BUILD_CMD" != "" ]; then
-            if ! eval "$BUILD_CMD" > /dev/null 2>&1; then
+            if ! timeout 10 bash -c "$BUILD_CMD" > /dev/null 2>&1; then
                 FAILURES="${FAILURES}\n- Build failed: $BUILD_CMD"
             fi
         fi
 
         if [ -n "$TEST_CMD" ] && [ "$TEST_CMD" != "" ]; then
-            if ! eval "$TEST_CMD" > /dev/null 2>&1; then
+            if ! timeout 10 bash -c "$TEST_CMD" > /dev/null 2>&1; then
                 FAILURES="${FAILURES}\n- Tests failed: $TEST_CMD"
             fi
         fi
 
         if [ -n "$LINT_CMD" ] && [ "$LINT_CMD" != "" ]; then
-            if ! eval "$LINT_CMD" > /dev/null 2>&1; then
+            if ! timeout 10 bash -c "$LINT_CMD" > /dev/null 2>&1; then
                 FAILURES="${FAILURES}\n- Lint failed: $LINT_CMD"
             fi
         fi
 
         ACCEPT_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('acceptance',''))" 2>/dev/null)
         if [ -n "$ACCEPT_CMD" ] && [ "$ACCEPT_CMD" != "" ]; then
-            if ! eval "$ACCEPT_CMD" > /dev/null 2>&1; then
+            if ! timeout 10 bash -c "$ACCEPT_CMD" > /dev/null 2>&1; then
                 FAILURES="${FAILURES}\n- Acceptance tests failed: $ACCEPT_CMD"
             fi
         fi

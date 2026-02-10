@@ -709,6 +709,36 @@ Then restart Claude Code and run `/claude-harness:setup` in your project.
 
 ## Changelog
 
+### v6.5.1 (2026-02-10) - Performance Hotfix
+
+**CRITICAL FIX**: Resolves 40+ minute agent hang issue in v6.5.0
+
+#### Fixes
+- **Performance**: Add 10-second timeout wrappers to all `eval` commands in hooks (task-completed.sh, teammate-idle.sh, post-tool-use.sh)
+  - Prevents indefinite blocking when test suites or verification commands take too long
+  - Hook timeouts in hooks.json were not enforced on the actual eval commands
+- **Performance**: Make TaskCompleted hook async (prevents blocking teammates during verification)
+  - Matches PostToolUse which was already async
+  - Teammates can now continue work while verification runs in background
+- **Performance**: Skip TDD validation for non-verification tasks in task-completed.sh
+  - Test-writer writing tests no longer triggers test execution
+  - Only verify/checkpoint/review/accept tasks run TDD validation gate
+  - Reduces redundant verification runs from 4+ per feature to 1
+
+#### Impact
+- TeammateIdle hook now completes in < 10 seconds (was 10+ minutes with slow test suites)
+- TaskCompleted hook is non-blocking (was blocking for up to 60 seconds or timing out)
+- Test-writer can report completion immediately after writing tests (was stuck waiting for tests to run)
+- Eliminates 40+ minute hangs reported in v6.5.0
+
+#### Upgrade from v6.5.0
+This is a critical hotfix. Users experiencing agent hangs should upgrade immediately:
+```bash
+/plugin update claude-harness
+```
+
+---
+
 > **v4.1.0 Release Notes**: See [RELEASES/v4.1.0.md](./RELEASES/v4.1.0.md) for full details on auto-issue creation and GitHub integration.
 > **v3.0.0 Release Notes**: See [RELEASE-NOTES-v3.0.0.md](./RELEASE-NOTES-v3.0.0.md) for full details with architecture diagrams.
 
