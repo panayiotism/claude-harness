@@ -23,6 +23,12 @@
       "command": "bash /home/panayiotis/dev/environment/claude-harness/tests/test-flow-optimization.sh 2>&1",
       "error": "Exit code 1\n=== Flow.md Optimization Tests ===\n\n  FAIL: flow.md is under 900 lines (currently 1434)\n  FAIL: Effort table appears only once (currently 2x)\n  PASS: Delegation check appears at most 2x (currently 2x)\n  FAIL: --quick documents direct implementation without team\n  FAIL: ASCII boxes under 20 (currently 27)\n  FAIL: loop-state schema appears only once (currently 2x)\n\n=== Results: 1 passed, 5 failed ===",
       "summary": "Failed: bash /home/panayiotis/dev/environment/claude-harness/tests/test-flow-optimizatio"
+    },
+    {
+      "timestamp": "2026-02-12T17:09:29Z",
+      "command": "bash tests/test-session-start-trim.sh",
+      "error": "Exit code 1\n=== Session-start.sh Trim Tests ===\n\n  FAIL: session-start.sh under 400 lines (currently 633)\n  FAIL: No Opus 4.6 capabilities section\n  FAIL: Has reusable box formatting function\n  FAIL: Workflow commands mentioned at most 5 times (currently 21)\n\n=== Results: 0 passed, 4 failed ===",
+      "summary": "Failed: bash tests/test-session-start-trim.sh"
     }
   ]
 }
