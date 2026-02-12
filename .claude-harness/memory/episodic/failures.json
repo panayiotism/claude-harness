@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "timestamp": "2026-02-12T16:55:19Z",
+      "command": "bash tests/test-hook-compliance.sh",
+      "error": "Exit code 1\n=== Hook Compliance Tests ===\n\n  PASS: TaskCompleted is not async in hooks.json\n  FAIL: First SessionStart entry has a matcher\n  PASS: pre-compact.sh includes hookEventName in output\n  PASS: session-end.sh does not use jq\n  PASS: user-prompt-submit.sh does not output activeLoop\n  PASS: stop.sh does not output plain text echo\n  PASS: pre-compact.sh does not contain emoji\n\n=== Results: 6 passed, 1 failed ===",
+      "summary": "Failed: bash tests/test-hook-compliance.sh"
+    }
+  ]
+}
