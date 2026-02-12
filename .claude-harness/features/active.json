@@ -4,7 +4,7 @@
     {
       "id": "feature-020",
       "name": "Optimize flow.md — complexity routing + deduplication",
-      "status": "pending",
+      "status": "passing",
       "github": {
         "issueNumber": 35,
         "prNumber": null,
