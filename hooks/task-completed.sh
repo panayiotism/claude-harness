@@ -1,9 +1,10 @@
 #!/bin/bash
-# Claude Harness TaskCompleted Hook v7.1.0
+# Claude Harness TaskCompleted Hook v7.0.0
 # Runs when an Agent Team task is being marked as complete
 # Exit code 0: allow completion
 # Exit code 2: prevent completion, send feedback
-# v7.1.0: Single test run + single python3 call for performance
+# v6.4.0: Added TDD phase validation gate
+# v7.0.0: Single python3 call, cached test result eliminates double run
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
@@ -25,24 +26,29 @@ if echo "$TASK_TITLE" | grep -qi "verify\|checkpoint\|review\|accept"; then
 fi
 
 # ============================================================================
-# CONFIG PARSING: Single python3 call for all verification commands
+# PARSE CONFIG ONCE (v7.0.0: single python3 call for all values)
 # ============================================================================
 
 CONFIG_FILE="$HARNESS_DIR/config.json"
-TEST_CMD=""; LINT_CMD=""; BUILD_CMD=""; ACCEPT_CMD=""
+TEST_CMD=""
+BUILD_CMD=""
+LINT_CMD=""
+ACCEPT_CMD=""
 
 if [ -f "$CONFIG_FILE" ]; then
     eval $(python3 -c "
-import json; c=json.load(open('$CONFIG_FILE')); v=c.get('verification',{})
-print(f'TEST_CMD=\"{v.get(\"tests\",\"\")}\"')
-print(f'LINT_CMD=\"{v.get(\"lint\",\"\")}\"')
-print(f'BUILD_CMD=\"{v.get(\"build\",\"\")}\"')
-print(f'ACCEPT_CMD=\"{v.get(\"acceptance\",\"\")}\"')
+import json, shlex
+c=json.load(open('$CONFIG_FILE'))
+v=c.get('verification',{})
+print('TEST_CMD=%s' % shlex.quote(v.get('tests','')))
+print('BUILD_CMD=%s' % shlex.quote(v.get('build','')))
+print('LINT_CMD=%s' % shlex.quote(v.get('lint','')))
+print('ACCEPT_CMD=%s' % shlex.quote(v.get('acceptance','')))
 " 2>/dev/null)
 fi
 
 # ============================================================================
-# RUN TESTS ONCE: Cache result for both TDD and general verification
+# RUN TESTS ONCE, CACHE RESULT (v7.0.0: eliminates double test run)
 # ============================================================================
 
 TEST_EXIT=-1
@@ -52,7 +58,7 @@ if [ -n "$TEST_CMD" ] && [ "$TEST_CMD" != "" ]; then
 fi
 
 # ============================================================================
-# TDD PHASE VALIDATION (v6.4.0)
+# TDD PHASE VALIDATION (v6.4.0, optimized v7.0.0)
 # ============================================================================
 
 # Find active loop-state to get TDD phase
@@ -121,35 +127,37 @@ fi
 # ============================================================================
 
 # Only run verification for verify/checkpoint/review tasks
-if echo "$TASK_TITLE" | grep -qi "verify\|checkpoint\|review\|accept"; then
-    FAILURES=""
+if [ -n "$IS_VERIFY_TASK" ]; then
+    if [ -f "$CONFIG_FILE" ]; then
+        FAILURES=""
 
-    if [ -n "$BUILD_CMD" ] && [ "$BUILD_CMD" != "" ]; then
-        if ! timeout 10 bash -c "$BUILD_CMD" > /dev/null 2>&1; then
-            FAILURES="${FAILURES}\n- Build failed: $BUILD_CMD"
+        if [ -n "$BUILD_CMD" ] && [ "$BUILD_CMD" != "" ]; then
+            if ! timeout 10 bash -c "$BUILD_CMD" > /dev/null 2>&1; then
+                FAILURES="${FAILURES}\n- Build failed: $BUILD_CMD"
+            fi
         fi
-    fi
 
-    # Use cached test result instead of running again
-    if [ $TEST_EXIT -gt 0 ]; then
-        FAILURES="${FAILURES}\n- Tests failed: $TEST_CMD"
-    fi
-
-    if [ -n "$LINT_CMD" ] && [ "$LINT_CMD" != "" ]; then
-        if ! timeout 10 bash -c "$LINT_CMD" > /dev/null 2>&1; then
-            FAILURES="${FAILURES}\n- Lint failed: $LINT_CMD"
+        # Use cached test result instead of re-running (v7.0.0)
+        if [ $TEST_EXIT -gt 0 ]; then
+            FAILURES="${FAILURES}\n- Tests failed: $TEST_CMD"
         fi
-    fi
 
-    if [ -n "$ACCEPT_CMD" ] && [ "$ACCEPT_CMD" != "" ]; then
-        if ! timeout 10 bash -c "$ACCEPT_CMD" > /dev/null 2>&1; then
-            FAILURES="${FAILURES}\n- Acceptance tests failed: $ACCEPT_CMD"
+        if [ -n "$LINT_CMD" ] && [ "$LINT_CMD" != "" ]; then
+            if ! timeout 10 bash -c "$LINT_CMD" > /dev/null 2>&1; then
+                FAILURES="${FAILURES}\n- Lint failed: $LINT_CMD"
+            fi
         fi
-    fi
 
-    if [ -n "$FAILURES" ]; then
-        echo -e "Verification failures - task cannot be marked complete:$FAILURES"
-        exit 2
+        if [ -n "$ACCEPT_CMD" ] && [ "$ACCEPT_CMD" != "" ]; then
+            if ! timeout 10 bash -c "$ACCEPT_CMD" > /dev/null 2>&1; then
+                FAILURES="${FAILURES}\n- Acceptance tests failed: $ACCEPT_CMD"
+            fi
+        fi
+
+        if [ -n "$FAILURES" ]; then
+            echo -e "Verification failures - task cannot be marked complete:$FAILURES"
+            exit 2
+        fi
     fi
 fi
 
