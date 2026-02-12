@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness TaskCompleted Hook v6.5.0
+# Claude Harness TaskCompleted Hook v7.0.0
 # Runs when an Agent Team task is being marked as complete
 # Exit code 0: allow completion
 # Exit code 2: prevent completion, send feedback

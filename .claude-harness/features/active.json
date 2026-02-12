@@ -4,7 +4,7 @@
     {
       "id": "feature-019",
       "name": "Fix hook compliance bugs",
-      "status": "pending",
+      "status": "passing",
       "github": {
         "issueNumber": 34,
         "prNumber": null,
