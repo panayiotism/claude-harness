@@ -4,7 +4,7 @@
 # Exit code 0: let teammate go idle
 # Exit code 2: send feedback to keep teammate working
 # v6.4.0: Added lint + typecheck gates, collect all failures
-# v7.0.0: Single config parse, parallel verification
+# v7.0.0: Single config parse, parallel exec
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
@@ -28,7 +28,7 @@ if [ "$UNCOMMITTED" -gt 0 ]; then
 fi
 
 # ============================================================================
-# CHECK 2-4: Tests, lint, typecheck from config (v7.0.0: single parse, parallel)
+# CHECK 2-4: Tests, lint, typecheck from config (v7.0.0: single parse, parallel exec)
 # ============================================================================
 
 CONFIG_FILE="$HARNESS_DIR/config.json"
