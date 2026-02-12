@@ -2,18 +2,6 @@
   "version": 1,
   "features": [
     {
-      "id": "feature-019",
-      "name": "Fix hook compliance bugs",
-      "status": "passing",
-      "github": {
-        "issueNumber": 34,
-        "prNumber": null,
-        "branch": "feature/feature-019"
-      },
-      "verificationCommands": {},
-      "maxAttempts": 15
-    },
-    {
       "id": "feature-020",
       "name": "Optimize flow.md — complexity routing + deduplication",
       "status": "pending",
