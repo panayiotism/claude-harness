@@ -1,8 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v6.3.0
-# Outputs JSON with systemMessage (user-visible) and additionalContext (Claude-visible)
-# Enhanced with session-scoped state for parallel work streams
-# Added: GitHub repo caching, Agent Teams as sole orchestration model
+# Claude Harness SessionStart Hook v7.0.0
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
@@ -11,46 +8,52 @@ if [ ! -d "$HARNESS_DIR" ]; then
     exit 0
 fi
 
-# ============================================================================
-# GITHUB REPO CACHING (v4.4.0+ - Parse once, reuse everywhere)
-# ============================================================================
+# --- Reusable box formatting ---
+build_box() {
+    # Usage: build_box "line1" "line2" ... (use "---" for separator)
+    local TOP="┌─────────────────────────────────────────────────────────────────┐"
+    local SEP="├─────────────────────────────────────────────────────────────────┤"
+    local BOT="└─────────────────────────────────────────────────────────────────┘"
+    local out="$TOP"
+    for line in "$@"; do
+        if [ "$line" = "---" ]; then
+            out="$out
+$SEP"
+        else
+            out="$out
+│$(printf '%-63s' "  $line")│"
+        fi
+    done
+    echo "$out
+$BOT"
+}
 
+# --- GitHub repo caching ---
 GITHUB_OWNER=""
 GITHUB_REPO=""
 
-# Parse GitHub owner/repo from git remote (do this ONCE per session)
 REMOTE_URL=$(git remote get-url origin 2>/dev/null)
 if [ -n "$REMOTE_URL" ]; then
-    # SSH format: git@github.com:owner/repo.git
     if [[ "$REMOTE_URL" =~ git@github\.com:([^/]+)/([^/.]+) ]]; then
         GITHUB_OWNER="${BASH_REMATCH[1]}"
         GITHUB_REPO="${BASH_REMATCH[2]}"
-    # HTTPS format: https://github.com/owner/repo.git
     elif [[ "$REMOTE_URL" =~ github\.com/([^/]+)/([^/.]+) ]]; then
         GITHUB_OWNER="${BASH_REMATCH[1]}"
         GITHUB_REPO="${BASH_REMATCH[2]}"
     fi
-    # Remove .git suffix if present
     GITHUB_REPO="${GITHUB_REPO%.git}"
 fi
 
-# ============================================================================
-# STALE PLUGIN CACHE DETECTION (v6.1.0 - External version check)
-# ============================================================================
-# The plugin cache can become stale if `claude plugin update` fails to
-# re-download files. We check GitHub for the latest version with a 24h TTL.
-
+# --- Stale plugin cache detection ---
 PLUGIN_REPO="panayiotism/claude-harness"
 CACHE_CHECK_FILE="$HOME/.claude/plugins/cache/claude-harness/.version-check"
-CACHE_TTL=86400  # 24 hours
+CACHE_TTL=86400
 LATEST_VERSION=""
 CACHE_IS_STALE=false
 
 check_latest_version() {
     local now
     now=$(date +%s)
-
-    # Check if cached result is still fresh
     if [ -f "$CACHE_CHECK_FILE" ]; then
         local cached_time cached_ver
         cached_time=$(head -1 "$CACHE_CHECK_FILE" 2>/dev/null)
@@ -63,8 +66,6 @@ check_latest_version() {
             fi
         fi
     fi
-
-    # Fetch latest version from GitHub (try gh first, fall back to curl)
     local fetched_ver=""
     if command -v gh &>/dev/null; then
         fetched_ver=$(gh api "repos/$PLUGIN_REPO/contents/.claude-plugin/plugin.json" \
@@ -76,7 +77,6 @@ check_latest_version() {
             "https://raw.githubusercontent.com/$PLUGIN_REPO/main/.claude-plugin/plugin.json" \
             2>/dev/null | grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
     fi
-
     if [ -n "$fetched_ver" ]; then
         LATEST_VERSION="$fetched_ver"
         mkdir -p "$(dirname "$CACHE_CHECK_FILE")"
@@ -84,27 +84,18 @@ check_latest_version() {
     fi
 }
 
-# Run the check (network failures are silently ignored)
 check_latest_version 2>/dev/null
 
-# Compare cached plugin version against latest from GitHub
 PLUGIN_VERSION_CACHED=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
 if [ -n "$LATEST_VERSION" ] && [ -n "$PLUGIN_VERSION_CACHED" ] && [ "$LATEST_VERSION" != "$PLUGIN_VERSION_CACHED" ]; then
     CACHE_IS_STALE=true
 fi
 
-# ============================================================================
-# SESSION MANAGEMENT (v3.8.4 - Parallel Work Streams)
-# ============================================================================
-
-# Generate unique session ID (UUID or fallback)
+# --- Session management ---
 SESSION_ID=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "sess-$(date +%s%N | sha256sum | head -c 16)")
 SESSION_DIR="$HARNESS_DIR/sessions/$SESSION_ID"
-
-# Create session directory
 mkdir -p "$SESSION_DIR"
 
-# Write session info file
 cat > "$SESSION_DIR/session.json" << SESSIONEOF
 {
   "id": "$SESSION_ID",
@@ -114,12 +105,7 @@ cat > "$SESSION_DIR/session.json" << SESSIONEOF
 }
 SESSIONEOF
 
-# ============================================================================
-# STALE SESSION CLEANUP (v4.2.2 - Proactive cleanup on session start)
-# ============================================================================
-# Clean up sessions where the PID is no longer running
-# This is more reliable than SessionEnd which may not trigger on /clear or crash
-
+# --- Stale session cleanup ---
 SESSIONS_DIR="$HARNESS_DIR/sessions"
 RECOVERY_DIR="$SESSIONS_DIR/.recovery"
 CLEANED_COUNT=0
@@ -127,40 +113,22 @@ CLEANED_COUNT=0
 if [ -d "$SESSIONS_DIR" ]; then
     for session_dir in "$SESSIONS_DIR"/*/; do
         [ -d "$session_dir" ] || continue
-
         session_id=$(basename "$session_dir")
-        session_file="$session_dir/session.json"
-
-        # Skip current session
         [ "$session_id" = "$SESSION_ID" ] && continue
-
-        # Skip recovery directory
         [ "$session_id" = ".recovery" ] && continue
-
-        # Skip if no session.json
+        session_file="$session_dir/session.json"
         [ -f "$session_file" ] || continue
-
-        # Get PID from session.json (works without jq)
         pid=$(grep '"pid"' "$session_file" 2>/dev/null | grep -o '[0-9]\+')
-
-        # If no PID or process doesn't exist, session is stale
-        # Use ps -p instead of kill -0 (more reliable on WSL)
         if [ -z "$pid" ] || ! ps -p "$pid" > /dev/null 2>&1; then
-
-            # v6.3.0: Check for interrupted loop state before deleting
             loop_file="$session_dir/loop-state.json"
             if [ -f "$loop_file" ]; then
                 loop_status=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-
                 if [ "$loop_status" = "in_progress" ]; then
                     loop_feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
                     loop_attempt=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
                     tdd_phase=$(grep -o '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
                     team_name=$(grep -o '"teamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-
                     mkdir -p "$RECOVERY_DIR"
-
-                    # Write interrupt marker
                     cat > "$RECOVERY_DIR/interrupted.json" << INTEOF
 {
   "version": 1,
@@ -173,106 +141,53 @@ if [ -d "$SESSIONS_DIR" ]; then
   "reason": "stale-session-detected"
 }
 INTEOF
-
-                    # Preserve loop-state for resume analysis
                     cp "$loop_file" "$RECOVERY_DIR/loop-state.json" 2>/dev/null
-
-                    # Preserve autonomous-state if it exists
                     [ -f "$session_dir/autonomous-state.json" ] && \
                         cp "$session_dir/autonomous-state.json" "$RECOVERY_DIR/autonomous-state.json" 2>/dev/null
                 fi
             fi
-
             rm -rf "$session_dir"
             CLEANED_COUNT=$((CLEANED_COUNT + 1))
         fi
     done
 fi
 
-# Get plugin version
+# --- Version & memory status ---
 PLUGIN_VERSION=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
-
-# Get project's last-run version
 PROJECT_VERSION=$(cat "$HARNESS_DIR/.plugin-version" 2>/dev/null)
 
-# Build status components
-# NOTE: Do NOT write .plugin-version here. Only setup.sh should update it,
-# so that setup.sh can detect the version mismatch and force-update command files.
 VERSION_MSG=""
-NEEDS_MIGRATION=false
 if [ -z "$PROJECT_VERSION" ]; then
-    VERSION_MSG="Harness not initialized - run /claude-harness:setup"
+    VERSION_MSG="Harness not initialized - run setup"
 elif [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
-    VERSION_MSG="Plugin updated: v$PROJECT_VERSION -> v$PLUGIN_VERSION - run /claude-harness:setup to update"
-    # Check if migration to v3.0 is needed (legacy v2.x detection)
-    if [ ! -d "$HARNESS_DIR/memory" ]; then
-        NEEDS_MIGRATION=true
-    fi
+    VERSION_MSG="Plugin updated: v$PROJECT_VERSION -> v$PLUGIN_VERSION - run setup to update"
 fi
 
-# ============================================================================
-# V3.0 MEMORY LAYER STATUS
-# ============================================================================
-
-# Get memory layer stats
+EPISODIC_COUNT=0; FAILURES_COUNT=0; SUCCESSES_COUNT=0; RULES_COUNT=0
 WORKING_COMPUTED=""
-EPISODIC_COUNT=0
-FAILURES_COUNT=0
-SUCCESSES_COUNT=0
+IS_V3=false
 
-# Check for v3.0 structure
 if [ -d "$HARNESS_DIR/memory" ]; then
     IS_V3=true
-
-    # Working context
-    if [ -f "$HARNESS_DIR/memory/working/context.json" ]; then
+    [ -f "$HARNESS_DIR/memory/working/context.json" ] && \
         WORKING_COMPUTED=$(grep -o '"computedAt"[[:space:]]*:[[:space:]]*"[^"]*"' "$HARNESS_DIR/memory/working/context.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-    fi
-
-    # Episodic memory
-    if [ -f "$HARNESS_DIR/memory/episodic/decisions.json" ]; then
+    [ -f "$HARNESS_DIR/memory/episodic/decisions.json" ] && \
         EPISODIC_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/episodic/decisions.json" 2>/dev/null || echo "0")
-    fi
-
-    # Procedural memory (failures/successes)
-    if [ -f "$HARNESS_DIR/memory/procedural/failures.json" ]; then
+    [ -f "$HARNESS_DIR/memory/procedural/failures.json" ] && \
         FAILURES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/procedural/failures.json" 2>/dev/null || echo "0")
-    fi
-    if [ -f "$HARNESS_DIR/memory/procedural/successes.json" ]; then
+    [ -f "$HARNESS_DIR/memory/procedural/successes.json" ] && \
         SUCCESSES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/procedural/successes.json" 2>/dev/null || echo "0")
-    fi
-
-    # Learned rules (from user corrections)
-    RULES_COUNT=0
-    if [ -f "$HARNESS_DIR/memory/learned/rules.json" ]; then
+    [ -f "$HARNESS_DIR/memory/learned/rules.json" ] && \
         RULES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/learned/rules.json" 2>/dev/null || echo "0")
-    fi
-
-    # Features from new location (shared across sessions)
-    FEATURES_FILE="$HARNESS_DIR/features/active.json"
-    AGENT_FILE="$HARNESS_DIR/agents/context.json"
-
-    # Session-scoped files (v3.8.4 - parallel work streams)
-    # First check if session-specific files exist, fallback to legacy paths
-    if [ -d "$SESSION_DIR" ]; then
-        LOOP_FILE="$SESSION_DIR/loop-state.json"
-        WORKING_FILE="$SESSION_DIR/context.json"
-    else
-        # Fallback to legacy paths for backward compatibility
-        LOOP_FILE="$HARNESS_DIR/loops/state.json"
-        WORKING_FILE="$HARNESS_DIR/memory/working/context.json"
-    fi
-else
-    IS_V3=false
-    # Legacy v2.x locations - prompt for migration
-    FEATURES_FILE="$HARNESS_DIR/features/active.json"
-    LOOP_FILE="$HARNESS_DIR/loop-state.json"
-    AGENT_FILE="$HARNESS_DIR/agent-context.json"
-    WORKING_FILE="$HARNESS_DIR/working-context.json"
-    NEEDS_MIGRATION=true
 fi
 
-# Get active feature from working-context
+# Session-scoped paths
+FEATURES_FILE="$HARNESS_DIR/features/active.json"
+AGENT_FILE="$HARNESS_DIR/agents/context.json"
+LOOP_FILE="$SESSION_DIR/loop-state.json"
+WORKING_FILE="$SESSION_DIR/context.json"
+
+# Feature state
 ACTIVE_FEATURE=""
 FEATURE_SUMMARY=""
 if [ -f "$WORKING_FILE" ]; then
@@ -280,23 +195,15 @@ if [ -f "$WORKING_FILE" ]; then
     FEATURE_SUMMARY=$(grep -o '"summary"[[:space:]]*:[[:space:]]*"[^"]*"' "$WORKING_FILE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 fi
 
-# Get feature counts (handle both v2 and v3 schemas)
-TOTAL_FEATURES=0
-PENDING_FEATURES=0
+TOTAL_FEATURES=0; PENDING_FEATURES=0; IN_PROGRESS=0; NEEDS_TESTS=0
 if [ -f "$FEATURES_FILE" ]; then
     TOTAL_FEATURES=$(grep -c '"id"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
-    if [ "$IS_V3" = true ]; then
-        # v3 uses status field
-        PENDING_FEATURES=$(grep -c '"status"[[:space:]]*:[[:space:]]*"pending"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
-        IN_PROGRESS=$(grep -c '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
-        NEEDS_TESTS=$(grep -c '"status"[[:space:]]*:[[:space:]]*"needs_tests"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
-    else
-        # v2 uses passes field
-        PENDING_FEATURES=$(grep -c '"passes"[[:space:]]*:[[:space:]]*false' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
-    fi
+    PENDING_FEATURES=$(grep -c '"status"[[:space:]]*:[[:space:]]*"pending"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
+    IN_PROGRESS=$(grep -c '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
+    NEEDS_TESTS=$(grep -c '"status"[[:space:]]*:[[:space:]]*"needs_tests"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
 fi
 
-# Get orchestration state
+# Orchestration state
 ORCH_FEATURE=""
 ORCH_PHASE=""
 if [ -f "$AGENT_FILE" ]; then
@@ -304,7 +211,7 @@ if [ -f "$AGENT_FILE" ]; then
     ORCH_PHASE=$(grep -o '"orchestrationPhase"[[:space:]]*:[[:space:]]*"[^"]*"' "$AGENT_FILE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 fi
 
-# Get active loop state (PRIORITY - shows before other status)
+# Active loop state
 LOOP_FEATURE=""
 LOOP_STATUS=""
 LOOP_ATTEMPT=""
@@ -318,7 +225,7 @@ if [ -f "$LOOP_FILE" ]; then
     fi
 fi
 
-# v6.3.0: Check for interrupt recovery marker
+# Interrupt recovery
 INT_FEATURE=""
 INT_ATTEMPT=""
 INT_TEAM=""
@@ -330,203 +237,72 @@ if [ -f "$RECOVERY_DIR/interrupted.json" ]; then
     INT_PHASE=$(grep -o '"tddPhase"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 fi
 
-# Get last session summary
 LAST_SUMMARY=""
 if [ -f "$HARNESS_DIR/claude-progress.json" ]; then
     LAST_SUMMARY=$(grep -o '"summary"[[:space:]]*:[[:space:]]*"[^"]*"' "$HARNESS_DIR/claude-progress.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 fi
 
-# ============================================================================
-# BUILD USER-VISIBLE MESSAGE
-# ============================================================================
-
-# Check for interrupted or active loop (highest priority)
+# --- Build user-visible message ---
 LOOP_LINE=""
 if [ -n "$INT_FEATURE" ]; then
-    # Interrupted session takes priority over active loop
     LOOP_LINE="INTERRUPTED: $INT_FEATURE (attempt $INT_ATTEMPT, phase: ${INT_PHASE:-unknown})"
-    LOOP_FEATURE="$INT_FEATURE"  # For resume command in banner
+    LOOP_FEATURE="$INT_FEATURE"
 elif [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
     LOOP_LINE="ACTIVE LOOP: $LOOP_FEATURE (attempt $LOOP_ATTEMPT/$LOOP_MAX)"
 fi
 
-# Build status line
-STATUS_LINE=""
-if [ "$IS_V3" = true ]; then
-    # v3 format with more status detail
-    if [ "$PENDING_FEATURES" != "0" ] || [ "$IN_PROGRESS" != "0" ] || [ "$NEEDS_TESTS" != "0" ]; then
-        STATUS_LINE="P:$PENDING_FEATURES WIP:$IN_PROGRESS Tests:$NEEDS_TESTS"
-    else
-        STATUS_LINE="No pending features"
-    fi
-else
-    # v2 format
-    if [ "$PENDING_FEATURES" != "0" ]; then
-        STATUS_LINE="$PENDING_FEATURES pending"
-    else
-        STATUS_LINE="No pending features"
-    fi
-fi
+STATUS_LINE="P:$PENDING_FEATURES WIP:$IN_PROGRESS Tests:$NEEDS_TESTS"
+[ -n "$ACTIVE_FEATURE" ] && [ "$ACTIVE_FEATURE" != "null" ] && STATUS_LINE="$STATUS_LINE | Active: $ACTIVE_FEATURE"
+[ -n "$ORCH_FEATURE" ] && [ "$ORCH_FEATURE" != "null" ] && [ "$ORCH_PHASE" != "completed" ] && STATUS_LINE="$STATUS_LINE | Orch: $ORCH_PHASE"
 
-if [ -n "$ACTIVE_FEATURE" ] && [ "$ACTIVE_FEATURE" != "null" ]; then
-    STATUS_LINE="$STATUS_LINE | Active: $ACTIVE_FEATURE"
-fi
+MEMORY_LINE="Memory: $EPISODIC_COUNT decisions | $FAILURES_COUNT failures | $RULES_COUNT rules"
 
-if [ -n "$ORCH_FEATURE" ] && [ "$ORCH_FEATURE" != "null" ] && [ "$ORCH_PHASE" != "completed" ]; then
-    STATUS_LINE="$STATUS_LINE | Orch: $ORCH_PHASE"
-fi
-
-# Build memory status line (v3 only)
-MEMORY_LINE=""
-if [ "$IS_V3" = true ]; then
-    MEMORY_LINE="Memory: $EPISODIC_COUNT decisions | $FAILURES_COUNT failures | $RULES_COUNT rules"
-fi
-
-# Build box based on version and state
+# Assemble box content lines
+BOX_LINES=("CLAUDE HARNESS v$PLUGIN_VERSION")
 if [ -n "$LOOP_LINE" ]; then
-    # Active loop - highest priority display
-    RESUME_CMD="/claude-harness:flow $LOOP_FEATURE"
-    TITLE_TEXT="CLAUDE HARNESS v$PLUGIN_VERSION"
-    TITLE_PADDED=$(printf "%-63s" "  $TITLE_TEXT")
-    LOOP_PADDED=$(printf "%-63s" "  $LOOP_LINE")
-    RESUME_PADDED=$(printf "%-63s" "  Resume: $RESUME_CMD")
-    STATUS_PADDED_L=$(printf "%-63s" "  $STATUS_LINE")
-
-    if [ "$IS_V3" = true ]; then
-        MEMORY_PADDED=$(printf "%-63s" "  $MEMORY_LINE")
-        USER_MSG="
-┌─────────────────────────────────────────────────────────────────┐
-│$TITLE_PADDED│
-├─────────────────────────────────────────────────────────────────┤
-│$LOOP_PADDED│
-│$RESUME_PADDED│
-├─────────────────────────────────────────────────────────────────┤
-│$STATUS_PADDED_L│
-│$MEMORY_PADDED│
-├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:flow        Unified workflow (recommended)   │
-│  Flags: --no-merge --plan-only --autonomous --quick --fix   │
-└─────────────────────────────────────────────────────────────────┘"
-    else
-        USER_MSG="
-┌─────────────────────────────────────────────────────────────────┐
-│$TITLE_PADDED│
-├─────────────────────────────────────────────────────────────────┤
-│$LOOP_PADDED│
-│$RESUME_PADDED│
-├─────────────────────────────────────────────────────────────────┤
-│$STATUS_PADDED_L│
-├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:flow        Unified workflow (recommended)   │
-│  /claude-harness:checkpoint  Manual commit + persist memory   │
-│  Flags: --no-merge --plan-only --autonomous --quick --fix   │
-└─────────────────────────────────────────────────────────────────┘"
-    fi
-elif [ "$IS_V3" = true ]; then
-    # v3.0 display without active loop
-    TITLE_TEXT="CLAUDE HARNESS v$PLUGIN_VERSION"
-    TITLE_PADDED=$(printf "%-63s" "  $TITLE_TEXT")
-    MEMORY_PADDED=$(printf "%-63s" "  $MEMORY_LINE")
-    STATUS_PADDED_V3=$(printf "%-63s" "  $STATUS_LINE")
-    USER_MSG="
-┌─────────────────────────────────────────────────────────────────┐
-│$TITLE_PADDED│
-├─────────────────────────────────────────────────────────────────┤
-│$STATUS_PADDED_V3│
-│$MEMORY_PADDED│
-├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:setup       Initialize harness (one-time)    │
-│  /claude-harness:start       Compile context + GitHub sync    │
-│  /claude-harness:flow        Unified workflow (recommended)   │
-│  /claude-harness:checkpoint  Manual commit + persist memory   │
-│  /claude-harness:merge       Merge PRs + close issues         │
-│  Flags: --no-merge --plan-only --autonomous --quick --fix   │
-└─────────────────────────────────────────────────────────────────┘"
-else
-    # v2.x display
-    TITLE_TEXT="CLAUDE HARNESS v$PLUGIN_VERSION"
-    TITLE_PADDED=$(printf "%-63s" "  $TITLE_TEXT")
-    STATUS_PADDED_V2=$(printf "%-63s" "  $STATUS_LINE")
-    USER_MSG="
-┌─────────────────────────────────────────────────────────────────┐
-│$TITLE_PADDED│
-├─────────────────────────────────────────────────────────────────┤
-│$STATUS_PADDED_V2│
-├─────────────────────────────────────────────────────────────────┤
-│  /claude-harness:flow        Unified workflow (recommended)   │
-│  /claude-harness:checkpoint  Manual commit + persist memory   │
-│  /claude-harness:merge       Merge PRs + close issues         │
-│  Flags: --no-merge --plan-only --autonomous --quick --fix   │
-└─────────────────────────────────────────────────────────────────┘"
+    FLOW_CMD="/claude-harness:flow"
+    BOX_LINES+=("---" "$LOOP_LINE" "Resume: $FLOW_CMD $LOOP_FEATURE")
 fi
+BOX_LINES+=("---" "$STATUS_LINE")
+[ "$IS_V3" = true ] && BOX_LINES+=("$MEMORY_LINE")
+BOX_LINES+=("---" "/claude-harness:flow        Unified workflow (recommended)" "Flags: --no-merge --plan-only --autonomous --quick --fix")
 
-# Add version update notice if applicable
-if [ -n "$VERSION_MSG" ]; then
-    USER_MSG="$USER_MSG
-     ⚠️  $VERSION_MSG - run /claude-harness:setup to update"
-fi
+USER_MSG=$(build_box "${BOX_LINES[@]}")
 
-# Add migration notice if needed
-if [ "$NEEDS_MIGRATION" = true ]; then
-    USER_MSG="$USER_MSG
-     🔄 v2.x detected - run /claude-harness:setup to upgrade to v3.0"
-fi
+# Append notices
+[ -n "$VERSION_MSG" ] && USER_MSG="$USER_MSG"$'\n'"     ⚠️  $VERSION_MSG"
 
-# Agent Teams env var check (BLOCKER in v6+)
 if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
-    USER_MSG="$USER_MSG
-     🚫 BLOCKER: Agent Teams not enabled.
-     Run /claude-harness:setup then restart Claude Code (the env var takes effect on next launch)."
+    USER_MSG="$USER_MSG"$'\n'"     🚫 BLOCKER: Agent Teams not enabled. Run setup then restart Claude Code."
 fi
 
-# Stale plugin cache warning (highest severity)
 if [ "$CACHE_IS_STALE" = true ]; then
-    USER_MSG="$USER_MSG
-     ============================================================
-     STALE PLUGIN CACHE: v$PLUGIN_VERSION_CACHED installed (v$LATEST_VERSION available)
-     claude plugin update does not refresh files.
-
-     To fix, run in your terminal (outside Claude Code):
-       bash <(curl -sf https://raw.githubusercontent.com/$PLUGIN_REPO/main/fix-stale-cache.sh)
-     Then restart Claude Code.
-     ============================================================"
+    USER_MSG="$USER_MSG"$'\n'"     STALE CACHE: v$PLUGIN_VERSION_CACHED installed (v$LATEST_VERSION available)"
+    USER_MSG="$USER_MSG"$'\n'"     Fix: bash <(curl -sf https://raw.githubusercontent.com/$PLUGIN_REPO/main/fix-stale-cache.sh)"
 fi
 
-# ============================================================================
-# BUILD CLAUDE CONTEXT
-# ============================================================================
-
+# --- Build Claude context ---
 CLAUDE_CONTEXT="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ===\n"
-
-# Add session info for parallel work streams
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
 
-# Opus 4.6 capabilities awareness (v6.0.0)
-CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== OPUS 4.6 CAPABILITIES ==="
-CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n128K output tokens | Effort controls (low/medium/high/max) | Agent Teams (required) | Adaptive thinking"
-CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEffort guidance: Use low for mechanical phases, max for planning/debugging. See command docs for per-phase effort tables."
-CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nAgent Teams: Every feature uses a 3-specialist team (test-writer, implementer, reviewer). TDD always-on."
-
-# Agent Teams blocker check
+# Agent Teams blocker
 if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** BLOCKER: AGENT TEAMS NOT ENABLED ***"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nCLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set to '1'."
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nDO NOT run /flow or any implementation workflow."
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell the user: run /claude-harness:setup, then restart Claude Code (env vars from settings.local.json take effect on next launch)."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell user: run setup, then restart Claude Code."
 fi
 
-# Stale cache blocker for Claude
+# Stale cache blocker
 if [ "$CACHE_IS_STALE" = true ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** STALE PLUGIN CACHE DETECTED ***"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nInstalled: v$PLUGIN_VERSION_CACHED | Latest: v$LATEST_VERSION"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nThe plugin cache is outdated. All commands and hooks are running old versions."
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell the user to run: bash <(curl -sf https://raw.githubusercontent.com/$PLUGIN_REPO/main/fix-stale-cache.sh)"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nThen restart Claude Code and run /claude-harness:setup in their project."
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell user to run: bash <(curl -sf https://raw.githubusercontent.com/$PLUGIN_REPO/main/fix-stale-cache.sh)"
 fi
 
-# Add cached GitHub repo info
+# GitHub info
 if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== GITHUB (CACHED) ==="
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nOwner: $GITHUB_OWNER"
@@ -534,87 +310,55 @@ if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nIMPORTANT: Use these cached values for ALL GitHub API calls. Do NOT re-parse git remote."
 fi
 
+# Memory (single condensed block, v3 only)
 if [ "$IS_V3" = true ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== MEMORY ARCHITECTURE v3.0 ==="
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEpisodic Memory: $EPISODIC_COUNT decisions recorded"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nProcedural Memory: $FAILURES_COUNT failures, $SUCCESSES_COUNT successes"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nLearned Rules: $RULES_COUNT rules from user corrections"
-
     if [ -n "$WORKING_COMPUTED" ]; then
         CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Last compiled $WORKING_COMPUTED"
     else
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Not compiled - run /claude-harness:start"
-    fi
-
-    # Add failure prevention context if there are failures to avoid
-    if [ "$FAILURES_COUNT" -gt 0 ]; then
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** FAILURE PREVENTION ACTIVE ***"
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n$FAILURES_COUNT past failures recorded. /claude-harness:flow automatically checks these before implementation."
+        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Not compiled - run /start"
     fi
 fi
 
-if [ -n "$VERSION_MSG" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nVersion: $VERSION_MSG"
-fi
+[ -n "$VERSION_MSG" ] && CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nVersion: $VERSION_MSG"
 
-if [ -n "$ACTIVE_FEATURE" ] && [ "$ACTIVE_FEATURE" != "null" ]; then
+[ -n "$ACTIVE_FEATURE" ] && [ "$ACTIVE_FEATURE" != "null" ] && \
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nRESUMING WORK:\nFeature: $ACTIVE_FEATURE\nSummary: $FEATURE_SUMMARY"
-fi
 
-if [ "$TOTAL_FEATURES" != "0" ]; then
-    if [ "$IS_V3" = true ]; then
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nFeatures: P:$PENDING_FEATURES WIP:$IN_PROGRESS Tests:$NEEDS_TESTS / $TOTAL_FEATURES total"
-    else
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nFeatures: $PENDING_FEATURES pending / $TOTAL_FEATURES total"
-    fi
-fi
+[ "$TOTAL_FEATURES" != "0" ] && \
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nFeatures: P:$PENDING_FEATURES WIP:$IN_PROGRESS Tests:$NEEDS_TESTS / $TOTAL_FEATURES total"
 
-# v6.3.0: Add interrupt recovery context (highest priority)
+# Interrupt recovery context
 if [ -n "$INT_FEATURE" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** INTERRUPTED SESSION DETECTED ***"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nFeature: $INT_FEATURE was interrupted at attempt $INT_ATTEMPT"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTDD Phase: ${INT_PHASE:-unknown}"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTDD Phase: ${INT_PHASE:-null}"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nStale team: ${INT_TEAM:-none} (DEAD - do NOT reuse)"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nRecovery file: .claude-harness/sessions/.recovery/interrupted.json"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nResume: /claude-harness:flow $INT_FEATURE"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nIMPORTANT: On resume, flow will offer recovery options. Do NOT retry same approach blindly."
 fi
 
-# Add active loop context (PRIORITY)
+# Active loop context
 if [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress\n\nResume: /claude-harness:flow $LOOP_FEATURE"
-
-    if [ "$IS_V3" = true ]; then
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nPast failures for this feature are recorded in memory/procedural/failures.json."
-        CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nConsult these before attempting a new approach."
-    fi
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress"
 fi
 
 if [ -n "$ORCH_FEATURE" ] && [ "$ORCH_FEATURE" != "null" ] && [ "$ORCH_PHASE" != "completed" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTIVE ORCHESTRATION:\nFeature: $ORCH_FEATURE\nPhase: $ORCH_PHASE\nResume with: /claude-harness:flow $ORCH_FEATURE"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTIVE ORCHESTRATION:\nFeature: $ORCH_FEATURE\nPhase: $ORCH_PHASE"
 fi
 
-if [ -n "$LAST_SUMMARY" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nLast session: $LAST_SUMMARY"
-fi
+[ -n "$LAST_SUMMARY" ] && CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nLast session: $LAST_SUMMARY"
 
-# V3 specific recommendations
-if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== v6.0 WORKFLOW (5 commands) ===\n1. /claude-harness:setup - Initialize harness (one-time)\n2. /claude-harness:start - Compile context + GitHub sync\n3. /claude-harness:flow - Unified workflow with Agent Teams (RECOMMENDED)\n4. /claude-harness:checkpoint - Manual commit + push + PR\n5. /claude-harness:merge - Merge PRs, close issues\nFlags: --no-merge --plan-only --autonomous --quick --fix\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
-else
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTION: Run /claude-harness:start for full session status with GitHub sync."
-fi
+CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
 
-# ============================================================================
-# OUTPUT JSON
-# ============================================================================
-
-# Escape for JSON (handle multi-line output)
+# --- Output JSON ---
 USER_MSG_ESCAPED=$(echo "$USER_MSG" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
 CLAUDE_CONTEXT_ESCAPED=$(echo -e "$CLAUDE_CONTEXT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
 
-# Output JSON with both systemMessage (user) and additionalContext (Claude)
-# Includes cached GitHub repo info for workflow optimization
 cat << EOF
 {
   "continue": true,

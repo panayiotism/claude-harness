@@ -29,6 +29,12 @@
       "command": "bash tests/test-session-start-trim.sh",
       "error": "Exit code 1\n=== Session-start.sh Trim Tests ===\n\n  FAIL: session-start.sh under 400 lines (currently 633)\n  FAIL: No Opus 4.6 capabilities section\n  FAIL: Has reusable box formatting function\n  FAIL: Workflow commands mentioned at most 5 times (currently 21)\n\n=== Results: 0 passed, 4 failed ===",
       "summary": "Failed: bash tests/test-session-start-trim.sh"
+    },
+    {
+      "timestamp": "2026-02-12T17:12:58Z",
+      "command": "bash /home/panayiotis/dev/environment/claude-harness/tests/test-session-start-trim.sh",
+      "error": "Exit code 1\n=== Session-start.sh Trim Tests ===\n\n  FAIL: session-start.sh under 400 lines (currently 633)\n  FAIL: No Opus 4.6 capabilities section\n  FAIL: Has reusable box formatting function\n  FAIL: Workflow commands mentioned at most 5 times (currently 21)\n\n=== Results: 0 passed, 4 failed ===",
+      "summary": "Failed: bash /home/panayiotis/dev/environment/claude-harness/tests/test-session-start-tr"
     }
   ]
 }
