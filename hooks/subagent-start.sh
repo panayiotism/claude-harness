@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SubagentStart Hook v6.4.0
+# Claude Harness SubagentStart Hook v7.0.0
 # Teammate context injection — injects harness state into spawned teammates
 # No matcher — fires for all subagent/teammate starts
 # Injects: active feature, TDD phase, recent failures, verification cmds

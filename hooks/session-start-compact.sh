@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart (compact) Hook v6.4.0
+# Claude Harness SessionStart (compact) Hook v7.0.0
 # Post-compaction context recovery — re-injects critical state after compaction
 # Matcher: "compact" — only fires when source is context compaction
 # Complements pre-compact.sh backup with active context restoration
