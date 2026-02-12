@@ -1,9 +1,9 @@
 #!/bin/bash
-# Claude Harness TeammateIdle Hook v6.4.0
+# Claude Harness TeammateIdle Hook v7.1.0
 # Runs when an Agent Team teammate finishes work and is about to go idle
 # Exit code 0: let teammate go idle
 # Exit code 2: send feedback to keep teammate working
-# v6.4.0: Added lint + typecheck gates, collect all failures
+# v7.1.0: Parallel verification + single config call for performance
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
@@ -27,35 +27,46 @@ if [ "$UNCOMMITTED" -gt 0 ]; then
 fi
 
 # ============================================================================
-# CHECK 2-4: Tests, lint, typecheck from config
+# CHECK 2-4: Tests, lint, typecheck from config (parallel)
 # ============================================================================
 
 CONFIG_FILE="$HARNESS_DIR/config.json"
 if [ -f "$CONFIG_FILE" ]; then
-    TEST_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('tests',''))" 2>/dev/null)
-    LINT_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('lint',''))" 2>/dev/null)
-    TC_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('typecheck',''))" 2>/dev/null)
+    # Single call to extract all verification commands
+    eval $(python3 -c "
+import json; c=json.load(open('$CONFIG_FILE')); v=c.get('verification',{})
+print(f'TEST_CMD=\"{v.get(\"tests\",\"\")}\"')
+print(f'LINT_CMD=\"{v.get(\"lint\",\"\")}\"')
+print(f'TC_CMD=\"{v.get(\"typecheck\",\"\")}\"')
+" 2>/dev/null)
 
-    # Tests
+    # Run checks in parallel with background processes
+    TEST_RESULT=0; LINT_RESULT=0; TC_RESULT=0
+    TEST_PID=""; LINT_PID=""; TC_PID=""
+
     if [ -n "$TEST_CMD" ] && [ "$TEST_CMD" != "" ]; then
-        if ! timeout 10 bash -c "$TEST_CMD" > /dev/null 2>&1; then
-            FAILURES="${FAILURES}\n- Tests failing: $TEST_CMD"
-        fi
+        (timeout 10 bash -c "$TEST_CMD" > /dev/null 2>&1) &
+        TEST_PID=$!
     fi
 
-    # Lint (v6.4.0)
     if [ -n "$LINT_CMD" ] && [ "$LINT_CMD" != "" ]; then
-        if ! timeout 10 bash -c "$LINT_CMD" > /dev/null 2>&1; then
-            FAILURES="${FAILURES}\n- Lint failing: $LINT_CMD"
-        fi
+        (timeout 10 bash -c "$LINT_CMD" > /dev/null 2>&1) &
+        LINT_PID=$!
     fi
 
-    # Typecheck (v6.4.0)
     if [ -n "$TC_CMD" ] && [ "$TC_CMD" != "" ]; then
-        if ! timeout 10 bash -c "$TC_CMD" > /dev/null 2>&1; then
-            FAILURES="${FAILURES}\n- Typecheck failing: $TC_CMD"
-        fi
+        (timeout 10 bash -c "$TC_CMD" > /dev/null 2>&1) &
+        TC_PID=$!
     fi
+
+    # Wait for all parallel results
+    if [ -n "$TEST_PID" ]; then wait $TEST_PID 2>/dev/null || TEST_RESULT=$?; fi
+    if [ -n "$LINT_PID" ]; then wait $LINT_PID 2>/dev/null || LINT_RESULT=$?; fi
+    if [ -n "$TC_PID" ]; then wait $TC_PID 2>/dev/null || TC_RESULT=$?; fi
+
+    if [ $TEST_RESULT -ne 0 ]; then FAILURES="${FAILURES}\n- Tests failing: $TEST_CMD"; fi
+    if [ $LINT_RESULT -ne 0 ]; then FAILURES="${FAILURES}\n- Lint failing: $LINT_CMD"; fi
+    if [ $TC_RESULT -ne 0 ]; then FAILURES="${FAILURES}\n- Typecheck failing: $TC_CMD"; fi
 fi
 
 # ============================================================================
