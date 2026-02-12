@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness UserPromptSubmit Hook v5.1.4
+# Claude Harness UserPromptSubmit Hook v7.0.0
 # Provides smart routing context when user submits a prompt
 # Checks for active loops and injects relevant context
 
@@ -100,13 +100,6 @@ if [ -n "$ADDITIONAL_CONTEXT" ]; then
   "continue": true,
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "activeLoop": {
-      "feature": "$LOOP_FEATURE",
-      "status": "$LOOP_STATUS",
-      "attempt": $LOOP_ATTEMPT,
-      "maxAttempts": $LOOP_MAX,
-      "type": "$LOOP_TYPE"
-    },
     "additionalContext": "$CONTEXT_ESCAPED"
   }
 }

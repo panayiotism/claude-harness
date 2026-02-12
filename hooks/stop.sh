@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stop Hook v6.3.0 - Detect completion, mark active sessions on natural stop
+# Stop Hook v7.0.0 - Detect completion, mark active sessions on natural stop
 # Runs when Claude finishes responding (NOT on user interrupt - Ctrl+C/Escape)
 # Within 5-second timeout (hooks.json)
 
@@ -20,7 +20,7 @@ for session_dir in "$SESSIONS_DIR"/*/; do
   feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_state" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 
   if [ "$status" = "completed" ] && [ -n "$feature" ]; then
-    echo "Feature $feature completed. Run /claude-harness:checkpoint or /claude-harness:flow $feature to finalize."
+    # Feature completed - no plain text output
     # Clean up stale recovery markers for this feature
     if [ -f "$RECOVERY_DIR/interrupted.json" ]; then
       rec_feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
@@ -53,7 +53,7 @@ for session_dir in "$SESSIONS_DIR"/*/; do
   "reason": "natural-stop-while-in-progress"
 }
 INTEOF
-    echo "Feature $feature still in progress (attempt ${attempt:-1}). Resume with /claude-harness:flow $feature"
+    # Feature in progress - no plain text output
     exit 0
   fi
 done
