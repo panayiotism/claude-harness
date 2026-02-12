@@ -2,21 +2,9 @@
   "version": 1,
   "features": [
     {
-      "id": "feature-020",
-      "name": "Optimize flow.md — complexity routing + deduplication",
-      "status": "passing",
-      "github": {
-        "issueNumber": 35,
-        "prNumber": null,
-        "branch": "feature/feature-020"
-      },
-      "verificationCommands": {},
-      "maxAttempts": 15
-    },
-    {
       "id": "feature-021",
       "name": "Trim session-start.sh context injection",
-      "status": "pending",
+      "status": "passing",
       "github": {
         "issueNumber": 36,
         "prNumber": null,
