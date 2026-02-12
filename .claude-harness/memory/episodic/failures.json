@@ -35,6 +35,18 @@
       "command": "bash /home/panayiotis/dev/environment/claude-harness/tests/test-session-start-trim.sh",
       "error": "Exit code 1\n=== Session-start.sh Trim Tests ===\n\n  FAIL: session-start.sh under 400 lines (currently 633)\n  FAIL: No Opus 4.6 capabilities section\n  FAIL: Has reusable box formatting function\n  FAIL: Workflow commands mentioned at most 5 times (currently 21)\n\n=== Results: 0 passed, 4 failed ===",
       "summary": "Failed: bash /home/panayiotis/dev/environment/claude-harness/tests/test-session-start-tr"
+    },
+    {
+      "timestamp": "2026-02-12T17:27:36Z",
+      "command": "bash tests/test-hook-performance.sh",
+      "error": "Exit code 1\n=== Hook Performance Tests ===\n\n  FAIL: teammate-idle.sh uses parallel verification\n  FAIL: task-completed.sh runs test command only once (currently 2x)\n  FAIL: teammate-idle.sh makes at most 1 python3 call (currently 3)\n  FAIL: task-completed.sh makes at most 1 python3 config call (currently 6)\n\n=== Results: 0 passed, 4 failed ===",
+      "summary": "Failed: bash tests/test-hook-performance.sh"
+    },
+    {
+      "timestamp": "2026-02-12T17:27:47Z",
+      "command": "bash tests/test-hook-performance.sh",
+      "error": "Exit code 1\n=== Hook Performance Tests ===\n\n  FAIL: teammate-idle.sh uses parallel verification\n  FAIL: task-completed.sh runs test command only once (currently 2x)\n  FAIL: teammate-idle.sh makes at most 1 python3 call (currently 3)\n  FAIL: task-completed.sh makes at most 1 python3 config call (currently 6)\n\n=== Results: 0 passed, 4 failed ===",
+      "summary": "Failed: bash tests/test-hook-performance.sh"
     }
   ]
 }
