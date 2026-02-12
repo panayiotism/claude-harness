@@ -1,5 +1,66 @@
 {
   "version": 1,
-  "features": [],
+  "features": [
+    {
+      "id": "feature-019",
+      "name": "Fix hook compliance bugs",
+      "status": "pending",
+      "github": {
+        "issueNumber": 34,
+        "prNumber": null,
+        "branch": "feature/feature-019"
+      },
+      "verificationCommands": {},
+      "maxAttempts": 15
+    },
+    {
+      "id": "feature-020",
+      "name": "Optimize flow.md — complexity routing + deduplication",
+      "status": "pending",
+      "github": {
+        "issueNumber": 35,
+        "prNumber": null,
+        "branch": "feature/feature-020"
+      },
+      "verificationCommands": {},
+      "maxAttempts": 15
+    },
+    {
+      "id": "feature-021",
+      "name": "Trim session-start.sh context injection",
+      "status": "pending",
+      "github": {
+        "issueNumber": 36,
+        "prNumber": null,
+        "branch": "feature/feature-021"
+      },
+      "verificationCommands": {},
+      "maxAttempts": 15
+    },
+    {
+      "id": "feature-022",
+      "name": "Hook performance optimization",
+      "status": "pending",
+      "github": {
+        "issueNumber": 37,
+        "prNumber": null,
+        "branch": "feature/feature-022"
+      },
+      "verificationCommands": {},
+      "maxAttempts": 15
+    },
+    {
+      "id": "feature-023",
+      "name": "v7.0.0 metadata + changelog",
+      "status": "pending",
+      "github": {
+        "issueNumber": 38,
+        "prNumber": null,
+        "branch": "feature/feature-023"
+      },
+      "verificationCommands": {},
+      "maxAttempts": 15
+    }
+  ],
   "fixes": []
 }
