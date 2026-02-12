@@ -709,6 +709,33 @@ Then restart Claude Code and run `/claude-harness:setup` in your project.
 
 ## Changelog
 
+### v7.0.0 (2026-02-12) - Hook Compliance, Performance & Trim
+
+**Major release**: 7 hook compliance fixes, performance optimization, and context trimming across hooks and commands.
+
+#### Hook Compliance (feature-019)
+- **TaskCompleted**: Removed `async: true` (async hooks can't block with exit 2)
+- **SessionStart**: Added `matcher: "fresh"` to prevent double-fire on compaction
+- **PreCompact**: Added `hookEventName` to hookSpecificOutput
+- **SessionEnd**: Replaced `jq` calls with grep/sed (no jq dependency)
+- **UserPromptSubmit**: Removed redundant `activeLoop` from JSON output
+- **Stop**: Replaced plain text echo with structured output
+- **PreCompact**: Replaced emoji with text in user messages
+
+#### Hook Performance (feature-022)
+- **teammate-idle.sh**: Single config parse + parallel verification (tests, lint, typecheck run concurrently with `&`/`wait`)
+- **task-completed.sh**: Runs test command once instead of twice, single python3 config call
+
+#### Context Trimming
+- **flow.md** (feature-020): 1434 → 514 lines (64% reduction). Deduplicated effort tables, loop-state schema, eliminated redundant ASCII boxes
+- **session-start.sh** (feature-021): 633 → 377 lines (40% reduction). Added reusable `build_box()` function, removed Opus 4.6 capabilities section, condensed workflow listing
+
+#### Metadata
+- All hook version headers updated to v7.0.0
+- Plugin version bumped to 7.0.0
+
+---
+
 ### v6.5.1 (2026-02-10) - Performance Hotfix
 
 **CRITICAL FIX**: Resolves 40+ minute agent hang issue in v6.5.0
@@ -744,6 +771,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **7.0.0** | **Hook Compliance, Performance & Trim**: 7 hook compliance fixes (async TaskCompleted, SessionStart matcher, PreCompact hookEventName, jq removal, activeLoop cleanup, stop structured output, emoji removal). Performance optimization (parallel verification in teammate-idle.sh, single test run in task-completed.sh). Context trimming: flow.md 1434→514 lines (64%), session-start.sh 633→377 lines (40%). All hook version headers updated to v7.0.0. |
 | **6.5.0** | **Acceptance Testing Phase (TDD Step 4: ACCEPT)**: Added end-to-end acceptance testing as the 4th step in the TDD cycle (RED → GREEN → REFACTOR → **ACCEPT**). After unit tests pass and code is refactored, the reviewer writes deterministic acceptance tests that verify the feature works from a user/production perspective. Uses existing reviewer teammate (no 4th agent). Reviewer ↔ implementer direct dialogue for acceptance failures (max 2 rounds, same pattern as REFACTOR). New `verification.acceptance` config field for project-specific E2E test commands (auto-detected for Playwright/Cypress/test:e2e/test:acceptance). `task-completed.sh` hook validates accept phase (unit tests must still pass + acceptance command must pass). Loop-state schema bumped to v7. Task chain expanded to 6 tasks (standard) / 8 tasks (autonomous). Works in both standard and autonomous modes. `setup.sh` auto-detects E2E frameworks. Existing installations auto-migrated via `/start` Phase 0. |
 | **6.4.1** | **Fix PreToolUse Blocking /flow State Writes**: The Edit/Write matcher in PreToolUse hook was blocking writes to `loop-state.json` and `active.json`, which `/flow` itself needs to write. Removed state file protection from the Edit/Write guard — the hook cannot distinguish between `/flow` managing its own state (legitimate) and random agent writes. Hooks self-modification prevention retained. |
 | **6.4.0** | **Full Hook Coverage — 14 Registrations Across 12 Event Types**: Expanded from 7 to 14 hook registrations, covering all major Claude Code hook types. **NEW hooks**: (1) `PreToolUse` with dual matchers — Bash matcher blocks dangerous git commands (`push --force`, `reset --hard`, `checkout main`, `branch -D`, `clean -f`) and state destruction (`rm -rf .claude-harness`); Edit/Write matcher blocks writes to harness-managed files (`loop-state.json`, `active.json`, `hooks/`). (2) `PostToolUse` (async) — runs tests in background after every code edit, delivers pass/fail results next turn as `additionalContext` without blocking the agent. (3) `SubagentStart` — injects harness context (active feature, TDD phase, recent failures, verification commands, learned rules) into every spawned teammate for informed parallel work. (4) `PostToolUseFailure` — records test/build/lint failures to `memory/episodic/failures.json` in real-time (cap 20, FIFO). (5) `PermissionRequest` — in autonomous mode, auto-approves safe operations (read-only git, feature branch commits, configured test/build/lint commands, package installs) and auto-denies destructive operations; no-op in standard mode. (6) `SessionStart` with `compact` matcher — re-injects active feature, TDD phase, delegation mode, and recent failures after context compaction. **ENHANCED hooks**: (7) `TaskCompleted` now validates TDD phase expectations: RED=tests must fail, GREEN=tests must pass, REFACTOR=tests must still pass. (8) `TeammateIdle` now runs lint + typecheck in addition to tests, collects all failures before reporting. |

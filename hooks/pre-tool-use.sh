@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness PreToolUse Hook v6.4.0
+# Claude Harness PreToolUse Hook v7.0.0
 # Branch safety + state protection
 # Matchers: "Bash" and "Edit|Write" (registered separately in hooks.json)
 # Exit 0 with permissionDecision: "deny" = block the tool call
