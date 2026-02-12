@@ -84,7 +84,7 @@ fi
 # ============================================================================
 
 # Build message for Claude
-USER_MSG="⚠️  Context compaction triggered - state backed up to $BACKUP_FILE"
+USER_MSG="WARNING: Context compaction triggered - state backed up to $BACKUP_FILE"
 
 CLAUDE_CONTEXT="PRE-COMPACTION SAFETY BACKUP CREATED
 
@@ -112,6 +112,7 @@ cat << EOF
   "continue": true,
   "systemMessage": "$USER_MSG_ESCAPED",
   "hookSpecificOutput": {
+    "hookEventName": "PreCompact",
     "additionalContext": "$CLAUDE_CONTEXT_ESCAPED"
   }
 }
