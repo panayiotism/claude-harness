@@ -204,7 +204,7 @@ with open('$INSTALLED_PLUGINS', 'w') as f:
 # Step 7: Update marketplace directory if it's a git repo
 if [ -d "$MARKETPLACE_DIR/.git" ]; then
     echo "Updating marketplace cache..."
-    (cd "$MARKETPLACE_DIR" && git fetch origin "$BRANCH" 2>/dev/null && git reset --hard "origin/$BRANCH" 2>/dev/null) || \
+    (cd "$MARKETPLACE_DIR" && git fetch origin "$BRANCH" 2>/dev/null && git reset --hard FETCH_HEAD 2>/dev/null) || \
         echo "  [WARN] Could not update marketplace git repo (non-critical)"
 fi
 
