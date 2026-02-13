@@ -1,6 +1,6 @@
 # Claude Code Long-Running Agent Harness
 
-A Claude Code plugin for automated, context-preserving coding sessions with **5-layer memory architecture**, failure prevention, test-driven features, GitHub integration, and **Agent Teams orchestration** (3-specialist TDD: test-writer, implementer, reviewer with acceptance testing).
+A Claude Code plugin for automated, context-preserving coding sessions with **5-layer memory architecture**, failure prevention, test-driven features, GitHub integration, and **Agent Pipeline orchestration** (auto-detect complexity, Research-Implement-Review via Task tool subagents).
 
 Based on [Anthropic's engineering article](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) and enhanced with patterns from:
 - [Context-Engine](https://github.com/zeddy89/Context-Engine) - Memory architecture
@@ -36,7 +36,7 @@ cd your-project && claude
 /claude-harness:flow --no-merge "Add user authentication with JWT tokens"
 ```
 
-The **`/flow`** command handles the entire lifecycle automatically - from context compilation to PR merge. Every feature gets a 3-specialist Agent Team (test-writer, implementer, reviewer) that enforces TDD with acceptance testing by design. Use `--autonomous` to batch-process all active features. Use `--no-merge` for step-by-step control, `--quick` to skip planning for simple tasks.
+The **`/flow`** command handles the entire lifecycle automatically - from context compilation to PR merge. Every feature uses an auto-detected Agent Pipeline (Research → Implement → Review via Task tool subagents) for quality results without zombie processes. Use `--tdd` for TDD enforcement, `--autonomous` to batch-process all active features, `--no-merge` for step-by-step control, `--quick` to skip planning.
 
 ### Complete Workflow (5 Commands Total)
 
@@ -73,12 +73,13 @@ The **`/flow`** command handles the entire lifecycle automatically - from contex
                    1. Auto-compiles context (replaces /start)
                    2. Creates feature (GitHub issue + branch)
                    3. Plans implementation (checks past failures)
-                   4. Creates 3-specialist Agent Team (test-writer, implementer, reviewer)
-                   5. TDD cycle: RED → GREEN → REFACTOR → ACCEPT
-                   6. Auto-checkpoints when acceptance tests pass
+                   4. Auto-detects complexity, builds Agent Pipeline
+                   5. Research Agent → Implementation Agent(s) → Review Agent
+                   6. Auto-checkpoints when verification passes
                    7. Auto-merges when PR approved
-                   Options: --no-merge, --quick, --autonomous,
+                   Options: --no-merge, --quick, --tdd, --autonomous,
                             --plan-only, --fix
+                   --tdd: Enforce RED-GREEN-REFACTOR cycle
                    --autonomous: Batch loop through ALL features
                    OPTIMIZATIONS: Parallel memory reads, cached GitHub parsing
 
@@ -120,7 +121,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v6.0.0 (Agent Teams)             │
+│                  CLAUDE HARNESS v8.0.0                           │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -225,7 +226,7 @@ Why it worked: Proper SSR hydration
 
 ## Test-Driven Features
 
-The `/flow` command enforces TDD by design via Agent Teams. Every feature gets a 3-specialist team: test-writer (RED), implementer (GREEN), reviewer (REFACTOR + ACCEPT):
+The `/flow` command uses an Agent Pipeline for quality implementation. Use `--tdd` for RED-GREEN-REFACTOR enforcement:
 
 ```
 /claude-harness:flow "Add user authentication"
@@ -322,7 +323,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 |---------|---------|
 | `/claude-harness:setup` | Initialize harness in project (one-time) |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
-| **`/claude-harness:flow`** | **Unified workflow**: start→implement→checkpoint→merge with Agent Teams (flags: `--no-merge`, `--plan-only`, `--autonomous`, `--quick`, `--fix`) |
+| **`/claude-harness:flow`** | **Unified workflow**: start→implement→checkpoint→merge with Agent Pipeline (flags: `--no-merge`, `--plan-only`, `--tdd`, `--autonomous`, `--quick`, `--fix`) |
 | `/claude-harness:checkpoint` | Manual commit + push + PR |
 | `/claude-harness:merge` | Merge all PRs, close issues |
 
@@ -330,7 +331,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 
 | Syntax | Behavior |
 |--------|----------|
-| `/flow "Add feature"` | Complete lifecycle: team TDD (RED→GREEN→REFACTOR→ACCEPT) → checkpoint → merge |
+| `/flow "Add feature"` | Complete lifecycle: Agent Pipeline (Research→Implement→Review) → checkpoint → merge |
 | `/flow feature-001` | Resume existing feature from current phase |
 | `/flow --no-merge "Add feature"` | Stop at checkpoint (don't auto-merge) |
 | `/flow --plan-only "Big feature"` | Plan only, implement later |
@@ -340,20 +341,19 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/flow --autonomous --no-merge` | Batch loop but stop each feature at checkpoint (PRs created, not merged) |
 
 **Key Features in /flow**:
-- **Agent Teams**: 3-specialist team (test-writer, implementer, reviewer) per feature
-- **TDD always-on**: Team structure enforces RED→GREEN→REFACTOR→ACCEPT by design
-- **Acceptance testing**: Reviewer writes and runs deterministic E2E tests after refactoring
-- **Direct collaboration**: Reviewer messages implementer directly (no lead intermediation)
-- **Delegate mode**: Lead coordinates only, doesn't write code
+- **Agent Pipeline**: Auto-detect complexity → spawn specialized Task tool subagents
+- **3-stage implementation**: Research Agent → Implementation Agent(s) → Review Agent
+- **Optional TDD**: Use `--tdd` for RED-GREEN-REFACTOR enforcement
+- **No zombie processes**: Subagents terminate naturally when tasks complete
 - Memory layers read in parallel (30-40% faster startup)
 - GitHub repo parsed once and cached for entire flow
 - Streaming memory updates after each verification attempt
 
-**TDD Phases (always-on via Agent Teams):**
+**TDD Phases (opt-in via --tdd flag):**
 ```
-RED     → test-writer writes failing tests
-GREEN   → implementer writes minimal code to pass tests
-REFACTOR → reviewer validates, messages implementer directly with issues
+RED     → Explore + qa-expert agents write failing tests
+GREEN   → Implementation agent(s) write minimal code to pass tests
+REFACTOR → code-reviewer agent validates quality
 ```
 
 ### `/prd-breakdown` Command Options
@@ -373,7 +373,7 @@ REFACTOR → reviewer validates, messages implementer directly with issues
 **PRD Breakdown Workflow:**
 ```
 📄 Input         → Read PRD from inline, file, or GitHub
-🔍 Analyze       → 3 parallel Agent Teams analysts analyze requirements
+🔍 Analyze       → 3 parallel subagent analysts analyze requirements
   • Product Analyst: Extracts business goals, requirements, personas
   • Architect: Assesses feasibility, tech stack, dependencies, risks
   • QA Lead: Defines acceptance criteria, test scenarios, verification
@@ -561,47 +561,42 @@ On failure:
 - Consults `successes.json` for working patterns
 - Up to 10 attempts before escalation
 
-## Agent Teams Orchestration (Built into /flow)
+## Agent Pipeline Orchestration (Built into /flow)
 
-Every `/flow` run creates a 3-specialist Agent Team. TDD is always-on by design:
+Every `/flow` run auto-detects feature complexity and builds an Agent Pipeline using Task tool subagents:
 
 ```
 /claude-harness:flow "Add authentication"
 
-→ Phase 1: Team Setup
-  - Creates team: "{project}-{feature-id}"
-  - Lead enters delegate mode (coordinates only)
-  - Spawns 3 specialists: test-writer, implementer, reviewer
+→ Phase 1: Complexity Assessment
+  - Simple (1-2 files): Explore + Implement agents
+  - Standard (3-5 files): Explore + domain-specific + code-reviewer
+  - Complex (6+ files): Explore + Plan + domain-specific + code-reviewer + qa-expert
 
-→ Phase 2: RED — test-writer writes failing tests
-  - Explores test patterns for the project
-  - Writes tests covering unit, integration, edge cases
-  - Verification gate: tests must exist and FAIL
+→ Phase 2: Research Agent (Explore)
+  - Explores codebase for patterns, conventions, dependencies
+  - Reports files to modify, patterns to follow, pitfalls to avoid
 
-→ Phase 3: GREEN — implementer makes tests pass
-  - Reads tests, implements minimal code
-  - Can message test-writer directly for clarification
-  - Verification gate: all tests must PASS
+→ Phase 3: Implementation Agent(s)
+  - Domain-specific agents write code (can run in parallel)
+  - Receives research results + past failures to avoid
+  - If --tdd: writes minimal code to pass tests
 
-→ Phase 4: REFACTOR — reviewer validates
-  - Reviews implementation, messages implementer with issues
-  - Direct reviewer ↔ implementer dialogue (no lead intermediation)
-  - Max 2 review rounds, tests must stay green
+→ Phase 4: Review Agent (code-reviewer)
+  - Reviews implementation for correctness and quality
+  - If issues found: feeds back to implementation agent (max 2 rounds)
+  - Security-auditor spawned in parallel for sensitive code
 
-→ Phase 5: ACCEPT — reviewer runs acceptance tests
-  - Writes deterministic E2E tests exercising the feature end-to-end
-  - Tests from user/production perspective (not just unit tests)
-  - If failures: reviewer ↔ implementer dialogue to fix (max 2 rounds)
-  - Uses verification.acceptance command or standard test runner
+→ Phase 5: Verification
+  - All verification commands must pass (build, test, lint, typecheck)
+  - Success/failure recorded to procedural memory
 
-→ Phase 6: Verification & Cleanup
-  - All verification commands must pass
-  - Team shut down, memory persisted
-
-→ Phase 7: Checkpoint & Merge
+→ Phase 6: Checkpoint & Merge
   - Commit, push, create PR
   - Auto-merge when approved
 ```
+
+Subagents terminate naturally when their task completes — no zombie processes.
 
 ## Impact Analysis
 
@@ -709,6 +704,35 @@ Then restart Claude Code and run `/claude-harness:setup` in your project.
 
 ## Changelog
 
+### v8.0.0 (2026-02-13) - Revert Agent Teams, Restore Agent Pipeline
+
+**Major stability release**: Reverts Agent Teams orchestration (v6.0.0-v7.0.0) back to the stable Agent Pipeline model. Agent Teams frequently produced zombie processes that drained CPU and RAM due to missing timeout mechanisms on team lifecycle, inter-teammate messaging, and TeammateIdle hook verification.
+
+#### Agent Pipeline Restored
+- **Implementation model**: Research Agent → Implementation Agent(s) → Review Agent via Task tool subagents
+- **Complexity auto-detection**: Simple/Standard/Complex with appropriate agent counts
+- **TDD optional**: Use `--tdd` flag for RED-GREEN-REFACTOR (no longer always-on)
+- **No zombie processes**: Subagents terminate naturally when tasks complete
+
+#### Removed (Agent Teams)
+- `TeamCreate`, `SendMessage`, delegate mode, 3-specialist team roster
+- `TeammateIdle` hook (teammate-idle.sh deleted)
+- `TaskCompleted` hook with TDD phase validation (task-completed.sh deleted)
+- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable requirement
+- Agent Teams blocker in session-start.sh
+- `agentTeams` config section in setup.sh
+- Hook registrations reduced from 14 to 12
+
+#### Kept from v6/v7
+- Hook performance optimizations (parallel verification, single config parse)
+- Context trimming (session-start.sh reusable `build_box()`)
+- Interrupt recovery system (stale session detection, recovery markers)
+- SubagentStart hook (injects context into Task tool subagents)
+- Effort controls per phase (Opus 4.6+)
+- All memory architecture, GitHub integration, autonomous mode
+
+---
+
 ### v7.0.0 (2026-02-12) - Hook Compliance, Performance & Trim
 
 **Major release**: 7 hook compliance fixes, performance optimization, and context trimming across hooks and commands.
@@ -771,6 +795,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **8.0.0** | **Revert Agent Teams, Restore Agent Pipeline**: Stability release reverting Agent Teams (v6-v7) due to zombie processes. Restores Agent Pipeline model (Research→Implement→Review via Task tool subagents). TDD now optional via `--tdd` flag. Removed TeammateIdle and TaskCompleted hooks, Agent Teams env var, delegate mode. Kept: hook performance optimizations, interrupt recovery, effort controls, context trimming. Hook registrations reduced from 14 to 12. |
 | **7.0.0** | **Hook Compliance, Performance & Trim**: 7 hook compliance fixes (async TaskCompleted, SessionStart matcher, PreCompact hookEventName, jq removal, activeLoop cleanup, stop structured output, emoji removal). Performance optimization (parallel verification in teammate-idle.sh, single test run in task-completed.sh). Context trimming: flow.md 1434→514 lines (64%), session-start.sh 633→377 lines (40%). All hook version headers updated to v7.0.0. |
 | **6.5.0** | **Acceptance Testing Phase (TDD Step 4: ACCEPT)**: Added end-to-end acceptance testing as the 4th step in the TDD cycle (RED → GREEN → REFACTOR → **ACCEPT**). After unit tests pass and code is refactored, the reviewer writes deterministic acceptance tests that verify the feature works from a user/production perspective. Uses existing reviewer teammate (no 4th agent). Reviewer ↔ implementer direct dialogue for acceptance failures (max 2 rounds, same pattern as REFACTOR). New `verification.acceptance` config field for project-specific E2E test commands (auto-detected for Playwright/Cypress/test:e2e/test:acceptance). `task-completed.sh` hook validates accept phase (unit tests must still pass + acceptance command must pass). Loop-state schema bumped to v7. Task chain expanded to 6 tasks (standard) / 8 tasks (autonomous). Works in both standard and autonomous modes. `setup.sh` auto-detects E2E frameworks. Existing installations auto-migrated via `/start` Phase 0. |
 | **6.4.1** | **Fix PreToolUse Blocking /flow State Writes**: The Edit/Write matcher in PreToolUse hook was blocking writes to `loop-state.json` and `active.json`, which `/flow` itself needs to write. Removed state file protection from the Edit/Write guard — the hook cannot distinguish between `/flow` managing its own state (legitimate) and random agent writes. Hooks self-modification prevention retained. |

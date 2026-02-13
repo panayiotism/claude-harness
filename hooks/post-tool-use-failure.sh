@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness PostToolUseFailure Hook v7.0.0
+# Claude Harness PostToolUseFailure Hook v8.0.0
 # Real-time failure learning — records test/build/lint failures
 # Matcher: "Bash"
 # Appends to memory/episodic/failures.json for future reference

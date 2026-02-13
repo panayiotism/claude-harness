@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart (compact) Hook v7.0.0
+# Claude Harness SessionStart (compact) Hook v8.0.0
 # Post-compaction context recovery — re-injects critical state after compaction
 # Matcher: "compact" — only fires when source is context compaction
 # Complements pre-compact.sh backup with active context restoration
@@ -19,8 +19,6 @@ LOOP_FEATURE=""
 LOOP_ATTEMPT=""
 LOOP_MAX=""
 TDD_PHASE=""
-TEAM_NAME=""
-LEAD_MODE=""
 SESSIONS_DIR="$HARNESS_DIR/sessions"
 
 if [ -d "$SESSIONS_DIR" ]; then
@@ -38,12 +36,7 @@ if [ -d "$SESSIONS_DIR" ]; then
             LOOP_ATTEMPT=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
             LOOP_MAX=$(grep -o '"maxAttempts"[[:space:]]*:[[:space:]]*[0-9]*' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
             TDD_PHASE=$(grep -o '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-            TEAM_NAME=$(grep -o '"teamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 
-            # Check for lead mode
-            if [ -f "$session_dir/lead-mode" ]; then
-                LEAD_MODE=$(cat "$session_dir/lead-mode" 2>/dev/null)
-            fi
             break
         fi
     done
@@ -63,24 +56,6 @@ if [ -n "$LOOP_FEATURE" ]; then
         CONTEXT="$CONTEXT\nTDD Phase: $TDD_PHASE"
     fi
 
-    if [ -n "$TEAM_NAME" ]; then
-        CONTEXT="$CONTEXT\nAgent Team: $TEAM_NAME"
-    fi
-
-    if [ -n "$LEAD_MODE" ]; then
-        CONTEXT="$CONTEXT\nLead Mode: $LEAD_MODE"
-
-        # Read delegate rule if in delegate mode
-        if [ "$LEAD_MODE" = "delegate" ]; then
-            for session_dir in "$SESSIONS_DIR"/*/; do
-                [ -f "$session_dir/delegate-rule" ] || continue
-                DELEGATE_RULE=$(cat "$session_dir/delegate-rule" 2>/dev/null)
-                if [ -n "$DELEGATE_RULE" ]; then
-                    CONTEXT="$CONTEXT\nDelegate Rule: $DELEGATE_RULE"
-                fi
-                break
-            done
-        fi
     fi
 
     # Add recent failures

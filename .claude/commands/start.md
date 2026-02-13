@@ -60,6 +60,13 @@ Before anything else, check if legacy root-level harness files need migration:
      ```
    - Report: "Created missing state file: {filename}"
 
+   - `.claude-harness/config.json` verification block (if missing `acceptance` key):
+     - Read existing config.json
+     - If `verification` object exists but has no `acceptance` key:
+       - Add `"acceptance": ""` to the verification object
+       - Write updated config.json back
+     - Report: "Added acceptance test config (verification.acceptance) — configure with your E2E test command"
+
    **Note**: Loop state and working context are now session-scoped and created at runtime in `.claude-harness/sessions/{session-id}/`. Legacy files at `.claude-harness/loop-state.json` and `.claude-harness/working-context.json` are no longer created.
 
 ## Phase 0.5: Set Paths
@@ -240,7 +247,7 @@ Before anything else, check if legacy root-level harness files need migration:
        │  Feature: {feature}                                            │
        │  TDD Phase: {tddPhase}                                        │
        │  Attempt: {attemptAtInterrupt}/{maxAttempts}                   │
-       │  Stale Team: {staleTeamName} (dead — will create new)         │
+       │  Stale Session: (dead — will start fresh)                      │
        │                                                                │
        │  Resume: /claude-harness:flow {feature}                        │
        │  (Recovery options will be presented on resume)                │

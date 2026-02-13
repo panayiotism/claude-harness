@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness PermissionRequest Hook v7.0.0
+# Claude Harness PermissionRequest Hook v8.0.0
 # Autonomous mode acceleration — auto-approve safe ops, auto-deny destructive
 # No matcher — fires for all permission requests
 # No-op when not in autonomous mode

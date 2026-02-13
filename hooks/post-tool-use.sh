@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness PostToolUse Hook v7.0.0
+# Claude Harness PostToolUse Hook v8.0.0
 # Async streaming verification — runs tests in background after code edits
 # Matcher: "Edit|Write", async: true
 # Results delivered next turn as additionalContext

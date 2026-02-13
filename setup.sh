@@ -347,20 +347,20 @@ migrate_legacy_root_files() {
 
 # Migrate from v5.x to v6.0: remove worktrees, handoffs, stale commands
 migrate_to_v6() {
-    echo "Running v6.0 migration (Agent Teams replaces subagent pipeline)..."
+    echo "Running v6.0 migration (cleanup legacy artifacts)..."
     CLEANED=0
 
-    # Remove worktrees directory (Agent Teams handle parallelism now)
+    # Remove worktrees directory (no longer used)
     if [ -d ".claude-harness/worktrees" ]; then
         rm -rf ".claude-harness/worktrees"
-        echo "  [CLEANUP] Removed .claude-harness/worktrees/ (replaced by Agent Teams)"
+        echo "  [CLEANUP] Removed .claude-harness/worktrees/"
         CLEANED=$((CLEANED + 1))
     fi
 
-    # Remove handoffs.json (direct inter-agent messaging replaces handoffs)
+    # Remove handoffs.json (no longer used)
     if [ -f ".claude-harness/agents/handoffs.json" ]; then
         rm -f ".claude-harness/agents/handoffs.json"
-        echo "  [CLEANUP] Removed agents/handoffs.json (replaced by Agent Teams messaging)"
+        echo "  [CLEANUP] Removed agents/handoffs.json"
         CLEANED=$((CLEANED + 1))
     fi
 
@@ -686,11 +686,6 @@ create_file ".claude-harness/config.json" '{
     "autoReflectOnCheckpoint": false,
     "autoApproveHighConfidence": true,
     "minConfidenceForAuto": "high"
-  },
-  "agentTeams": {
-    "maxTeammates": 3,
-    "displayMode": "auto",
-    "delegateMode": true
   }
 }'
 
@@ -839,7 +834,7 @@ echo "=== Environment Ready (v${DISPLAY_VERSION}) ==="
 echo "Commands (5 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
-echo "  /claude-harness:flow        - Unified workflow with Agent Teams (recommended)"
+echo "  /claude-harness:flow        - Unified workflow with Agent Pipeline (recommended)"
 echo "  /claude-harness:checkpoint  - Save progress, persist memory"
 echo "  /claude-harness:merge       - Merge PRs, close issues"
 echo "  Flags: --no-merge --plan-only --autonomous --quick --fix"
@@ -909,8 +904,7 @@ mkdir -p .claude/commands
 # 14. .claude/settings.local.json
 # ============================================================================
 
-# settings.local.json gets special handling: create if missing, but always
-# ensure the Agent Teams env var is present (even in existing files).
+# settings.local.json gets special handling: create if missing.
 create_file ".claude/settings.local.json" '{
   "hooks": {
     "SessionEnd": [
@@ -924,9 +918,6 @@ create_file ".claude/settings.local.json" '{
       }
     ]
   },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  },
   "permissions": {
     "allow": [
       "Bash(./.claude-harness/init.sh)",
@@ -937,23 +928,6 @@ create_file ".claude/settings.local.json" '{
     "ask": []
   }
 }'
-
-# ALWAYS ensure Agent Teams env var is in settings.local.json (even if file was skipped above)
-if [ -f ".claude/settings.local.json" ]; then
-    if ! grep -q '"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"' ".claude/settings.local.json" 2>/dev/null; then
-        # File exists but missing the env var — merge it in using python for safe JSON handling
-        python3 -c "
-import json, sys
-with open('.claude/settings.local.json') as f:
-    data = json.load(f)
-data.setdefault('env', {})['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] = '1'
-with open('.claude/settings.local.json', 'w') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
-" 2>/dev/null && echo "  [UPDATE] .claude/settings.local.json (added CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)" \
-              || echo "  [WARN] Could not update settings.local.json — add CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS manually"
-    fi
-fi
 
 # ============================================================================
 # 15. Copy ALL plugin command files to .claude/commands/
@@ -1101,14 +1075,12 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:flow --no-merge \"description\" for step-by-step control"
 echo "  5. Run /claude-harness:flow --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v6.0.0 Features (NEW - Agent Teams as Sole Orchestration):"
-echo "  • Agent Teams - Every feature gets a 3-specialist team (test-writer, implementer, reviewer)"
-echo "  • TDD always-on - RED-GREEN-REFACTOR enforced by team structure, no flag needed"
-echo "  • Direct collaboration - Reviewer and implementer message each other directly"
-echo "  • Delegate mode - Lead coordinates only, specialists write code"
-echo "  • Quality gates - TeammateIdle and TaskCompleted hooks enforce verification"
-echo "  • Autonomous mode - /flow --autonomous with specialist team per feature"
+echo "v8.0.0 Features (Stability Release — Agent Pipeline):"
+echo "  • Agent Pipeline - Auto-detect complexity, spawn specialized Task tool subagents"
+echo "  • 3-stage implementation - Research Agent -> Implementation Agent(s) -> Review Agent"
+echo "  • Optional TDD - Use --tdd flag for RED-GREEN-REFACTOR enforcement"
 echo "  • Effort controls - Per-phase optimization (low for mechanical, max for planning/debugging)"
+echo "  • No zombie processes - Subagents terminate naturally when tasks complete"
 echo ""
 echo "v4.5.1 Features:"
 echo "  • Dynamic versioning - setup.md reads version from plugin.json, no hardcoding"

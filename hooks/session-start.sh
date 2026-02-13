@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v7.0.0
+# Claude Harness SessionStart Hook v8.0.0
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
@@ -272,8 +272,6 @@ USER_MSG=$(build_box "${BOX_LINES[@]}")
 # Append notices
 [ -n "$VERSION_MSG" ] && USER_MSG="$USER_MSG"$'\n'"     ⚠️  $VERSION_MSG"
 
-if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
-    USER_MSG="$USER_MSG"$'\n'"     🚫 BLOCKER: Agent Teams not enabled. Run setup then restart Claude Code."
 fi
 
 if [ "$CACHE_IS_STALE" = true ]; then
@@ -287,12 +285,6 @@ CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
 
-# Agent Teams blocker
-if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** BLOCKER: AGENT TEAMS NOT ENABLED ***"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nCLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set to '1'."
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nDO NOT run /flow or any implementation workflow."
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell user: run setup, then restart Claude Code."
 fi
 
 # Stale cache blocker

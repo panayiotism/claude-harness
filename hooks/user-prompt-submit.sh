@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness UserPromptSubmit Hook v7.0.0
+# Claude Harness UserPromptSubmit Hook v8.0.0
 # Provides smart routing context when user submits a prompt
 # Checks for active loops and injects relevant context
 
