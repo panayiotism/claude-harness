@@ -7,11 +7,31 @@
 #
 # Usage (run in your terminal, NOT inside Claude Code):
 #   bash <(curl -sf https://raw.githubusercontent.com/panayiotism/claude-harness/main/fix-stale-cache.sh)
+#   bash <(curl -sf https://raw.githubusercontent.com/panayiotism/claude-harness/main/fix-stale-cache.sh) --branch development
+#
+# Options:
+#   --branch <name>   GitHub branch to fetch from (default: main)
 #
 # After running, restart Claude Code for changes to take effect,
 # then run /claude-harness:setup in your project.
 
 set -euo pipefail
+
+# Parse arguments
+BRANCH="main"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --branch|-b)
+            BRANCH="${2:?'--branch requires a branch name'}"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: fix-stale-cache.sh [--branch <name>]"
+            exit 1
+            ;;
+    esac
+done
 
 INSTALLED_PLUGINS="$HOME/.claude/plugins/installed_plugins.json"
 PLUGIN_KEY="claude-harness@claude-harness"
@@ -20,6 +40,9 @@ CACHE_BASE="$HOME/.claude/plugins/cache/claude-harness/claude-harness"
 MARKETPLACE_DIR="$HOME/.claude/plugins/marketplaces/claude-harness"
 
 echo "=== Claude Harness: Fix Stale Plugin Cache ==="
+if [ "$BRANCH" != "main" ]; then
+    echo "  Branch: $BRANCH"
+fi
 echo ""
 
 # Step 1: Check prerequisites
@@ -67,23 +90,23 @@ echo "Checking GitHub for latest version..."
 LATEST_VERSION=""
 LATEST_SHA=""
 
-# Get latest version from plugin.json on main branch
+# Get latest version from plugin.json on target branch
 if command -v gh &>/dev/null; then
-    LATEST_VERSION=$(gh api "repos/$REPO/contents/.claude-plugin/plugin.json" \
+    LATEST_VERSION=$(gh api "repos/$REPO/contents/.claude-plugin/plugin.json?ref=$BRANCH" \
         --jq '.content' 2>/dev/null | base64 -d 2>/dev/null | \
         python3 -c "import json,sys; print(json.load(sys.stdin)['version'])" 2>/dev/null || true)
-    LATEST_SHA=$(gh api "repos/$REPO/commits/main" --jq '.sha' 2>/dev/null || true)
+    LATEST_SHA=$(gh api "repos/$REPO/commits/$BRANCH" --jq '.sha' 2>/dev/null || true)
 fi
 
 if [ -z "$LATEST_VERSION" ]; then
     LATEST_VERSION=$(curl -sf --max-time 10 \
-        "https://raw.githubusercontent.com/$REPO/main/.claude-plugin/plugin.json" 2>/dev/null | \
+        "https://raw.githubusercontent.com/$REPO/$BRANCH/.claude-plugin/plugin.json" 2>/dev/null | \
         python3 -c "import json,sys; print(json.load(sys.stdin)['version'])" 2>/dev/null || true)
 fi
 
 if [ -z "$LATEST_SHA" ]; then
     LATEST_SHA=$(curl -sf --max-time 10 \
-        "https://api.github.com/repos/$REPO/commits/main" 2>/dev/null | \
+        "https://api.github.com/repos/$REPO/commits/$BRANCH" 2>/dev/null | \
         python3 -c "import json,sys; print(json.load(sys.stdin)['sha'])" 2>/dev/null || true)
 fi
 
@@ -112,13 +135,13 @@ echo "Downloading from GitHub..."
 DOWNLOAD_OK=false
 
 if command -v gh &>/dev/null; then
-    if gh api "repos/$REPO/tarball/main" > "$TMPDIR/repo.tar.gz" 2>/dev/null; then
+    if gh api "repos/$REPO/tarball/$BRANCH" > "$TMPDIR/repo.tar.gz" 2>/dev/null; then
         DOWNLOAD_OK=true
     fi
 fi
 
 if [ "$DOWNLOAD_OK" = false ]; then
-    if curl -sfL --max-time 60 "https://github.com/$REPO/archive/refs/heads/main.tar.gz" \
+    if curl -sfL --max-time 60 "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz" \
         -o "$TMPDIR/repo.tar.gz" 2>/dev/null; then
         DOWNLOAD_OK=true
     fi
@@ -181,7 +204,7 @@ with open('$INSTALLED_PLUGINS', 'w') as f:
 # Step 7: Update marketplace directory if it's a git repo
 if [ -d "$MARKETPLACE_DIR/.git" ]; then
     echo "Updating marketplace cache..."
-    (cd "$MARKETPLACE_DIR" && git fetch origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null) || \
+    (cd "$MARKETPLACE_DIR" && git fetch origin "$BRANCH" 2>/dev/null && git reset --hard "origin/$BRANCH" 2>/dev/null) || \
         echo "  [WARN] Could not update marketplace git repo (non-critical)"
 fi
 
