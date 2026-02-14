@@ -17,15 +17,17 @@ On every session start:
 5. Check `.claude-harness/features/active.json` for current priorities
 
 ## Project Structure
-- `commands/` - Harness command definitions (markdown, served from plugin cache)
-- `hooks/` - Session hooks (9 registrations: safety, quality gates, team coordination)
-- `.claude-plugin/` - Plugin configuration + marketplace
-- `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
+- `claude-harness/` - Plugin directory (what gets installed by users)
+  - `commands/` - Harness command definitions (markdown, served from plugin cache)
+  - `hooks/` - Session hooks (9 registrations: safety, quality gates, team coordination)
+  - `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
+  - `.claude-plugin/plugin.json` - Plugin manifest
+- `.claude-plugin/marketplace.json` - Marketplace catalog (points to `./claude-harness`)
 
 ## Development Rules
 - Work on ONE feature at a time
 - Always update `.claude-harness/claude-progress.json` after completing work
-- Update version in `.claude-plugin/plugin.json` for every change
+- Update version in both `.claude-plugin/plugin.json` and `claude-harness/.claude-plugin/plugin.json` for every change
 - Update changelog in `README.md`
 - Commit with descriptive messages
 - Leave codebase in clean, working state

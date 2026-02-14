@@ -713,12 +713,13 @@ Then restart Claude Code and run `/claude-harness:setup` in your project to migr
 
 ## Changelog
 
-### v6.0.7 (2026-02-14) - Fix marketplace plugin source resolution
+### v7.0.0 (2026-02-14) - Restructure repo for marketplace compatibility
 
-- **Fixed**: Plugin install fails with "not found in marketplace" after adding marketplace
-- Root cause: `"source": "./"` in marketplace.json doesn't resolve correctly when the marketplace and plugin share the same `.claude-plugin/` directory at repo root. Claude Code expects plugins in subdirectories (per [official docs](https://code.claude.com/docs/en/plugin-marketplaces))
-- Changed plugin source from relative path `"./"` to explicit GitHub repo reference `{"source": "github", "repo": "panayiotism/claude-harness"}`
-- This avoids restructuring the entire repo while correctly resolving the plugin source
+- **BREAKING**: Moved plugin files (`commands/`, `hooks/`, `setup.sh`) into `claude-harness/` subdirectory
+- **Fixed**: Plugin install fails with "not found in marketplace" and GitHub self-reference causes infinite recursion
+- Root cause: Claude Code requires plugins in subdirectories within a marketplace repo. Having `marketplace.json` and `plugin.json` in the same `.claude-plugin/` at root is unsupported — every working marketplace (Anthropic, gmickel, cbrake, EveryInc) uses `source: "./subdirectory"`
+- Marketplace source now `"./claude-harness"` pointing to the plugin subdirectory
+- Existing users: run `claude plugin update claude-harness` to get the new structure
 
 ### v6.0.6 (2026-02-14) - Fix installation instructions
 
@@ -837,6 +838,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **7.0.0** | **Restructure repo for marketplace compatibility**: Moved plugin files into `claude-harness/` subdirectory. Fixes "not found in marketplace" install error and infinite recursion from self-referencing GitHub source. Marketplace source now `"./claude-harness"`. |
 | **6.0.6** | **Fix installation instructions**: README Quick Start used invalid `github:owner/repo` syntax. Replaced with correct marketplace workflow (add marketplace → install plugin). Added terminal CLI equivalent. |
 | **6.0.5** | **Remove stale cache detection**: Removed custom GitHub version-check system from `session-start.sh` (66 lines). No other Claude Code plugin does this — `claude plugin update` is sufficient. Eliminates network calls on session start and false-positive warnings. |
 | **6.0.4** | **Fix stale SessionEnd hook in settings.local.json**: `SessionEnd hook [session-end.sh] failed: not found` on session exit. Stale hook entry in `settings.local.json` survived v6.0.0 consolidation because `setup.sh` skips existing files. Added cleanup step to strip stale `SessionEnd` from existing `settings.local.json`. |
