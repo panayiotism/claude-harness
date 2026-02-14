@@ -7,13 +7,12 @@
 #   curl -sL <url> | bash                    # New repo (interactive)
 #   ./setup.sh                  # Run locally (skip existing files)
 #   ./setup.sh --force          # Overwrite ALL files (use with caution)
-#   ./setup.sh --force-commands # Update commands only, preserve project files
+#   ./setup.sh --force-commands # DEPRECATED — commands served from plugin cache
 #   ./setup.sh --migrate        # Force migration from v2.x to v3.0
 
 set -e
 
 FORCE=false
-FORCE_COMMANDS=false
 FORCE_MIGRATE=false
 
 case "$1" in
@@ -21,7 +20,8 @@ case "$1" in
         FORCE=true
         ;;
     --force-commands)
-        FORCE_COMMANDS=true
+        echo "NOTE: --force-commands is deprecated. Commands are served from the plugin cache."
+        echo "      Run 'claude plugin update' to update plugin commands."
         ;;
     --migrate)
         FORCE_MIGRATE=true
@@ -39,9 +39,8 @@ echo ""
 INSTALLED_VERSION=$(cat .claude-harness/.plugin-version 2>/dev/null || echo "0.0.0")
 if [ "$INSTALLED_VERSION" != "$PLUGIN_VERSION" ] && [ "$INSTALLED_VERSION" != "0.0.0" ]; then
     echo "Version upgrade detected: v${INSTALLED_VERSION} -> v${PLUGIN_VERSION}"
-    echo "Command files will be auto-updated to match new plugin version."
+    echo "Project files will be checked for migrations."
     echo ""
-    FORCE_COMMANDS=true
 
     # Run v6 migration if upgrading from v5.x or earlier
     MAJOR_OLD=$(echo "$INSTALLED_VERSION" | cut -d. -f1)
@@ -194,18 +193,15 @@ detect_project_info() {
 
 # Create file if it doesn't exist (or force is set)
 # Usage: create_file <filepath> <content> [command]
-# If third arg is "command", file is updated with --force-commands
+# Create file if it doesn't exist (or force is set)
 create_file() {
     local filepath=$1
     local content=$2
-    local filetype=${3:-"project"}  # "project" or "command"
 
     # Check if we should skip this file
     if [ -f "$filepath" ]; then
         if [ "$FORCE" = true ]; then
             : # Always overwrite with --force
-        elif [ "$FORCE_COMMANDS" = true ] && [ "$filetype" = "command" ]; then
-            : # Overwrite commands with --force-commands
         else
             echo "  [SKIP] $filepath already exists"
             return
@@ -845,65 +841,29 @@ echo "  /claude-harness:merge       - Merge PRs, close issues"
 echo "  Flags: --no-merge --plan-only --autonomous --quick --fix"
 INITEOF
 )
-create_file ".claude-harness/init.sh" "$INIT_CONTENT" "command"
+create_file ".claude-harness/init.sh" "$INIT_CONTENT"
 chmod +x .claude-harness/init.sh 2>/dev/null || true
 
 # ============================================================================
-# 12.5. hooks/ directory - Session hooks
+# 12.5. CLEANUP: Remove legacy hooks from target project
 # ============================================================================
+# Plugin hooks are served from hooks/hooks.json via ${CLAUDE_PLUGIN_ROOT}.
+# Remove any legacy hook copies in the target project.
 
-mkdir -p hooks
-
-# Session End Hook - Clean up inactive session directories
-SESSION_END_HOOK=$(cat <<'SESSIONENDEOF'
-#!/bin/bash
-# Session End Hook - Clean up inactive session directories
-# Runs automatically when a Claude Code session ends
-# Only removes sessions where the PID is no longer running (inactive)
-
-HARNESS_DIR="${CLAUDE_PROJECT_DIR:-.}/.claude-harness"
-SESSIONS_DIR="$HARNESS_DIR/sessions"
-
-# Exit if no sessions directory
-[ -d "$SESSIONS_DIR" ] || exit 0
-
-# Get current session ID from stdin (JSON input from SessionEnd hook)
-INPUT=$(cat)
-CURRENT_SESSION=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
-
-# Iterate through all session directories
-for session_dir in "$SESSIONS_DIR"/*/; do
-  [ -d "$session_dir" ] || continue
-
-  session_id=$(basename "$session_dir")
-  session_file="$session_dir/session.json"
-
-  # Skip current session (the one that's ending)
-  [ "$session_id" = "$CURRENT_SESSION" ] && continue
-
-  # Skip if no session.json (malformed session)
-  [ -f "$session_file" ] || continue
-
-  # Get PID from session.json
-  pid=$(jq -r '.pid // empty' "$session_file" 2>/dev/null)
-
-  # If no PID or PID is not running, session is inactive - delete it
-  if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
-    rm -rf "$session_dir"
-  fi
-done
-
-exit 0
-SESSIONENDEOF
-)
-create_file "hooks/session-end.sh" "$SESSION_END_HOOK" "command"
-chmod +x hooks/session-end.sh 2>/dev/null || true
+if [ -f "hooks/session-end.sh" ]; then
+    rm -f "hooks/session-end.sh"
+    echo "  [CLEANUP] Removed legacy hooks/session-end.sh (served from plugin cache)"
+fi
+if [ -d "hooks" ] && [ -z "$(ls -A hooks 2>/dev/null)" ]; then
+    rmdir hooks 2>/dev/null
+    echo "  [CLEANUP] Removed empty hooks/ directory"
+fi
 
 # ============================================================================
 # 13. .claude directory structure
 # ============================================================================
 
-mkdir -p .claude/commands
+mkdir -p .claude
 
 # ============================================================================
 # 14. .claude/settings.local.json
@@ -944,41 +904,45 @@ with open('.claude/settings.local.json', 'w') as f:
 fi
 
 # ============================================================================
-# 15. Copy ALL plugin command files to .claude/commands/
+# 15. CLEANUP: Remove legacy command copies from .claude/commands/
 # ============================================================================
+# Plugin commands are now served directly from the plugin cache.
+# Remove any stale copies that were placed by older versions of setup.sh.
 
-echo ""
-echo "=== Command Files ==="
 PLUGIN_COMMANDS_DIR="$SCRIPT_DIR/commands"
 LOCAL_COMMANDS_DIR=".claude/commands"
-mkdir -p "$LOCAL_COMMANDS_DIR"
+CLEANED_COMMANDS=0
 
-COMMANDS_UPDATED=0
-COMMANDS_CREATED=0
-COMMANDS_SKIPPED=0
-
-for cmd_file in "$PLUGIN_COMMANDS_DIR"/*.md; do
-    [ -f "$cmd_file" ] || continue
-    filename=$(basename "$cmd_file")
-    target="$LOCAL_COMMANDS_DIR/$filename"
-
-    if [ -f "$target" ]; then
-        if [ "$FORCE" = true ] || [ "$FORCE_COMMANDS" = true ]; then
-            cp "$cmd_file" "$target"
-            echo "  [UPDATE] $target"
-            COMMANDS_UPDATED=$((COMMANDS_UPDATED + 1))
-        else
-            echo "  [SKIP] $target already exists"
-            COMMANDS_SKIPPED=$((COMMANDS_SKIPPED + 1))
+if [ -d "$LOCAL_COMMANDS_DIR" ]; then
+    for cmd_file in "$PLUGIN_COMMANDS_DIR"/*.md; do
+        [ -f "$cmd_file" ] || continue
+        filename=$(basename "$cmd_file")
+        target="$LOCAL_COMMANDS_DIR/$filename"
+        if [ -f "$target" ]; then
+            rm -f "$target"
+            echo "  [CLEANUP] Removed legacy $target (served from plugin cache)"
+            CLEANED_COMMANDS=$((CLEANED_COMMANDS + 1))
         fi
-    else
-        cp "$cmd_file" "$target"
-        echo "  [CREATE] $target"
-        COMMANDS_CREATED=$((COMMANDS_CREATED + 1))
+    done
+    # Also clean up known obsolete commands
+    for stale_cmd in worktree.md do.md do-tdd.md orchestrate.md prd-breakdown.md; do
+        if [ -f "$LOCAL_COMMANDS_DIR/$stale_cmd" ]; then
+            rm -f "$LOCAL_COMMANDS_DIR/$stale_cmd"
+            echo "  [CLEANUP] Removed obsolete $LOCAL_COMMANDS_DIR/$stale_cmd"
+            CLEANED_COMMANDS=$((CLEANED_COMMANDS + 1))
+        fi
+    done
+    # Remove .claude/commands/ dir if now empty
+    if [ -d "$LOCAL_COMMANDS_DIR" ] && [ -z "$(ls -A "$LOCAL_COMMANDS_DIR" 2>/dev/null)" ]; then
+        rmdir "$LOCAL_COMMANDS_DIR" 2>/dev/null
+        echo "  [CLEANUP] Removed empty $LOCAL_COMMANDS_DIR/"
     fi
-done
-
-echo "  Commands: ${COMMANDS_CREATED} created, ${COMMANDS_UPDATED} updated, ${COMMANDS_SKIPPED} unchanged"
+fi
+if [ $CLEANED_COMMANDS -gt 0 ]; then
+    echo "  Cleaned $CLEANED_COMMANDS legacy command file(s)"
+else
+    echo "  No legacy command files to clean"
+fi
 
 
 # ============================================================================
@@ -1073,8 +1037,8 @@ echo "  ├── sessions/               (gitignored, per-instance)"
 echo "  │   └── {uuid}/             (session-scoped state)"
 echo "  └── config.json"
 echo ""
-echo "Commands (copied from plugin):"
-echo "  .claude/commands/             (all commands auto-synced from plugin)"
+echo "Commands (served from plugin cache):"
+echo "  /claude-harness:*             (auto-discovered by Claude Code)"
 echo ""
 echo "=== GitHub MCP Setup (Optional) ==="
 echo ""
@@ -1089,45 +1053,8 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:flow --no-merge \"description\" for step-by-step control"
 echo "  5. Run /claude-harness:flow --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v6.0.0 Features (NEW - Agent Teams as Sole Orchestration):"
-echo "  • Agent Teams - Every feature gets a 3-specialist team (test-writer, implementer, reviewer)"
-echo "  • TDD always-on - RED-GREEN-REFACTOR enforced by team structure, no flag needed"
-echo "  • Direct collaboration - Reviewer and implementer message each other directly"
-echo "  • Delegate mode - Lead coordinates only, specialists write code"
-echo "  • Quality gates - TeammateIdle and TaskCompleted hooks enforce verification"
-echo "  • Autonomous mode - /flow --autonomous with specialist team per feature"
-echo "  • Effort controls - Per-phase optimization (low for mechanical, max for planning/debugging)"
-echo ""
-echo "v4.5.1 Features:"
-echo "  • Dynamic versioning - setup.md reads version from plugin.json, no hardcoding"
-echo "  • Stale state detection - user-prompt-submit validates against active.json"
-echo "  • Cleaned up legacy loops/ directory"
-echo ""
-echo "v4.5.0 Features:"
-echo "  • Native Tasks integration - Visual progress tracking with Claude Code Tasks"
-echo "  • 5-task workflow chain - Research → Plan → Implement → Verify → Checkpoint"
-echo "  • Task dependencies - Built-in blocking and unblocking"
-echo "  • Loop-state v4 schema - Task references with backward compatibility"
-echo ""
-echo "v4.4.0 Features:"
-echo "  • /flow command - End-to-end automated workflow (start→implement→checkpoint→merge)"
-echo "  • Stop hook - Detects completion automatically"
-echo "  • Smart routing hook - Auto-detects active loops on prompt submit"
-echo "  • Parallelized memory reads - 30-40% faster context compilation"
-echo "  • GitHub repo caching - Single parse at session start, reused everywhere"
-echo ""
-echo "v4.2.0 Features:"
-echo "  • Simplified /merge command - removed version tagging (use git/GitHub UI directly)"
-echo ""
-echo "v4.0.0+ Features (Existing):"
-echo "  • PRD Analysis (/prd-breakdown) - Analyze Product Requirements Documents"
-echo "  • Multi-agent Decomposition - Product Analyst, Architect, QA Lead work in parallel"
-echo "  • Smart Feature Generation - Extracts requirements, resolves dependencies, assigns priorities"
-echo "  • PRD Bootstrap - Quickly create feature lists for new projects"
-echo "  • Flexible Input - Inline PRD, file-based, GitHub issues, or interactive paste"
-echo "  • Automatic Session Cleanup - Old sessions cleaned on exit (PID-based)"
-echo "  • Parallel Work Streams - Multiple Claude instances on different features"
-echo "  • Session-Scoped State - Isolated state per instance (sessions/{uuid}/)"
-echo "  • 5-Layer Memory Architecture (Working/Episodic/Semantic/Procedural/Learned)"
-echo "  • Failure Prevention (learns from mistakes)"
+echo "v6.0.0 Changes:"
+echo "  • Commands served from plugin cache (no longer copied to .claude/commands/)"
+echo "  • Hooks consolidated: 12 → 9 registrations (removed redundant hooks)"
+echo "  • Update plugin via: claude plugin update claude-harness"
 echo ""

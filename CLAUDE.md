@@ -17,10 +17,10 @@ On every session start:
 5. Check `.claude-harness/features/active.json` for current priorities
 
 ## Project Structure
-- `commands/` - Harness command definitions (markdown)
-- `hooks/` - Session hooks (shell scripts)
-- `.claude-plugin/` - Plugin configuration
-- `setup.sh` - Installation script
+- `commands/` - Harness command definitions (markdown, served from plugin cache)
+- `hooks/` - Session hooks (9 registrations: safety, quality gates, team coordination)
+- `.claude-plugin/` - Plugin configuration + marketplace
+- `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
 
 ## Development Rules
 - Work on ONE feature at a time

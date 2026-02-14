@@ -1,5 +1,7 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "claude-harness",
+  "description": "Claude Code agent harness plugins",
   "owner": {
     "name": "panayiotis"
   },
@@ -7,7 +9,9 @@
     {
       "name": "claude-harness",
       "source": "./",
-      "description": "Long-running agent harness with 5-layer memory, TDD via Agent Teams, autonomous batch processing, GitHub integration, and Agent Teams orchestration"
+      "description": "Long-running agent harness with 5-layer memory, TDD via Agent Teams, GitHub integration, and autonomous batch processing",
+      "category": "development",
+      "homepage": "https://github.com/panayiotism/claude-harness"
     }
   ]
 }

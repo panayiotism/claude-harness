@@ -9,18 +9,20 @@ Initialize or upgrade claude-harness in the current project directory.
 This command automatically detects what needs to be done:
 - **Fresh install**: Creates v3.0 structure from scratch
 - **v2.x upgrade**: Migrates existing files to v3.0 memory architecture
-- **Update**: Refreshes plugin version tracking
+- **Cleanup**: Removes legacy command copies from `.claude/commands/` (commands are now served from plugin cache)
+
+**Note**: Commands and hooks are served from the plugin cache. `setup.sh` only initializes project-level state (memory directories, CLAUDE.md, .gitignore, migrations).
 
 ## Phase 0: Run setup.sh (Handles ALL Cases)
 
-`setup.sh` handles fresh installs, v2.x migrations, and upgrades in a single script. **Always run it.**
+`setup.sh` handles fresh installs, v2.x migrations, and cleanup in a single script. **Always run it.**
 
 **Steps:**
 1. Find the plugin root path from the session context (look for "Plugin Root:" in the session start context)
 2. Run: `bash {plugin-root}/setup.sh`
-   - **Fresh install**: Creates full v3.0 structure, `.claude/commands/`, `.gitignore` patterns, CLAUDE.md, everything
+   - **Fresh install**: Creates v3.0 structure, `.gitignore` patterns, CLAUDE.md
    - **v2.x migration**: Detects legacy files, migrates to v3.0 structure, then creates missing files
-   - **Upgrade**: Detects version change, updates command files, creates any new files from current version
+   - **Cleanup**: Removes stale command copies from `.claude/commands/` and legacy hooks
    - Existing project files are **NEVER overwritten** (skipped automatically)
    - `.gitignore` patterns are added if missing
    - `.plugin-version` is written from `plugin.json`
@@ -28,6 +30,8 @@ This command automatically detects what needs to be done:
 4. **Skip Phase 3 and Phase 4** — `setup.sh` handles both
 
 **Fallback**: If the plugin root path is not available in the session context, fall through to Phase 1 → Phase 4 (manual setup).
+
+**Plugin updates**: Run `claude plugin update claude-harness` to update the plugin itself.
 
 ## Phase 3: Update Project .gitignore (FALLBACK — only if setup.sh unavailable)
 

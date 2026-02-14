@@ -158,9 +158,9 @@ PROJECT_VERSION=$(cat "$HARNESS_DIR/.plugin-version" 2>/dev/null)
 
 VERSION_MSG=""
 if [ -z "$PROJECT_VERSION" ]; then
-    VERSION_MSG="Harness not initialized - run setup"
+    VERSION_MSG="Harness not initialized - run /claude-harness:setup"
 elif [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
-    VERSION_MSG="Plugin updated: v$PROJECT_VERSION -> v$PLUGIN_VERSION - run setup to update"
+    VERSION_MSG="Plugin v$PLUGIN_VERSION (project at v$PROJECT_VERSION) - run /claude-harness:setup to migrate"
 fi
 
 EPISODIC_COUNT=0; FAILURES_COUNT=0; SUCCESSES_COUNT=0; RULES_COUNT=0
@@ -278,7 +278,7 @@ fi
 
 if [ "$CACHE_IS_STALE" = true ]; then
     USER_MSG="$USER_MSG"$'\n'"     STALE CACHE: v$PLUGIN_VERSION_CACHED installed (v$LATEST_VERSION available)"
-    USER_MSG="$USER_MSG"$'\n'"     Fix: bash <(curl -sf https://raw.githubusercontent.com/$PLUGIN_REPO/main/fix-stale-cache.sh)"
+    USER_MSG="$USER_MSG"$'\n'"     Fix: claude plugin update claude-harness"
 fi
 
 # --- Build Claude context ---
@@ -299,7 +299,7 @@ fi
 if [ "$CACHE_IS_STALE" = true ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** STALE PLUGIN CACHE DETECTED ***"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nInstalled: v$PLUGIN_VERSION_CACHED | Latest: v$LATEST_VERSION"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell user to run: bash <(curl -sf https://raw.githubusercontent.com/$PLUGIN_REPO/main/fix-stale-cache.sh)"
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell user to run: claude plugin update claude-harness"
 fi
 
 # GitHub info

@@ -106,11 +106,11 @@ The **`/flow`** command handles the entire lifecycle automatically - from contex
 
 ### Session Cleanup (Automatic)
 
-Session directories are automatically cleaned up when Claude exits. The `SessionEnd` hook detects inactive sessions by checking their PID:
+Session directories are automatically cleaned up at session start. The `SessionStart` hook detects stale sessions by checking their PID:
 
 - **Active sessions** (PID still running) are preserved
-- **Inactive sessions** (PID no longer running) are deleted
-- **Current session** is never deleted during its own exit
+- **Stale sessions** (PID no longer running) are deleted
+- **Current session** gets a fresh state directory
 
 This ensures parallel Claude instances don't interfere with each other while preventing disk bloat from accumulated sessions.
 
@@ -695,12 +695,12 @@ claude mcp add github -s user
 
 ### Stuck on Old Plugin Version
 
-If your project shows an old version (e.g., v4.4.2) even after running `claude plugin update`, your plugin cache is stale. This is a [known Claude Code issue](https://github.com/anthropics/claude-code/issues/19197) — `plugin update` updates metadata but doesn't re-download files.
+If your project shows an old version even after running `claude plugin update`, your plugin cache may be stale.
 
-**Fix:** Run this in your terminal (outside Claude Code):
+**Fix:**
 
 ```bash
-bash <(curl -sf https://raw.githubusercontent.com/panayiotism/claude-harness/main/fix-stale-cache.sh)
+claude plugin update claude-harness
 ```
 
 Then restart Claude Code and run `/claude-harness:setup` in your project.
@@ -708,6 +708,32 @@ Then restart Claude Code and run `/claude-harness:setup` in your project.
 **For plugin developers:** Use `./dev-mode.sh enable` to symlink the cache to your source repo for instant updates.
 
 ## Changelog
+
+### v6.0.0 (2026-02-14) - Official Plugin Alignment + Hook Consolidation
+
+**Major release**: Aligns plugin with official Claude Code plugin guidelines. Commands served from plugin cache, redundant hooks removed, setup.sh simplified.
+
+#### Plugin Alignment
+- Commands served from plugin cache (removed command-copying from `setup.sh`)
+- Deprecated `--force-commands` flag (use `claude plugin update` instead)
+- `setup.sh` now cleans up legacy command copies from target projects' `.claude/commands/`
+- Stale cache fix message updated to use `claude plugin update claude-harness`
+
+#### Hook Consolidation (12 → 9 registrations)
+- Removed `SessionEnd` hook (stale session cleanup already handled by SessionStart)
+- Removed `UserPromptSubmit` hook (active loop context already injected by SessionStart)
+- Removed `PostToolUse` hook (async test-on-edit duplicated TeammateIdle/TaskCompleted gates)
+- Removed `PostToolUseFailure` hook (low-value failure recording; gates handled elsewhere)
+- Removed dead `session-start-compact.sh` script (not registered in hooks.json)
+- Remaining 8 scripts, 9 registrations: SessionStart, PreCompact, Stop, PreToolUse (Bash + Edit|Write), SubagentStart, PermissionRequest, TeammateIdle, TaskCompleted
+
+#### Upgrade
+```bash
+claude plugin update claude-harness
+/claude-harness:setup
+```
+
+---
 
 ### v7.0.0 (2026-02-12) - Hook Compliance, Performance & Trim
 
@@ -771,6 +797,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **6.0.0** | **Official Plugin Alignment + Hook Consolidation**: Commands served from plugin cache (removed command-copying from setup.sh). Deprecated `--force-commands` flag. Removed 4 redundant hooks (SessionEnd, UserPromptSubmit, PostToolUse, PostToolUseFailure) and 5 dead hook scripts. Consolidated from 12 → 9 hook registrations. setup.sh now cleans up legacy command copies from target projects. Update via `claude plugin update claude-harness`. |
 | **7.0.0** | **Hook Compliance, Performance & Trim**: 7 hook compliance fixes (async TaskCompleted, SessionStart matcher, PreCompact hookEventName, jq removal, activeLoop cleanup, stop structured output, emoji removal). Performance optimization (parallel verification in teammate-idle.sh, single test run in task-completed.sh). Context trimming: flow.md 1434→514 lines (64%), session-start.sh 633→377 lines (40%). All hook version headers updated to v7.0.0. |
 | **6.5.0** | **Acceptance Testing Phase (TDD Step 4: ACCEPT)**: Added end-to-end acceptance testing as the 4th step in the TDD cycle (RED → GREEN → REFACTOR → **ACCEPT**). After unit tests pass and code is refactored, the reviewer writes deterministic acceptance tests that verify the feature works from a user/production perspective. Uses existing reviewer teammate (no 4th agent). Reviewer ↔ implementer direct dialogue for acceptance failures (max 2 rounds, same pattern as REFACTOR). New `verification.acceptance` config field for project-specific E2E test commands (auto-detected for Playwright/Cypress/test:e2e/test:acceptance). `task-completed.sh` hook validates accept phase (unit tests must still pass + acceptance command must pass). Loop-state schema bumped to v7. Task chain expanded to 6 tasks (standard) / 8 tasks (autonomous). Works in both standard and autonomous modes. `setup.sh` auto-detects E2E frameworks. Existing installations auto-migrated via `/start` Phase 0. |
 | **6.4.1** | **Fix PreToolUse Blocking /flow State Writes**: The Edit/Write matcher in PreToolUse hook was blocking writes to `loop-state.json` and `active.json`, which `/flow` itself needs to write. Removed state file protection from the Edit/Write guard — the hook cannot distinguish between `/flow` managing its own state (legitimate) and random agent writes. Hooks self-modification prevention retained. |
