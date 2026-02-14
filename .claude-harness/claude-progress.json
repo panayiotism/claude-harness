@@ -1,40 +1,26 @@
 {
-  "lastUpdated": "2026-02-09T12:45:00Z",
+  "lastUpdated": "2026-02-14T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v6.5.0: Acceptance Testing Phase (TDD Step 4: ACCEPT). Added end-to-end acceptance testing as the 4th step in the TDD cycle (RED → GREEN → REFACTOR → ACCEPT). After unit tests pass and code is refactored, the reviewer writes deterministic acceptance tests that verify the feature works from a user/production perspective. Uses existing reviewer teammate (no 4th agent). Reviewer ↔ implementer direct dialogue for acceptance failures (max 2 rounds). New verification.acceptance config field with auto-detection for Playwright/Cypress/test:e2e/test:acceptance. task-completed.sh hook validates accept phase. Loop-state schema bumped to v7. Task chain expanded to 6 tasks (standard) / 8 tasks (autonomous).",
+    "summary": "v5.2.1: Fix SessionEnd hook error — removed duplicate hook registration from .claude/settings.json and setup.sh settings.local.json template. The $CLAUDE_PLUGIN_ROOT env var is only available inside the plugin system (hooks/hooks.json), not in project settings context, causing '/hooks/session-end.sh: not found' error on session exit.",
     "completedTasks": [
-      "Added Step 4: ACCEPT to TDD cycle in flow.md (both standard and autonomous modes)",
-      "Updated loop-state schema from v6 to v7 (added acceptanceStatus, acceptCycles)",
-      "Updated task chains: 5→6 tasks (standard), 7→8 tasks (autonomous)",
-      "Updated all effort tables with Acceptance Testing row",
-      "Updated reviewer role description and context (acceptance criteria, acceptance command)",
-      "Added accept case to task-completed.sh TDD phase validation",
-      "Added acceptance command check to verification gate in task-completed.sh",
-      "Added verification.acceptance to config.json template in setup.sh",
-      "Added E2E framework auto-detection (Playwright, Cypress, test:e2e, test:acceptance, pytest e2e)",
-      "Added config.json migration for existing installations in start.md",
-      "Updated README with acceptance testing documentation and v6.5.0 changelog",
-      "Bumped version to 6.5.0 across plugin.json, .plugin-version"
+      "Diagnosed SessionEnd hook failure: $CLAUDE_PLUGIN_ROOT empty in .claude/settings.json context",
+      "Removed duplicate SessionEnd hook from .claude/settings.json (plugin's hooks.json already handles it)",
+      "Removed duplicate SessionEnd hook from setup.sh settings.local.json template",
+      "Bumped version to 5.2.1 in plugin.json and .plugin-version"
     ],
     "blockers": [],
     "nextSteps": [
-      "Test ACCEPT phase by running /flow on a feature with acceptance criteria",
-      "Test acceptance test auto-detection on Node.js and Python projects",
-      "Test config.json migration via /start on existing installations",
-      "Test task-completed.sh accept phase validation gate"
+      "Verify session-end hook works correctly on next session exit",
+      "Run setup.sh on a test project to verify settings.local.json no longer contains duplicate hook"
     ]
   },
   "recentChanges": [
-    "v6.5.0: Acceptance Testing Phase — 4th TDD step (ACCEPT), reviewer writes deterministic E2E tests, direct dialogue on failures",
-    "v6.4.1: Fix PreToolUse blocking /flow state writes - removed loop-state.json and active.json from Edit/Write guard",
-    "v6.4.0: Full hook coverage - 14 registrations across 12 event types, 6 new hooks, 2 enhanced",
-    "v6.3.0: Interrupt recovery - stale session detection, recovery markers, 3 resume options, stale team guard",
-    "v6.2.1: Fix delegate mode loss after context compaction - leadMode persisted to disk, re-read at loop iterations",
-    "v6.2.0: PRD Breakdown Agent Teams migration - subagents to teammates, preflight check, analyst-prompts.json",
-    "v6.1.0: Stale cache detection - GitHub version check, fix-stale-cache.sh bootstrap",
-    "v6.0.1: v6 upgrade cleanup - migrate_to_v6() removes worktrees, handoffs, stale commands",
-    "v6.0.0: Agent Teams as sole orchestration, removed worktrees/--tdd/--inline, always-on TDD"
+    "v5.2.1: Fix SessionEnd hook error — removed duplicate registration from settings.json and setup.sh",
+    "v5.2.0: Consolidated Workflow + Enforced Agent Swarms",
+    "v7.0.0: Hook Compliance, Performance & Trim",
+    "v6.5.0: Acceptance Testing Phase — 4th TDD step (ACCEPT)",
+    "v6.4.1: Fix PreToolUse blocking /flow state writes"
   ],
   "knownIssues": [],
   "environmentState": {

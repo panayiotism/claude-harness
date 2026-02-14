@@ -306,6 +306,15 @@
       "rationale": "In standard mode, users can review and approve permissions themselves. Auto-approving would reduce user control. In autonomous mode, there's no user present, so safe operations should auto-approve and destructive ones should auto-deny to prevent the agent from getting stuck on permission prompts.",
       "alternatives": ["Always active with configurable allow lists", "Auto-approve all in autonomous mode", "Never auto-approve (let Claude Code handle it)"],
       "impact": "hooks/permission-request.sh"
+    },
+    {
+      "id": "dec-20260214-001",
+      "timestamp": "2026-02-14T12:00:00Z",
+      "feature": "v5.2.1",
+      "decision": "Remove duplicate SessionEnd hook from .claude/settings.json and setup.sh settings.local.json — hooks.json is the canonical registration",
+      "rationale": "$CLAUDE_PLUGIN_ROOT env var is only available inside the plugin system (hooks/hooks.json context). Project settings files (.claude/settings.json, .claude/settings.local.json) do not have access to plugin env vars, causing the hook command to resolve to '/hooks/session-end.sh' (not found).",
+      "alternatives": ["Fix env var resolution in settings files", "Use $CLAUDE_PROJECT_DIR instead of $CLAUDE_PLUGIN_ROOT", "Hardcode absolute path"],
+      "impact": ".claude/settings.json, setup.sh, .claude/settings.local.json"
     }
   ]
 }

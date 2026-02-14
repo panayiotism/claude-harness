@@ -11,25 +11,116 @@ This command automatically detects what needs to be done:
 - **v2.x upgrade**: Migrates existing files to v3.0 memory architecture
 - **Update**: Refreshes plugin version tracking
 
-## Phase 0: Run setup.sh (Handles ALL Cases)
+## Phase 0: Version Detection
 
-`setup.sh` handles fresh installs, v2.x migrations, and upgrades in a single script. **Always run it.**
+1. Check if `.claude-harness/memory/` directory exists:
+   - If YES: Already v3.0 → go to **Phase 2.5** (update existing installation)
+   - If NO: Continue to Phase 1
+
+## Phase 1: Migration from v2.x (if applicable)
+
+Check for existing v2.x harness structure:
+
+1. If `.claude-harness/` exists BUT `.claude-harness/memory/` does NOT exist:
+   - This is a v2.x installation, migrate it:
+
+   **Create v3.0 directory structure:**
+   ```bash
+   mkdir -p .claude-harness/memory/episodic
+   mkdir -p .claude-harness/memory/semantic
+   mkdir -p .claude-harness/memory/procedural
+   mkdir -p .claude-harness/memory/learned
+   mkdir -p .claude-harness/features
+   mkdir -p .claude-harness/impact
+   mkdir -p .claude-harness/agents
+   mkdir -p .claude-harness/sessions
+   ```
+
+   **Migrate existing files:**
+   - If `agent-memory.json` exists: Extract `failedApproaches` → `memory/procedural/failures.json`, `successfulApproaches` → `memory/procedural/successes.json`
+   - If `agent-context.json` exists: Move to `agents/context.json`
+   - If `feature-list.json` exists: Move to `features/active.json`
+   - If `feature-archive.json` exists: Move to `features/archive.json`
+   - Keep `claude-progress.json` in place (still used)
+   - Delete legacy files (no longer used in v4.x): `working-context.json`, `loop-state.json`
+
+   **Create memory layer files:**
+   - `memory/episodic/decisions.json` with empty entries array
+   - `memory/semantic/architecture.json` with project structure
+   - `memory/procedural/patterns.json` with empty entries
+
+   **Create marker file:**
+   - Write `3.0.0` to `.claude-harness/.migrated-from-v2`
+
+   Report: "Migrated v2.x to v3.0 Memory Architecture"
+
+2. Check for legacy root-level files (v2.1.0 or earlier):
+   - If `feature-list.json`, `claude-progress.json`, etc. exist in project root:
+   - Move them to `.claude-harness/` first, then apply v3.0 migration
+
+## Phase 2: Fresh v3.0 Installation
+
+If no `.claude-harness/` directory exists, create full v3.0 structure:
+
+**Directory structure:**
+```
+.claude-harness/
+├── memory/
+│   ├── episodic/decisions.json       (persistent - rolling window of decisions)
+│   ├── semantic/
+│   │   ├── architecture.json
+│   │   ├── entities.json
+│   │   └── constraints.json
+│   ├── procedural/
+│   │   ├── failures.json
+│   │   ├── successes.json
+│   │   └── patterns.json
+│   ├── learned/
+│   │   └── rules.json
+│   └── compaction-backups/           (gitignored)
+├── features/
+│   ├── active.json                   (feature tracking)
+│   └── archive.json                  (completed features)
+├── agents/
+│   └── context.json                  (orchestration state)
+├── impact/
+│   └── dependency-graph.json
+├── prd/
+│   └── subagent-prompts.json
+├── sessions/                         (gitignored - per-session state)
+├── .plugin-version
+├── claude-progress.json
+└── init.sh
+```
+
+## Session-Scoped State (Created at Runtime)
+
+The following files are **session-specific** and **created at runtime** by the SessionStart hook when you run `/claude-harness:start`. They are **gitignored** and ephemeral:
+
+- `.claude-harness/sessions/{session-id}/`
+  - `session.json` - Session metadata (start time, branch, context)
+  - `context.json` - Working context (no longer in `memory/working/`)
+  - `loop-state.json` - Agentic loop state (no longer in `loops/`)
+
+These files enable **parallel development**: multiple `/start` commands in different worktrees each get their own isolated session state without conflicts.
+
+## Phase 2.5: Update Existing Installation (Already v3.0)
+
+When the memory directory already exists, run the setup script to ensure all directories and files from the current plugin version are present.
 
 **Steps:**
 1. Find the plugin root path from the session context (look for "Plugin Root:" in the session start context)
 2. Run: `bash {plugin-root}/setup.sh`
-   - **Fresh install**: Creates full v3.0 structure, `.claude/commands/`, `.gitignore` patterns, CLAUDE.md, everything
-   - **v2.x migration**: Detects legacy files, migrates to v3.0 structure, then creates missing files
-   - **Upgrade**: Detects version change, updates command files, creates any new files from current version
-   - Existing project files are **NEVER overwritten** (skipped automatically)
+   - This safely creates any **missing** directories and files from the current version
+   - Existing files are **NEVER overwritten** (skipped automatically)
    - `.gitignore` patterns are added if missing
    - `.plugin-version` is written from `plugin.json`
 3. Report what was created vs what was skipped
 4. **Skip Phase 3 and Phase 4** — `setup.sh` handles both
 
-**Fallback**: If the plugin root path is not available in the session context, fall through to Phase 1 → Phase 4 (manual setup).
+**Fallback**: If the plugin root path is not available in the session context, fall through to Phase 3 + Phase 4 (manual gitignore check + version verify).
 
-## Phase 3: Update Project .gitignore (FALLBACK — only if setup.sh unavailable)
+## Phase 3: Update Project .gitignore (MANDATORY)
 
 **CRITICAL**: You MUST update the project's `.gitignore` to exclude harness ephemeral files. This prevents uncommitted file clutter after `/checkpoint`.
 
@@ -56,7 +147,7 @@ This command automatically detects what needs to be done:
 
 **DO NOT SKIP THIS PHASE** - it is required for proper harness operation.
 
-## Phase 4: Verify Plugin Version (FALLBACK — only if setup.sh unavailable)
+## Phase 4: Verify Plugin Version
 
 **CRITICAL**: The SessionStart hook has ALREADY written the correct plugin version to `.claude-harness/.plugin-version`. Do NOT overwrite this file with any hardcoded version.
 
@@ -157,7 +248,8 @@ This command automatically detects what needs to be done:
 {
   "version": 1,
   "currentSession": null,
-  "agentResults": []
+  "agentResults": [],
+  "pendingHandoffs": []
 }
 ```
 

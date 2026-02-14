@@ -2,18 +2,6 @@
   "version": 1,
   "features": [
     {
-      "id": "feature-021",
-      "name": "Trim session-start.sh context injection",
-      "status": "passing",
-      "github": {
-        "issueNumber": 36,
-        "prNumber": null,
-        "branch": "feature/feature-021"
-      },
-      "verificationCommands": {},
-      "maxAttempts": 15
-    },
-    {
       "id": "feature-022",
       "name": "Hook performance optimization",
       "status": "pending",

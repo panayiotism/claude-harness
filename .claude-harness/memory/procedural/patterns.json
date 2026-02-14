@@ -59,6 +59,10 @@
     {
       "pattern": "PermissionRequest hooks should be no-op in standard mode — only activate in autonomous mode where no user is present to approve/deny",
       "source": "v6.4.0"
+    },
+    {
+      "pattern": "Plugin hooks must ONLY be registered in hooks/hooks.json (plugin system) — never duplicate in .claude/settings.json or settings.local.json, which lack access to $CLAUDE_PLUGIN_ROOT",
+      "source": "v5.2.1"
     }
   ]
 }

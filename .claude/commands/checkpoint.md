@@ -5,18 +5,39 @@ argument-hint: "[--message COMMIT_MESSAGE]"
 
 Create a checkpoint of the current session:
 
-## Phase 0: Set Paths
+## Phase 0: Worktree Detection
 
-1. **Set path variables**:
-   - `FEATURES_FILE=".claude-harness/features/active.json"`
-   - `ARCHIVE_FILE=".claude-harness/features/archive.json"`
-   - `MEMORY_DIR=".claude-harness/memory/"`
-   - `PROGRESS_FILE=".claude-harness/claude-progress.json"`
-   - `SESSION_DIR=".claude-harness/sessions/{session-id}/"`
+Before any checkpoint operations, detect if we're running in a git worktree:
+
+1. **Detect worktree mode**:
+   ```bash
+   GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+   GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+
+   if [ "$GIT_COMMON_DIR" != ".git" ] && [ "$GIT_COMMON_DIR" != "$GIT_DIR" ]; then
+       IS_WORKTREE=true
+       MAIN_REPO_PATH=$(dirname "$GIT_COMMON_DIR")
+   else
+       IS_WORKTREE=false
+       MAIN_REPO_PATH="."
+   fi
+   ```
+
+2. **Set path variables**:
+   - **Shared state (write to main repo)**:
+     - `FEATURES_FILE="${MAIN_REPO_PATH}/.claude-harness/features/active.json"`
+     - `ARCHIVE_FILE="${MAIN_REPO_PATH}/.claude-harness/features/archive.json"`
+     - `MEMORY_DIR="${MAIN_REPO_PATH}/.claude-harness/memory/"`
+     - `PROGRESS_FILE="${MAIN_REPO_PATH}/.claude-harness/claude-progress.json"`
+   - **Local state (read/write in current directory)**:
+     - `SESSION_DIR=".claude-harness/sessions/{session-id}/"`
+     - `LOCAL_HARNESS=".claude-harness/"`
+
+**Important**: Use these path variables throughout all phases for shared vs local state.
 
 ## Phase 1: Update Progress
 
-1. Update `${PROGRESS_FILE}` with:
+1. Update `${PROGRESS_FILE}` (main repo in worktree mode) with:
    - Summary of what was accomplished this session
    - Any blockers encountered
    - Recommended next steps
@@ -287,7 +308,30 @@ Create a checkpoint of the current session:
      - Remove completed fixes from fixes array
    - Report: "Archived X completed fixes"
 
-   - Write updated `${FEATURES_FILE}` and `${ARCHIVE_FILE}`
+   - Write updated `${FEATURES_FILE}` and `${ARCHIVE_FILE}` (to main repo in worktree mode)
+
+## Phase 7.5: Worktree Cleanup Prompt (if in worktree and feature archived)
+
+7.5. If `IS_WORKTREE=true` and the current feature was just archived:
+   - Get current branch: `git branch --show-current`
+   - Extract feature ID from branch name (e.g., `feature/feature-014` → `feature-014`)
+   - If the archived features include this feature ID:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  🌳 WORKTREE CLEANUP                                           │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Feature {feature-id} has been archived.                       │
+     │  This worktree can be removed when you're done.                │
+     │                                                                │
+     │  To clean up:                                                  │
+     │  1. Exit this session: /clear or exit                         │
+     │  2. Return to main repo: cd {MAIN_REPO_PATH}                   │
+     │  3. Remove worktree: /claude-harness:worktree remove {id}      │
+     │                                                                │
+     │  Or continue working here if you need to make more changes.    │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+
 ## Phase 8: Persist Orchestration Memory
 
 8. Persist orchestration memory (if orchestration was active):
@@ -330,6 +374,7 @@ Create a checkpoint of the current session:
      - Persist to `${MEMORY_DIR}/episodic/decisions.json`
 
    - Clear `agentResults` array (already persisted to memory)
+   - Clear `pendingHandoffs` if all work is complete
    - Set `currentSession` to null
    - Update `lastUpdated` timestamp
 

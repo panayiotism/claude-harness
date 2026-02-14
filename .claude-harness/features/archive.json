@@ -189,6 +189,19 @@
       "createdAt": "2026-02-03T08:00:00Z",
       "updatedAt": "2026-02-06T10:00:00Z",
       "archivedAt": "2026-02-06T06:15:04Z"
+    },
+    {
+      "id": "feature-021",
+      "name": "Trim session-start.sh context injection",
+      "status": "passing",
+      "github": {
+        "issueNumber": 36,
+        "prNumber": null,
+        "branch": "feature/feature-021"
+      },
+      "verificationCommands": {},
+      "maxAttempts": 15,
+      "archivedAt": "2026-02-14T12:00:00Z"
     }
   ],
   "archivedFixes": [

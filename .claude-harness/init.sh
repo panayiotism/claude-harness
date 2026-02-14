@@ -105,6 +105,10 @@ if [ -f ".claude-harness/agents/context.json" ]; then
     else
         echo "No active orchestration"
     fi
+    handoffs=$(grep -c '"from":' .claude-harness/agents/handoffs.json 2>/dev/null || echo "0")
+    if [ "$handoffs" != "0" ]; then
+        echo "Pending handoffs: $handoffs"
+    fi
 else
     echo "No orchestration context yet"
 fi
@@ -115,7 +119,7 @@ echo "=== Environment Ready (v${DISPLAY_VERSION}) ==="
 echo "Commands (5 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
-echo "  /claude-harness:flow        - Unified workflow with Agent Teams (recommended)"
+echo "  /claude-harness:flow        - Unified workflow with agent swarms (recommended)"
 echo "  /claude-harness:checkpoint  - Save progress, persist memory"
 echo "  /claude-harness:merge       - Merge PRs, close issues"
-echo "  Flags: --no-merge --plan-only --autonomous --quick --fix"
+echo "  Flags: --tdd --no-merge --plan-only --autonomous --quick --inline --fix"
