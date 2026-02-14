@@ -1,25 +1,25 @@
 {
-  "lastUpdated": "2026-02-14T16:00:00Z",
+  "lastUpdated": "2026-02-14T17:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v6.0.4: Fix stale SessionEnd hook in settings.local.json — the v5.2.1 fix removed the hook from the template but didn't clean up existing files since setup.sh skips them.",
+    "summary": "v6.0.5: Removed custom stale cache detection system from session-start.sh — no other Claude Code plugin does this, `claude plugin update` is sufficient.",
     "completedTasks": [
-      "Removed stale SessionEnd hook from this project's .claude/settings.local.json",
-      "Added cleanup step to setup.sh that strips SessionEnd from existing settings.local.json files",
-      "Bumped version to 6.0.4"
+      "Removed stale cache detection block from session-start.sh (version_lt, check_latest_version, GitHub fetch, TTL cache)",
+      "Removed STALE CACHE user warning and AI context blocker",
+      "Simplified README troubleshooting section",
+      "Bumped version to 6.0.5"
     ],
     "blockers": [],
     "nextSteps": [
-      "Commit and publish v6.0.4",
-      "Run setup.sh on other projects to verify cleanup works"
+      "Commit and push v6.0.5"
     ]
   },
   "recentChanges": [
+    "v6.0.5: Remove stale cache detection system",
     "v6.0.4: Fix stale SessionEnd hook in settings.local.json",
     "v6.0.3: Fix false-positive stale cache warning",
     "v6.0.2: Fix broken subagent context paths and overzealous checkout guard",
-    "v6.0.1: Fix garbled status output and stale init.sh on upgrades",
-    "v6.0.0: Official plugin alignment + hook consolidation"
+    "v6.0.1: Fix garbled status output and stale init.sh on upgrades"
   ],
   "knownIssues": [],
   "environmentState": {

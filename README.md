@@ -695,19 +695,25 @@ claude mcp add github -s user
 
 ### Stuck on Old Plugin Version
 
-If your project shows an old version even after running `claude plugin update`, your plugin cache may be stale.
-
-**Fix:**
+If your project shows a version mismatch after updating the plugin:
 
 ```bash
 claude plugin update claude-harness
 ```
 
-Then restart Claude Code and run `/claude-harness:setup` in your project.
+Then restart Claude Code and run `/claude-harness:setup` in your project to migrate project files.
 
 **For plugin developers:** Use `./dev-mode.sh enable` to symlink the cache to your source repo for instant updates.
 
 ## Changelog
+
+### v6.0.5 (2026-02-14) - Remove stale cache detection
+
+- **Removed**: Custom stale cache detection system from `session-start.sh`
+  - Removed `version_lt()`, `check_latest_version()`, GitHub API/curl version fetch, 24h TTL cache
+  - Removed "STALE CACHE" user warning and "STALE PLUGIN CACHE DETECTED" AI context blocker
+- **Rationale**: No other Claude Code plugin implements custom update detection. Claude Code's native `claude plugin update` is sufficient.
+- **Kept**: Local plugin-vs-project version mismatch detection (`.plugin-version` comparison) for `/setup` migration prompts
 
 ### v6.0.4 (2026-02-14) - Fix stale SessionEnd hook in settings.local.json
 
@@ -811,6 +817,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **6.0.5** | **Remove stale cache detection**: Removed custom GitHub version-check system from `session-start.sh` (66 lines). No other Claude Code plugin does this — `claude plugin update` is sufficient. Eliminates network calls on session start and false-positive warnings. |
 | **6.0.4** | **Fix stale SessionEnd hook in settings.local.json**: `SessionEnd hook [session-end.sh] failed: not found` on session exit. Stale hook entry in `settings.local.json` survived v6.0.0 consolidation because `setup.sh` skips existing files. Added cleanup step to strip stale `SessionEnd` from existing `settings.local.json`. |
 | **6.0.0** | **Official Plugin Alignment + Hook Consolidation**: Commands served from plugin cache (removed command-copying from setup.sh). Deprecated `--force-commands` flag. Removed 4 redundant hooks (SessionEnd, UserPromptSubmit, PostToolUse, PostToolUseFailure) and 5 dead hook scripts. Consolidated from 12 → 9 hook registrations. setup.sh now cleans up legacy command copies from target projects. Update via `claude plugin update claude-harness`. |
 | **7.0.0** | **Hook Compliance, Performance & Trim**: 7 hook compliance fixes (async TaskCompleted, SessionStart matcher, PreCompact hookEventName, jq removal, activeLoop cleanup, stop structured output, emoji removal). Performance optimization (parallel verification in teammate-idle.sh, single test run in task-completed.sh). Context trimming: flow.md 1434→514 lines (64%), session-start.sh 633→377 lines (40%). All hook version headers updated to v7.0.0. |

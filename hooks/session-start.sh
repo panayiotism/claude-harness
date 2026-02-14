@@ -44,62 +44,6 @@ if [ -n "$REMOTE_URL" ]; then
     GITHUB_REPO="${GITHUB_REPO%.git}"
 fi
 
-# --- Stale plugin cache detection ---
-PLUGIN_REPO="panayiotism/claude-harness"
-CACHE_CHECK_FILE="$HOME/.claude/plugins/cache/claude-harness/.version-check"
-CACHE_TTL=86400
-LATEST_VERSION=""
-CACHE_IS_STALE=false
-
-# Semver less-than: returns 0 (true) if $1 < $2
-version_lt() {
-    [ "$1" != "$2" ] && [ "$(printf '%s\n%s' "$1" "$2" | sort -V | head -1)" = "$1" ]
-}
-
-check_latest_version() {
-    local now
-    now=$(date +%s)
-    if [ -f "$CACHE_CHECK_FILE" ]; then
-        local cached_time cached_ver
-        cached_time=$(head -1 "$CACHE_CHECK_FILE" 2>/dev/null)
-        cached_ver=$(tail -1 "$CACHE_CHECK_FILE" 2>/dev/null)
-        if [ -n "$cached_time" ] && [ -n "$cached_ver" ]; then
-            local age=$((now - cached_time))
-            if [ "$age" -lt "$CACHE_TTL" ]; then
-                LATEST_VERSION="$cached_ver"
-                return 0
-            fi
-        fi
-    fi
-    local fetched_ver=""
-    if command -v gh &>/dev/null; then
-        fetched_ver=$(gh api "repos/$PLUGIN_REPO/contents/.claude-plugin/plugin.json" \
-            --jq '.content' 2>/dev/null | base64 -d 2>/dev/null | \
-            grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
-    fi
-    if [ -z "$fetched_ver" ]; then
-        fetched_ver=$(curl -sf --max-time 5 \
-            "https://raw.githubusercontent.com/$PLUGIN_REPO/main/.claude-plugin/plugin.json" \
-            2>/dev/null | grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
-    fi
-    if [ -n "$fetched_ver" ]; then
-        LATEST_VERSION="$fetched_ver"
-        mkdir -p "$(dirname "$CACHE_CHECK_FILE")"
-        printf '%s\n%s\n' "$now" "$fetched_ver" > "$CACHE_CHECK_FILE"
-    fi
-}
-
-check_latest_version 2>/dev/null
-
-PLUGIN_VERSION_CACHED=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
-# Only warn if installed version is strictly older than latest (not just different)
-if [ -n "$LATEST_VERSION" ] && [ -n "$PLUGIN_VERSION_CACHED" ] && version_lt "$PLUGIN_VERSION_CACHED" "$LATEST_VERSION"; then
-    CACHE_IS_STALE=true
-elif [ -n "$LATEST_VERSION" ] && [ -n "$PLUGIN_VERSION_CACHED" ] && [ "$LATEST_VERSION" != "$PLUGIN_VERSION_CACHED" ]; then
-    # Installed >= latest but versions differ: cached "latest" is stale, clear it
-    rm -f "$CACHE_CHECK_FILE"
-fi
-
 # --- Session management ---
 SESSION_ID=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "sess-$(date +%s%N | sha256sum | head -c 16)")
 SESSION_DIR="$HARNESS_DIR/sessions/$SESSION_ID"
@@ -285,11 +229,6 @@ if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
     USER_MSG="$USER_MSG"$'\n'"     🚫 BLOCKER: Agent Teams not enabled. Run setup then restart Claude Code."
 fi
 
-if [ "$CACHE_IS_STALE" = true ]; then
-    USER_MSG="$USER_MSG"$'\n'"     STALE CACHE: v$PLUGIN_VERSION_CACHED installed (v$LATEST_VERSION available)"
-    USER_MSG="$USER_MSG"$'\n'"     Fix: claude plugin update claude-harness"
-fi
-
 # --- Build Claude context ---
 CLAUDE_CONTEXT="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ===\n"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
@@ -304,12 +243,6 @@ if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell user: run setup, then restart Claude Code."
 fi
 
-# Stale cache blocker
-if [ "$CACHE_IS_STALE" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** STALE PLUGIN CACHE DETECTED ***"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nInstalled: v$PLUGIN_VERSION_CACHED | Latest: v$LATEST_VERSION"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell user to run: claude plugin update claude-harness"
-fi
 
 # GitHub info
 if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
