@@ -1,7 +1,9 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "claude-harness",
-  "description": "Claude Code agent harness plugins",
+  "metadata": {
+    "description": "Claude Code agent harness with 5-layer memory, TDD via Agent Teams, and autonomous batch processing"
+  },
   "owner": {
     "name": "panayiotis"
   },
