@@ -912,18 +912,6 @@ mkdir -p .claude/commands
 # settings.local.json gets special handling: create if missing, but always
 # ensure the Agent Teams env var is present (even in existing files).
 create_file ".claude/settings.local.json" '{
-  "hooks": {
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/session-end.sh"
-          }
-        ]
-      }
-    ]
-  },
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
