@@ -741,7 +741,7 @@ echo "=== Memory Layers Status ==="
 
 # Working context
 if [ -f ".claude-harness/memory/working/context.json" ]; then
-    computed=$(grep -o '"computedAt":"[^"]*"' .claude-harness/memory/working/context.json 2>/dev/null | cut -d'"' -f4)
+    computed=$(grep -o '"computedAt"[[:space:]]*:[[:space:]]*"[^"]*"' .claude-harness/memory/working/context.json 2>/dev/null | cut -d'"' -f4)
     echo "Working Context: Last compiled $computed"
 else
     echo "Working Context: Not initialized"
@@ -749,7 +749,7 @@ fi
 
 # Episodic memory
 if [ -f ".claude-harness/memory/episodic/decisions.json" ]; then
-    count=$(grep -c '"id":' .claude-harness/memory/episodic/decisions.json 2>/dev/null || echo "0")
+    count=$(grep -c '"id":' .claude-harness/memory/episodic/decisions.json 2>/dev/null) || count=0
     echo "Episodic Memory: $count decisions recorded"
 else
     echo "Episodic Memory: Not initialized"
@@ -757,8 +757,8 @@ fi
 
 # Procedural memory
 if [ -f ".claude-harness/memory/procedural/failures.json" ]; then
-    failures=$(grep -c '"id":' .claude-harness/memory/procedural/failures.json 2>/dev/null || echo "0")
-    successes=$(grep -c '"id":' .claude-harness/memory/procedural/successes.json 2>/dev/null || echo "0")
+    failures=$(grep -c '"id":' .claude-harness/memory/procedural/failures.json 2>/dev/null) || failures=0
+    successes=$(grep -c '"id":' .claude-harness/memory/procedural/successes.json 2>/dev/null) || successes=0
     echo "Procedural Memory: $failures failures, $successes successes recorded"
 else
     echo "Procedural Memory: Not initialized"
@@ -768,9 +768,9 @@ fi
 echo ""
 echo "=== Features Status ==="
 if [ -f ".claude-harness/features/active.json" ]; then
-    pending=$(grep -c '"status":"pending"' .claude-harness/features/active.json 2>/dev/null || echo "0")
-    in_progress=$(grep -c '"status":"in_progress"' .claude-harness/features/active.json 2>/dev/null || echo "0")
-    needs_tests=$(grep -c '"status":"needs_tests"' .claude-harness/features/active.json 2>/dev/null || echo "0")
+    pending=$(grep -c '"status"[[:space:]]*:[[:space:]]*"pending"' .claude-harness/features/active.json 2>/dev/null) || pending=0
+    in_progress=$(grep -c '"status"[[:space:]]*:[[:space:]]*"in_progress"' .claude-harness/features/active.json 2>/dev/null) || in_progress=0
+    needs_tests=$(grep -c '"status"[[:space:]]*:[[:space:]]*"needs_tests"' .claude-harness/features/active.json 2>/dev/null) || needs_tests=0
     echo "Pending: $pending | In Progress: $in_progress | Needs Tests: $needs_tests"
 else
     echo "No features file found"
@@ -778,7 +778,7 @@ fi
 
 # Archived features
 if [ -f ".claude-harness/features/archive.json" ]; then
-    archived=$(grep -c '"id":' .claude-harness/features/archive.json 2>/dev/null || echo "0")
+    archived=$(grep -c '"id":' .claude-harness/features/archive.json 2>/dev/null) || archived=0
     echo "Archived: $archived completed features"
 fi
 
@@ -786,12 +786,12 @@ fi
 echo ""
 echo "=== Agentic Loop State ==="
 if [ -f ".claude-harness/loops/state.json" ]; then
-    status=$(grep -o '"status":"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
-    feature=$(grep -o '"feature":"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
-    looptype=$(grep -o '"type":"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
-    linkedFeature=$(grep -o '"featureId":"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | head -1 | cut -d'"' -f4)
+    status=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
+    feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
+    looptype=$(grep -o '"type"[[:space:]]*:[[:space:]]*"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | cut -d'"' -f4)
+    linkedFeature=$(grep -o '"featureId"[[:space:]]*:[[:space:]]*"[^"]*"' .claude-harness/loops/state.json 2>/dev/null | head -1 | cut -d'"' -f4)
     if [ "$status" != "idle" ] && [ -n "$feature" ]; then
-        attempt=$(grep -o '"attempt":[0-9]*' .claude-harness/loops/state.json 2>/dev/null | cut -d':' -f2)
+        attempt=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' .claude-harness/loops/state.json 2>/dev/null | grep -o '[0-9]*')
         if [ "$looptype" = "fix" ]; then
             echo "ACTIVE FIX: $feature (attempt $attempt, status: $status)"
             echo "Linked to: $linkedFeature"
@@ -807,7 +807,7 @@ fi
 
 # Pending fixes
 if [ -f ".claude-harness/features/active.json" ]; then
-    pendingFixes=$(grep -c '"type":"bugfix"' .claude-harness/features/active.json 2>/dev/null || echo "0")
+    pendingFixes=$(grep -c '"type"[[:space:]]*:[[:space:]]*"bugfix"' .claude-harness/features/active.json 2>/dev/null) || pendingFixes=0
     if [ "$pendingFixes" != "0" ]; then
         echo ""
         echo "Pending fixes: $pendingFixes"
@@ -818,7 +818,7 @@ fi
 echo ""
 echo "=== Orchestration State ==="
 if [ -f ".claude-harness/agents/context.json" ]; then
-    session=$(grep -o '"activeFeature":"[^"]*"' .claude-harness/agents/context.json 2>/dev/null | cut -d'"' -f4)
+    session=$(grep -o '"activeFeature"[[:space:]]*:[[:space:]]*"[^"]*"' .claude-harness/agents/context.json 2>/dev/null | cut -d'"' -f4)
     if [ -n "$session" ]; then
         echo "Active orchestration: $session"
         echo "Run /claude-harness:flow to resume"
@@ -841,8 +841,10 @@ echo "  /claude-harness:merge       - Merge PRs, close issues"
 echo "  Flags: --no-merge --plan-only --autonomous --quick --fix"
 INITEOF
 )
-create_file ".claude-harness/init.sh" "$INIT_CONTENT"
+# init.sh is always refreshed (generated status script, not user-customizable)
+echo "$INIT_CONTENT" > .claude-harness/init.sh
 chmod +x .claude-harness/init.sh 2>/dev/null || true
+echo "  [UPDATE] .claude-harness/init.sh (always refreshed)"
 
 # ============================================================================
 # 12.5. CLEANUP: Remove legacy hooks from target project
