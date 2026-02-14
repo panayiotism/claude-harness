@@ -26,9 +26,23 @@ if [ "$TOOL_NAME" = "Bash" ]; then
 
     DENY_REASON=""
 
-    # Block checkout to main/master (wrong branch during flow)
+    # Block checkout to main/master ONLY if an active loop is in progress
+    # (autonomous flow legitimately checks out main between features)
     if echo "$COMMAND" | grep -qE 'git\s+checkout\s+(main|master)\b'; then
-        DENY_REASON="BLOCKED: git checkout main/master during harness session. Stay on your feature branch."
+        SESSIONS_DIR="$HARNESS_DIR/sessions"
+        if [ -d "$SESSIONS_DIR" ]; then
+            for sd in "$SESSIONS_DIR"/*/; do
+                [ -d "$sd" ] || continue
+                [ "$(basename "$sd")" = ".recovery" ] && continue
+                lf="$sd/loop-state.json"
+                [ -f "$lf" ] || continue
+                ls=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+                if [ "$ls" = "in_progress" ]; then
+                    DENY_REASON="BLOCKED: git checkout main/master while a feature loop is in progress. Stay on your feature branch."
+                    break
+                fi
+            done
+        fi
     fi
 
     # Block force push

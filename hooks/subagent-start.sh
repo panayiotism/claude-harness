@@ -73,7 +73,7 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 # Add last 3 failures (one-line summaries)
-FAILURES_FILE="$HARNESS_DIR/memory/episodic/failures.json"
+FAILURES_FILE="$HARNESS_DIR/memory/procedural/failures.json"
 if [ -f "$FAILURES_FILE" ]; then
     RECENT_FAILURES=$(python3 -c "
 import json
@@ -95,7 +95,7 @@ except:
 fi
 
 # Add learned rules (titles only)
-RULES_FILE="$HARNESS_DIR/memory/procedural/learned-rules.json"
+RULES_FILE="$HARNESS_DIR/memory/learned/rules.json"
 if [ -f "$RULES_FILE" ]; then
     RULES=$(python3 -c "
 import json
