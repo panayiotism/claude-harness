@@ -1,26 +1,25 @@
 {
-  "lastUpdated": "2026-02-14T12:00:00Z",
+  "lastUpdated": "2026-02-14T16:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v5.2.1: Fix SessionEnd hook error — removed duplicate hook registration from .claude/settings.json and setup.sh settings.local.json template. The $CLAUDE_PLUGIN_ROOT env var is only available inside the plugin system (hooks/hooks.json), not in project settings context, causing '/hooks/session-end.sh: not found' error on session exit.",
+    "summary": "v6.0.4: Fix stale SessionEnd hook in settings.local.json — the v5.2.1 fix removed the hook from the template but didn't clean up existing files since setup.sh skips them.",
     "completedTasks": [
-      "Diagnosed SessionEnd hook failure: $CLAUDE_PLUGIN_ROOT empty in .claude/settings.json context",
-      "Removed duplicate SessionEnd hook from .claude/settings.json (plugin's hooks.json already handles it)",
-      "Removed duplicate SessionEnd hook from setup.sh settings.local.json template",
-      "Bumped version to 5.2.1 in plugin.json and .plugin-version"
+      "Removed stale SessionEnd hook from this project's .claude/settings.local.json",
+      "Added cleanup step to setup.sh that strips SessionEnd from existing settings.local.json files",
+      "Bumped version to 6.0.4"
     ],
     "blockers": [],
     "nextSteps": [
-      "Verify session-end hook works correctly on next session exit",
-      "Run setup.sh on a test project to verify settings.local.json no longer contains duplicate hook"
+      "Commit and publish v6.0.4",
+      "Run setup.sh on other projects to verify cleanup works"
     ]
   },
   "recentChanges": [
-    "v5.2.1: Fix SessionEnd hook error — removed duplicate registration from settings.json and setup.sh",
-    "v5.2.0: Consolidated Workflow + Enforced Agent Swarms",
-    "v7.0.0: Hook Compliance, Performance & Trim",
-    "v6.5.0: Acceptance Testing Phase — 4th TDD step (ACCEPT)",
-    "v6.4.1: Fix PreToolUse blocking /flow state writes"
+    "v6.0.4: Fix stale SessionEnd hook in settings.local.json",
+    "v6.0.3: Fix false-positive stale cache warning",
+    "v6.0.2: Fix broken subagent context paths and overzealous checkout guard",
+    "v6.0.1: Fix garbled status output and stale init.sh on upgrades",
+    "v6.0.0: Official plugin alignment + hook consolidation"
   ],
   "knownIssues": [],
   "environmentState": {

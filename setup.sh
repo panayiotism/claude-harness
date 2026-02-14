@@ -861,6 +861,23 @@ if [ -d "hooks" ] && [ -z "$(ls -A hooks 2>/dev/null)" ]; then
     echo "  [CLEANUP] Removed empty hooks/ directory"
 fi
 
+# Remove stale SessionEnd hook from settings.local.json (removed in v6.0.0)
+if [ -f ".claude/settings.local.json" ] && grep -q '"SessionEnd"' ".claude/settings.local.json" 2>/dev/null; then
+    python3 -c "
+import json
+with open('.claude/settings.local.json') as f:
+    data = json.load(f)
+if 'hooks' in data and 'SessionEnd' in data['hooks']:
+    del data['hooks']['SessionEnd']
+    if not data['hooks']:
+        del data['hooks']
+    with open('.claude/settings.local.json', 'w') as f:
+        json.dump(data, f, indent=2)
+        f.write('\n')
+    print('  [CLEANUP] Removed stale SessionEnd hook from .claude/settings.local.json')
+" 2>/dev/null
+fi
+
 # ============================================================================
 # 13. .claude directory structure
 # ============================================================================
