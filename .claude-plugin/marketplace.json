@@ -8,7 +8,10 @@
   "plugins": [
     {
       "name": "claude-harness",
-      "source": "./",
+      "source": {
+        "source": "github",
+        "repo": "panayiotism/claude-harness"
+      },
       "description": "Long-running agent harness with 5-layer memory, TDD via Agent Teams, GitHub integration, and autonomous batch processing",
       "category": "development",
       "homepage": "https://github.com/panayiotism/claude-harness"

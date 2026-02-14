@@ -713,6 +713,13 @@ Then restart Claude Code and run `/claude-harness:setup` in your project to migr
 
 ## Changelog
 
+### v6.0.7 (2026-02-14) - Fix marketplace plugin source resolution
+
+- **Fixed**: Plugin install fails with "not found in marketplace" after adding marketplace
+- Root cause: `"source": "./"` in marketplace.json doesn't resolve correctly when the marketplace and plugin share the same `.claude-plugin/` directory at repo root. Claude Code expects plugins in subdirectories (per [official docs](https://code.claude.com/docs/en/plugin-marketplaces))
+- Changed plugin source from relative path `"./"` to explicit GitHub repo reference `{"source": "github", "repo": "panayiotism/claude-harness"}`
+- This avoids restructuring the entire repo while correctly resolving the plugin source
+
 ### v6.0.6 (2026-02-14) - Fix installation instructions
 
 - **Fixed**: README Quick Start used invalid `github:owner/repo` syntax for `claude plugin install`
