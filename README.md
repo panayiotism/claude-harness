@@ -12,12 +12,18 @@ Based on [Anthropic's engineering article](https://www.anthropic.com/engineering
 ### Quick Start
 
 ```bash
-# Option A: Install via marketplace (recommended)
+# Step 1: Add the marketplace (registers the catalog)
 /plugin marketplace add panayiotism/claude-harness
-/plugin install claude-harness@panayiotism-claude-harness
 
-# Option B: Direct GitHub install
-claude plugin install claude-harness github:panayiotism/claude-harness
+# Step 2: Install the plugin
+/plugin install claude-harness@panayiotism-claude-harness
+```
+
+Or from the terminal:
+
+```bash
+claude plugin marketplace add panayiotism/claude-harness
+claude plugin install claude-harness@panayiotism-claude-harness
 ```
 
 ```bash
@@ -707,6 +713,13 @@ Then restart Claude Code and run `/claude-harness:setup` in your project to migr
 
 ## Changelog
 
+### v6.0.6 (2026-02-14) - Fix installation instructions
+
+- **Fixed**: README Quick Start used invalid `github:owner/repo` syntax for `claude plugin install`
+- Root cause: There is no `github:` prefix in Claude Code's plugin install command. Plugins must be installed via the marketplace workflow (add marketplace first, then install from it)
+- Replaced incorrect "Option B: Direct GitHub install" with correct two-step marketplace commands
+- Added terminal CLI equivalent (`claude plugin marketplace add` / `claude plugin install`)
+
 ### v6.0.5 (2026-02-14) - Remove stale cache detection
 
 - **Removed**: Custom stale cache detection system from `session-start.sh`
@@ -817,6 +830,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **6.0.6** | **Fix installation instructions**: README Quick Start used invalid `github:owner/repo` syntax. Replaced with correct marketplace workflow (add marketplace → install plugin). Added terminal CLI equivalent. |
 | **6.0.5** | **Remove stale cache detection**: Removed custom GitHub version-check system from `session-start.sh` (66 lines). No other Claude Code plugin does this — `claude plugin update` is sufficient. Eliminates network calls on session start and false-positive warnings. |
 | **6.0.4** | **Fix stale SessionEnd hook in settings.local.json**: `SessionEnd hook [session-end.sh] failed: not found` on session exit. Stale hook entry in `settings.local.json` survived v6.0.0 consolidation because `setup.sh` skips existing files. Added cleanup step to strip stale `SessionEnd` from existing `settings.local.json`. |
 | **6.0.0** | **Official Plugin Alignment + Hook Consolidation**: Commands served from plugin cache (removed command-copying from setup.sh). Deprecated `--force-commands` flag. Removed 4 redundant hooks (SessionEnd, UserPromptSubmit, PostToolUse, PostToolUseFailure) and 5 dead hook scripts. Consolidated from 12 → 9 hook registrations. setup.sh now cleans up legacy command copies from target projects. Update via `claude plugin update claude-harness`. |
