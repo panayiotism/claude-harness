@@ -709,6 +709,13 @@ Then restart Claude Code and run `/claude-harness:setup` in your project.
 
 ## Changelog
 
+### v6.0.3 (2026-02-14) - Fix false-positive stale cache warning
+
+- **Fixed**: Stale cache warning showing even after plugin update (installed version newer than cached "latest")
+- Root cause: version comparison used string `!=` instead of semver less-than — any version difference triggered the warning, including when installed > latest
+- Added `version_lt()` using `sort -V` for proper semver comparison
+- Auto-clears stale `.version-check` cache when installed version is already up-to-date
+
 ### v6.0.0 (2026-02-14) - Official Plugin Alignment + Hook Consolidation
 
 **Major release**: Aligns plugin with official Claude Code plugin guidelines. Commands served from plugin cache, redundant hooks removed, setup.sh simplified.

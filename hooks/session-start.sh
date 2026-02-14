@@ -51,6 +51,11 @@ CACHE_TTL=86400
 LATEST_VERSION=""
 CACHE_IS_STALE=false
 
+# Semver less-than: returns 0 (true) if $1 < $2
+version_lt() {
+    [ "$1" != "$2" ] && [ "$(printf '%s\n%s' "$1" "$2" | sort -V | head -1)" = "$1" ]
+}
+
 check_latest_version() {
     local now
     now=$(date +%s)
@@ -87,8 +92,12 @@ check_latest_version() {
 check_latest_version 2>/dev/null
 
 PLUGIN_VERSION_CACHED=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
-if [ -n "$LATEST_VERSION" ] && [ -n "$PLUGIN_VERSION_CACHED" ] && [ "$LATEST_VERSION" != "$PLUGIN_VERSION_CACHED" ]; then
+# Only warn if installed version is strictly older than latest (not just different)
+if [ -n "$LATEST_VERSION" ] && [ -n "$PLUGIN_VERSION_CACHED" ] && version_lt "$PLUGIN_VERSION_CACHED" "$LATEST_VERSION"; then
     CACHE_IS_STALE=true
+elif [ -n "$LATEST_VERSION" ] && [ -n "$PLUGIN_VERSION_CACHED" ] && [ "$LATEST_VERSION" != "$PLUGIN_VERSION_CACHED" ]; then
+    # Installed >= latest but versions differ: cached "latest" is stale, clear it
+    rm -f "$CACHE_CHECK_FILE"
 fi
 
 # --- Session management ---
