@@ -653,17 +653,24 @@ claude mcp add github -s user
 
 ### Stuck on Old Plugin Version
 
-If your project shows a version mismatch after updating the plugin:
+`claude plugin update` has a known bug where it doesn't re-download plugin files. Run this one-liner to fix it:
 
 ```bash
-claude plugin update claude-harness
+bash <(curl -sf https://raw.githubusercontent.com/panayiotism/claude-harness/main/fix-plugin-cache.sh)
 ```
 
-Then restart Claude Code and run `/claude-harness:setup` in your project to migrate project files.
+This updates the marketplace cache, downloads the latest plugin, and updates the registry. Then restart Claude Code and run `/claude-harness:setup`.
 
-**For plugin developers:** Use `./dev-mode.sh enable` to symlink the cache to your source repo for instant updates.
+**Note:** v8.1.0+ includes auto-update — the session-start hook automatically fixes stale caches on startup.
 
 ## Changelog
+
+### v8.1.0 (2026-02-15) - Auto-update stale plugin cache
+
+- session-start.sh auto-downloads latest plugin from GitHub when stale cache detected
+- Updates cache directory and `installed_plugins.json` registry automatically
+- Works around Claude Code `plugin update` bug (#19197, #14061, #13799, #15642)
+- Added `fix-plugin-cache.sh` curl-able script for users stuck on older versions
 
 ### v8.0.0 (2026-02-15) - Remove Agent Teams
 
