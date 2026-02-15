@@ -1,25 +1,28 @@
 {
-  "lastUpdated": "2026-02-14T17:00:00Z",
+  "lastUpdated": "2026-02-15T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v6.0.5: Removed custom stale cache detection system from session-start.sh — no other Claude Code plugin does this, `claude plugin update` is sufficient.",
+    "summary": "v8.0.0: Removed Agent Teams support entirely. Direct implementation model replaces 3-specialist team orchestration. Deleted SubagentStart/TeammateIdle/TaskCompleted hooks. 9→6 hook registrations. No longer requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS.",
     "completedTasks": [
-      "Removed stale cache detection block from session-start.sh (version_lt, check_latest_version, GitHub fetch, TTL cache)",
-      "Removed STALE CACHE user warning and AI context blocker",
-      "Simplified README troubleshooting section",
-      "Bumped version to 6.0.5"
+      "Deleted subagent-start.sh, teammate-idle.sh, task-completed.sh",
+      "Removed SubagentStart, TeammateIdle, TaskCompleted from hooks.json",
+      "Cleaned session-start.sh and stop.sh of team references",
+      "Rewrote flow.md for direct implementation (no team delegation)",
+      "Rewrote prd-breakdown.md for direct analysis (no analyst team)",
+      "Removed CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS from setup.sh",
+      "Updated all descriptions, metadata, and README"
     ],
     "blockers": [],
     "nextSteps": [
-      "Commit and push v6.0.5"
+      "Commit and push v8.0.0"
     ]
   },
   "recentChanges": [
-    "v6.0.5: Remove stale cache detection system",
-    "v6.0.4: Fix stale SessionEnd hook in settings.local.json",
-    "v6.0.3: Fix false-positive stale cache warning",
-    "v6.0.2: Fix broken subagent context paths and overzealous checkout guard",
-    "v6.0.1: Fix garbled status output and stale init.sh on upgrades"
+    "v8.0.0: Remove Agent Teams — direct implementation model",
+    "v7.0.1: Add marketplace metadata description",
+    "v7.0.0: Restructure repo for marketplace compatibility",
+    "v6.0.6: Fix installation instructions",
+    "v6.0.5: Remove stale cache detection system"
   ],
   "knownIssues": [],
   "environmentState": {

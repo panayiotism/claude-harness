@@ -1,6 +1,6 @@
 # Claude Code Long-Running Agent Harness
 
-A Claude Code plugin for automated, context-preserving coding sessions with **5-layer memory architecture**, failure prevention, test-driven features, GitHub integration, and **Agent Teams orchestration** (3-specialist TDD: test-writer, implementer, reviewer with acceptance testing).
+A Claude Code plugin for automated, context-preserving coding sessions with **5-layer memory architecture**, failure prevention, test-driven features, and GitHub integration.
 
 Based on [Anthropic's engineering article](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) and enhanced with patterns from:
 - [Context-Engine](https://github.com/zeddy89/Context-Engine) - Memory architecture
@@ -42,7 +42,7 @@ cd your-project && claude
 /claude-harness:flow --no-merge "Add user authentication with JWT tokens"
 ```
 
-The **`/flow`** command handles the entire lifecycle automatically - from context compilation to PR merge. Every feature gets a 3-specialist Agent Team (test-writer, implementer, reviewer) that enforces TDD with acceptance testing by design. Use `--autonomous` to batch-process all active features. Use `--no-merge` for step-by-step control, `--quick` to skip planning for simple tasks.
+The **`/flow`** command handles the entire lifecycle automatically - from context compilation to PR merge. It enforces test-driven development practices with a RED-GREEN-REFACTOR cycle and acceptance testing. Use `--autonomous` to batch-process all active features. Use `--no-merge` for step-by-step control, `--quick` to skip planning for simple tasks.
 
 ### Complete Workflow (5 Commands Total)
 
@@ -79,9 +79,9 @@ The **`/flow`** command handles the entire lifecycle automatically - from contex
                    1. Auto-compiles context (replaces /start)
                    2. Creates feature (GitHub issue + branch)
                    3. Plans implementation (checks past failures)
-                   4. Creates 3-specialist Agent Team (test-writer, implementer, reviewer)
-                   5. TDD cycle: RED → GREEN → REFACTOR → ACCEPT
-                   6. Auto-checkpoints when acceptance tests pass
+                   4. Implements feature with TDD enforcement
+                   5. Verifies: RED → GREEN → REFACTOR
+                   6. Auto-checkpoints when all tests pass
                    7. Auto-merges when PR approved
                    Options: --no-merge, --quick, --autonomous,
                             --plan-only, --fix
@@ -126,7 +126,7 @@ When you start Claude Code in a harness-enabled project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CLAUDE HARNESS v6.0.0 (Agent Teams)             │
+│                  CLAUDE HARNESS v8.0.0                            │
 ├─────────────────────────────────────────────────────────────────┤
 │  P:2 WIP:1 Tests:1 Fixes:1 | Active: feature-001                │
 │  Memory: 12 decisions | 3 failures | 8 successes                │
@@ -231,7 +231,7 @@ Why it worked: Proper SSR hydration
 
 ## Test-Driven Features
 
-The `/flow` command enforces TDD by design via Agent Teams. Every feature gets a 3-specialist team: test-writer (RED), implementer (GREEN), reviewer (REFACTOR + ACCEPT):
+The `/flow` command enforces test-driven development practices. Every feature follows a RED-GREEN-REFACTOR cycle with acceptance testing:
 
 ```
 /claude-harness:flow "Add user authentication"
@@ -328,7 +328,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 |---------|---------|
 | `/claude-harness:setup` | Initialize harness in project (one-time) |
 | `/claude-harness:start` | Compile context + GitHub sync + status |
-| **`/claude-harness:flow`** | **Unified workflow**: start→implement→checkpoint→merge with Agent Teams (flags: `--no-merge`, `--plan-only`, `--autonomous`, `--quick`, `--fix`) |
+| **`/claude-harness:flow`** | **Unified workflow**: start→implement→checkpoint→merge (flags: `--no-merge`, `--plan-only`, `--autonomous`, `--quick`, `--fix`) |
 | `/claude-harness:checkpoint` | Manual commit + push + PR |
 | `/claude-harness:merge` | Merge all PRs, close issues |
 
@@ -336,7 +336,7 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 
 | Syntax | Behavior |
 |--------|----------|
-| `/flow "Add feature"` | Complete lifecycle: team TDD (RED→GREEN→REFACTOR→ACCEPT) → checkpoint → merge |
+| `/flow "Add feature"` | Complete lifecycle: TDD (RED→GREEN→REFACTOR) → checkpoint → merge |
 | `/flow feature-001` | Resume existing feature from current phase |
 | `/flow --no-merge "Add feature"` | Stop at checkpoint (don't auto-merge) |
 | `/flow --plan-only "Big feature"` | Plan only, implement later |
@@ -346,20 +346,17 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/flow --autonomous --no-merge` | Batch loop but stop each feature at checkpoint (PRs created, not merged) |
 
 **Key Features in /flow**:
-- **Agent Teams**: 3-specialist team (test-writer, implementer, reviewer) per feature
-- **TDD always-on**: Team structure enforces RED→GREEN→REFACTOR→ACCEPT by design
-- **Acceptance testing**: Reviewer writes and runs deterministic E2E tests after refactoring
-- **Direct collaboration**: Reviewer messages implementer directly (no lead intermediation)
-- **Delegate mode**: Lead coordinates only, doesn't write code
+- **TDD enforcement**: RED→GREEN→REFACTOR cycle enforced by design
+- **Acceptance testing**: Deterministic E2E tests run after refactoring
 - Memory layers read in parallel (30-40% faster startup)
 - GitHub repo parsed once and cached for entire flow
 - Streaming memory updates after each verification attempt
 
-**TDD Phases (always-on via Agent Teams):**
+**TDD Phases (always-on):**
 ```
-RED     → test-writer writes failing tests
-GREEN   → implementer writes minimal code to pass tests
-REFACTOR → reviewer validates, messages implementer directly with issues
+RED      → Write failing tests
+GREEN    → Write minimal code to pass tests
+REFACTOR → Validate quality, fix issues
 ```
 
 ### `/prd-breakdown` Command Options
@@ -378,18 +375,15 @@ REFACTOR → reviewer validates, messages implementer directly with issues
 
 **PRD Breakdown Workflow:**
 ```
-📄 Input         → Read PRD from inline, file, or GitHub
-🔍 Analyze       → 3 parallel Agent Teams analysts analyze requirements
-  • Product Analyst: Extracts business goals, requirements, personas
-  • Architect: Assesses feasibility, tech stack, dependencies, risks
-  • QA Lead: Defines acceptance criteria, test scenarios, verification
-🎯 Decompose     → Transform requirements into atomic features
+Input         → Read PRD from inline, file, or GitHub
+Analyze       → Analyzes requirements from product, architecture, and QA perspectives
+Decompose     → Transform requirements into atomic features
   • Resolve dependencies (topological sort)
   • Assign priorities (MVP first)
   • Generate acceptance criteria
-📋 Review        → Preview breakdown, select features to create
-✅ Create        → Add features to active.json with PRD metadata
-🔗 Issues (opt)  → Create GitHub issues for tracking (--create-issues flag)
+Review        → Preview breakdown, select features to create
+Create        → Add features to active.json with PRD metadata
+Issues (opt)  → Create GitHub issues for tracking (--create-issues flag)
 ```
 
 #### Auto-Creating GitHub Issues from PRD
@@ -551,13 +545,13 @@ The `/flow` command runs autonomous implementation loops that continue until ALL
 │  ├─ Failure Prevention: Checked 3 past failures                 │
 │  ├─ Implementation: Using React hooks pattern                   │
 │  ├─ Verification:                                               │
-│  │   ├─ Build:     ✅ PASSED                                    │
-│  │   ├─ Tests:     ✅ PASSED (15/15)                            │
-│  │   ├─ Lint:      ✅ PASSED                                    │
-│  │   └─ Typecheck: ✅ PASSED                                    │
-│  └─ Result: ✅ SUCCESS                                          │
+│  │   ├─ Build:     PASSED                                       │
+│  │   ├─ Tests:     PASSED (15/15)                               │
+│  │   ├─ Lint:      PASSED                                       │
+│  │   └─ Typecheck: PASSED                                       │
+│  └─ Result: SUCCESS                                             │
 ├─────────────────────────────────────────────────────────────────┤
-│  ✅ Feature complete! Approach saved to successes.json          │
+│  Feature complete! Approach saved to successes.json             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -566,48 +560,6 @@ On failure:
 - Analyzes errors and tries different approach
 - Consults `successes.json` for working patterns
 - Up to 10 attempts before escalation
-
-## Agent Teams Orchestration (Built into /flow)
-
-Every `/flow` run creates a 3-specialist Agent Team. TDD is always-on by design:
-
-```
-/claude-harness:flow "Add authentication"
-
-→ Phase 1: Team Setup
-  - Creates team: "{project}-{feature-id}"
-  - Lead enters delegate mode (coordinates only)
-  - Spawns 3 specialists: test-writer, implementer, reviewer
-
-→ Phase 2: RED — test-writer writes failing tests
-  - Explores test patterns for the project
-  - Writes tests covering unit, integration, edge cases
-  - Verification gate: tests must exist and FAIL
-
-→ Phase 3: GREEN — implementer makes tests pass
-  - Reads tests, implements minimal code
-  - Can message test-writer directly for clarification
-  - Verification gate: all tests must PASS
-
-→ Phase 4: REFACTOR — reviewer validates
-  - Reviews implementation, messages implementer with issues
-  - Direct reviewer ↔ implementer dialogue (no lead intermediation)
-  - Max 2 review rounds, tests must stay green
-
-→ Phase 5: ACCEPT — reviewer runs acceptance tests
-  - Writes deterministic E2E tests exercising the feature end-to-end
-  - Tests from user/production perspective (not just unit tests)
-  - If failures: reviewer ↔ implementer dialogue to fix (max 2 rounds)
-  - Uses verification.acceptance command or standard test runner
-
-→ Phase 6: Verification & Cleanup
-  - All verification commands must pass
-  - Team shut down, memory persisted
-
-→ Phase 7: Checkpoint & Merge
-  - Commit, push, create PR
-  - Auto-merge when approved
-```
 
 ## Impact Analysis
 
@@ -713,6 +665,10 @@ Then restart Claude Code and run `/claude-harness:setup` in your project to migr
 
 ## Changelog
 
+### v8.0.0 (2026-02-15) - Remove Agent Teams
+
+- **BREAKING**: Remove Agent Teams: Direct implementation model replaces 3-specialist team orchestration. Removed SubagentStart, TeammateIdle, TaskCompleted hooks. 9→6 hook registrations. No longer requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS.
+
 ### v7.0.0 (2026-02-14) - Restructure repo for marketplace compatibility
 
 - **BREAKING**: Moved plugin files (`commands/`, `hooks/`, `setup.sh`) into `claude-harness/` subdirectory
@@ -739,7 +695,7 @@ Then restart Claude Code and run `/claude-harness:setup` in your project to migr
 ### v6.0.4 (2026-02-14) - Fix stale SessionEnd hook in settings.local.json
 
 - **Fixed**: `SessionEnd hook [session-end.sh] failed: not found` error on session exit
-- Root cause: `settings.local.json` retained a stale `SessionEnd` hook from pre-v6.0.0, but the hook script was removed during the v6.0.0 consolidation (12 → 9 hooks)
+- Root cause: `settings.local.json` retained a stale `SessionEnd` hook from pre-v6.0.0, but the hook script was removed during the v6.0.0 consolidation (12 → 6 hooks)
 - `setup.sh` skips existing `settings.local.json` files, so the stale entry was never cleaned up
 - Added cleanup step to `setup.sh` that strips `SessionEnd` from existing `settings.local.json` files
 
@@ -758,15 +714,17 @@ Then restart Claude Code and run `/claude-harness:setup` in your project to migr
 - Commands served from plugin cache (removed command-copying from `setup.sh`)
 - Deprecated `--force-commands` flag (use `claude plugin update` instead)
 - `setup.sh` now cleans up legacy command copies from target projects' `.claude/commands/`
-- Stale cache fix message updated to use `claude plugin update claude-harness`
 
-#### Hook Consolidation (12 → 9 registrations)
+#### Hook Consolidation (12 → 6 registrations)
 - Removed `SessionEnd` hook (stale session cleanup already handled by SessionStart)
 - Removed `UserPromptSubmit` hook (active loop context already injected by SessionStart)
-- Removed `PostToolUse` hook (async test-on-edit duplicated TeammateIdle/TaskCompleted gates)
+- Removed `PostToolUse` hook (async test-on-edit duplicated verification gates)
 - Removed `PostToolUseFailure` hook (low-value failure recording; gates handled elsewhere)
+- Removed `SubagentStart` hook (no longer needed without team orchestration)
+- Removed `TeammateIdle` hook (no longer needed without team orchestration)
+- Removed `TaskCompleted` hook (no longer needed without team orchestration)
 - Removed dead `session-start-compact.sh` script (not registered in hooks.json)
-- Remaining 8 scripts, 9 registrations: SessionStart, PreCompact, Stop, PreToolUse (Bash + Edit|Write), SubagentStart, PermissionRequest, TeammateIdle, TaskCompleted
+- Remaining hooks, 6 registrations: SessionStart, PreCompact, Stop, PreToolUse (Bash + Edit|Write), PermissionRequest
 
 #### Upgrade
 ```bash
@@ -781,17 +739,10 @@ claude plugin update claude-harness
 **Major release**: 7 hook compliance fixes, performance optimization, and context trimming across hooks and commands.
 
 #### Hook Compliance (feature-019)
-- **TaskCompleted**: Removed `async: true` (async hooks can't block with exit 2)
 - **SessionStart**: Added `matcher: "fresh"` to prevent double-fire on compaction
 - **PreCompact**: Added `hookEventName` to hookSpecificOutput
-- **SessionEnd**: Replaced `jq` calls with grep/sed (no jq dependency)
-- **UserPromptSubmit**: Removed redundant `activeLoop` from JSON output
 - **Stop**: Replaced plain text echo with structured output
 - **PreCompact**: Replaced emoji with text in user messages
-
-#### Hook Performance (feature-022)
-- **teammate-idle.sh**: Single config parse + parallel verification (tests, lint, typecheck run concurrently with `&`/`wait`)
-- **task-completed.sh**: Runs test command once instead of twice, single python3 config call
 
 #### Context Trimming
 - **flow.md** (feature-020): 1434 → 514 lines (64% reduction). Deduplicated effort tables, loop-state schema, eliminated redundant ASCII boxes
@@ -808,21 +759,15 @@ claude plugin update claude-harness
 **CRITICAL FIX**: Resolves 40+ minute agent hang issue in v6.5.0
 
 #### Fixes
-- **Performance**: Add 10-second timeout wrappers to all `eval` commands in hooks (task-completed.sh, teammate-idle.sh, post-tool-use.sh)
+- **Performance**: Add 10-second timeout wrappers to all `eval` commands in hooks
   - Prevents indefinite blocking when test suites or verification commands take too long
   - Hook timeouts in hooks.json were not enforced on the actual eval commands
-- **Performance**: Make TaskCompleted hook async (prevents blocking teammates during verification)
-  - Matches PostToolUse which was already async
-  - Teammates can now continue work while verification runs in background
-- **Performance**: Skip TDD validation for non-verification tasks in task-completed.sh
-  - Test-writer writing tests no longer triggers test execution
+- **Performance**: Skip TDD validation for non-verification tasks
   - Only verify/checkpoint/review/accept tasks run TDD validation gate
-  - Reduces redundant verification runs from 4+ per feature to 1
+  - Reduces redundant verification runs
 
 #### Impact
-- TeammateIdle hook now completes in < 10 seconds (was 10+ minutes with slow test suites)
-- TaskCompleted hook is non-blocking (was blocking for up to 60 seconds or timing out)
-- Test-writer can report completion immediately after writing tests (was stuck waiting for tests to run)
+- Hooks now complete in < 10 seconds (was 10+ minutes with slow test suites)
 - Eliminates 40+ minute hangs reported in v6.5.0
 
 #### Upgrade from v6.5.0
@@ -838,30 +783,30 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **8.0.0** | **Remove Agent Teams**: Direct implementation model replaces 3-specialist team orchestration. Removed SubagentStart, TeammateIdle, TaskCompleted hooks. 9→6 hook registrations. No longer requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS. |
 | **7.0.0** | **Restructure repo for marketplace compatibility**: Moved plugin files into `claude-harness/` subdirectory. Fixes "not found in marketplace" install error and infinite recursion from self-referencing GitHub source. Marketplace source now `"./claude-harness"`. |
 | **6.0.6** | **Fix installation instructions**: README Quick Start used invalid `github:owner/repo` syntax. Replaced with correct marketplace workflow (add marketplace → install plugin). Added terminal CLI equivalent. |
 | **6.0.5** | **Remove stale cache detection**: Removed custom GitHub version-check system from `session-start.sh` (66 lines). No other Claude Code plugin does this — `claude plugin update` is sufficient. Eliminates network calls on session start and false-positive warnings. |
 | **6.0.4** | **Fix stale SessionEnd hook in settings.local.json**: `SessionEnd hook [session-end.sh] failed: not found` on session exit. Stale hook entry in `settings.local.json` survived v6.0.0 consolidation because `setup.sh` skips existing files. Added cleanup step to strip stale `SessionEnd` from existing `settings.local.json`. |
-| **6.0.0** | **Official Plugin Alignment + Hook Consolidation**: Commands served from plugin cache (removed command-copying from setup.sh). Deprecated `--force-commands` flag. Removed 4 redundant hooks (SessionEnd, UserPromptSubmit, PostToolUse, PostToolUseFailure) and 5 dead hook scripts. Consolidated from 12 → 9 hook registrations. setup.sh now cleans up legacy command copies from target projects. Update via `claude plugin update claude-harness`. |
-| **7.0.0** | **Hook Compliance, Performance & Trim**: 7 hook compliance fixes (async TaskCompleted, SessionStart matcher, PreCompact hookEventName, jq removal, activeLoop cleanup, stop structured output, emoji removal). Performance optimization (parallel verification in teammate-idle.sh, single test run in task-completed.sh). Context trimming: flow.md 1434→514 lines (64%), session-start.sh 633→377 lines (40%). All hook version headers updated to v7.0.0. |
-| **6.5.0** | **Acceptance Testing Phase (TDD Step 4: ACCEPT)**: Added end-to-end acceptance testing as the 4th step in the TDD cycle (RED → GREEN → REFACTOR → **ACCEPT**). After unit tests pass and code is refactored, the reviewer writes deterministic acceptance tests that verify the feature works from a user/production perspective. Uses existing reviewer teammate (no 4th agent). Reviewer ↔ implementer direct dialogue for acceptance failures (max 2 rounds, same pattern as REFACTOR). New `verification.acceptance` config field for project-specific E2E test commands (auto-detected for Playwright/Cypress/test:e2e/test:acceptance). `task-completed.sh` hook validates accept phase (unit tests must still pass + acceptance command must pass). Loop-state schema bumped to v7. Task chain expanded to 6 tasks (standard) / 8 tasks (autonomous). Works in both standard and autonomous modes. `setup.sh` auto-detects E2E frameworks. Existing installations auto-migrated via `/start` Phase 0. |
+| **6.0.0** | **Official Plugin Alignment + Hook Consolidation**: Commands served from plugin cache (removed command-copying from setup.sh). Deprecated `--force-commands` flag. Removed redundant hooks. Consolidated from 12 → 6 hook registrations. setup.sh now cleans up legacy command copies from target projects. Update via `claude plugin update claude-harness`. |
+| **7.0.0** | **Hook Compliance, Performance & Trim**: Hook compliance fixes (SessionStart matcher, PreCompact hookEventName, stop structured output, emoji removal). Context trimming: flow.md 1434→514 lines (64%), session-start.sh 633→377 lines (40%). All hook version headers updated to v7.0.0. |
+| **6.5.0** | **Acceptance Testing Phase (TDD Step 4: ACCEPT)**: Added end-to-end acceptance testing as the 4th step in the TDD cycle (RED → GREEN → REFACTOR → **ACCEPT**). After unit tests pass and code is refactored, deterministic acceptance tests verify the feature works from a user/production perspective. New `verification.acceptance` config field for project-specific E2E test commands (auto-detected for Playwright/Cypress/test:e2e/test:acceptance). Loop-state schema bumped to v7. Works in both standard and autonomous modes. `setup.sh` auto-detects E2E frameworks. |
 | **6.4.1** | **Fix PreToolUse Blocking /flow State Writes**: The Edit/Write matcher in PreToolUse hook was blocking writes to `loop-state.json` and `active.json`, which `/flow` itself needs to write. Removed state file protection from the Edit/Write guard — the hook cannot distinguish between `/flow` managing its own state (legitimate) and random agent writes. Hooks self-modification prevention retained. |
-| **6.4.0** | **Full Hook Coverage — 14 Registrations Across 12 Event Types**: Expanded from 7 to 14 hook registrations, covering all major Claude Code hook types. **NEW hooks**: (1) `PreToolUse` with dual matchers — Bash matcher blocks dangerous git commands (`push --force`, `reset --hard`, `checkout main`, `branch -D`, `clean -f`) and state destruction (`rm -rf .claude-harness`); Edit/Write matcher blocks writes to harness-managed files (`loop-state.json`, `active.json`, `hooks/`). (2) `PostToolUse` (async) — runs tests in background after every code edit, delivers pass/fail results next turn as `additionalContext` without blocking the agent. (3) `SubagentStart` — injects harness context (active feature, TDD phase, recent failures, verification commands, learned rules) into every spawned teammate for informed parallel work. (4) `PostToolUseFailure` — records test/build/lint failures to `memory/episodic/failures.json` in real-time (cap 20, FIFO). (5) `PermissionRequest` — in autonomous mode, auto-approves safe operations (read-only git, feature branch commits, configured test/build/lint commands, package installs) and auto-denies destructive operations; no-op in standard mode. (6) `SessionStart` with `compact` matcher — re-injects active feature, TDD phase, delegation mode, and recent failures after context compaction. **ENHANCED hooks**: (7) `TaskCompleted` now validates TDD phase expectations: RED=tests must fail, GREEN=tests must pass, REFACTOR=tests must still pass. (8) `TeammateIdle` now runs lint + typecheck in addition to tests, collects all failures before reporting. |
-| **6.3.0** | **Interrupt Recovery**: Fixed agent getting stuck in infinite retry loop after user interrupt (Ctrl+C/Escape). The Stop hook does NOT fire on user interrupts, so interrupted sessions left `loop-state.json` in `"in_progress"` with stale Agent Team references. On resume, the agent retried the same failing approach indefinitely. Fix adds 3-layer interrupt recovery: (1) `session-start.sh` detects stale sessions (dead PID) with active loops and writes a recovery marker to `.recovery/interrupted.json`, preserving loop-state and autonomous-state. (2) `stop.sh` rewritten to also detect natural stops (output limits, premature stops) and write recovery markers. (3) `flow.md` resume behavior now checks for interrupt markers first, displays what was happening when interrupted, and offers 3 recovery options: FRESH APPROACH (increment attempt, load failure memory), RETRY SAME (keep counter), or RESET (back to planning). Autonomous mode auto-selects FRESH APPROACH. Added stale team guard in Phase 4.1 to detect and replace dead Agent Teams. |
-| **6.2.1** | **Fix Delegate Mode Loss After Context Compaction**: During `--autonomous` sessions with many features, context compaction could erase delegation instructions, causing the lead agent to implement features directly instead of spawning Agent Teams. Fix persists `leadMode` and `leadModeRule` to `autonomous-state.json` (schema v2) and `loop-state.json` team object. Delegation mode is now re-read from disk at every loop iteration (Phase A.2), enforced via a mandatory gate before team creation (Phase A.4.4), and re-asserted at loop continuation (Phase A.6). Backward compatible with v1 autonomous-state files (auto-migrated on resume). |
-| **6.2.0** | **PRD Breakdown Agent Teams Migration**: Migrated `/prd-breakdown` command from legacy subagent pipeline to Agent Teams. Analysis now uses a 3-teammate team (product-analyst, architect, qa-lead) with lead in delegate mode and TeammateIdle-based completion, consistent with `/flow`. Added Agent Teams preflight check. Renamed `subagent-prompts.json` → `analyst-prompts.json`. |
+| **6.4.0** | **Full Hook Coverage**: Expanded hook registrations covering all major Claude Code hook types. **NEW hooks**: (1) `PreToolUse` with dual matchers — Bash matcher blocks dangerous git commands (`push --force`, `reset --hard`, `checkout main`, `branch -D`, `clean -f`) and state destruction (`rm -rf .claude-harness`); Edit/Write matcher blocks writes to harness-managed files. (2) `PermissionRequest` — in autonomous mode, auto-approves safe operations (read-only git, feature branch commits, configured test/build/lint commands, package installs) and auto-denies destructive operations; no-op in standard mode. (3) `SessionStart` with `compact` matcher — re-injects active feature, TDD phase, and recent failures after context compaction. |
+| **6.3.0** | **Interrupt Recovery**: Fixed agent getting stuck in infinite retry loop after user interrupt (Ctrl+C/Escape). The Stop hook does NOT fire on user interrupts, so interrupted sessions left `loop-state.json` in `"in_progress"` with stale references. On resume, the agent retried the same failing approach indefinitely. Fix adds 3-layer interrupt recovery: (1) `session-start.sh` detects stale sessions (dead PID) with active loops and writes a recovery marker. (2) `stop.sh` rewritten to also detect natural stops (output limits, premature stops) and write recovery markers. (3) `flow.md` resume behavior now checks for interrupt markers first, displays what was happening when interrupted, and offers 3 recovery options: FRESH APPROACH, RETRY SAME, or RESET. Autonomous mode auto-selects FRESH APPROACH. |
+| **6.2.1** | **Fix Delegation Mode Loss After Context Compaction**: During `--autonomous` sessions with many features, context compaction could erase delegation instructions, causing the agent to implement features directly instead of following the intended workflow. Fix persists delegation mode to `autonomous-state.json` (schema v2) and `loop-state.json`. Backward compatible with v1 autonomous-state files (auto-migrated on resume). |
+| **6.2.0** | **PRD Breakdown Analysis Migration**: Migrated `/prd-breakdown` command analysis to use parallel analysis perspectives (product, architecture, QA). Renamed `subagent-prompts.json` → `analyst-prompts.json`. |
 | **6.1.0** | **Stale Plugin Cache Detection & Self-Healing**: `session-start.sh` now checks GitHub for the latest version (24h TTL cache) and shows a prominent warning if the plugin cache is outdated. New `fix-stale-cache.sh` bootstrap script downloads the latest version, replaces the stale cache, and updates `installed_plugins.json`. Fixes the self-referential version detection loop where both the cached plugin and project `.plugin-version` show the same stale version. |
 | **6.0.1** | **v6 Upgrade Cleanup**: `setup.sh` now auto-cleans v5.x artifacts on upgrade — removes `worktrees/` directory, `agents/handoffs.json`, stale `worktree.md` command, and `pendingHandoffs` from context.json. Removed handoffs.json creation and all `pendingHandoffs` references from commands. |
-| **6.0.0** | **Agent Teams as Sole Orchestration Model**: Replaced the entire subagent pipeline (Research → Implement → Review via Task tool) with Claude Code Agent Teams. Every feature now gets a 3-specialist team: **test-writer** (RED phase — writes failing tests), **implementer** (GREEN phase — minimal code to pass tests), **reviewer** (REFACTOR phase — direct dialogue with implementer for quality). TDD is always-on by design — no `--tdd` flag needed. Lead operates in delegate mode (coordinates only, doesn't write code). Specialists can message each other directly (reviewer ↔ implementer) instead of lossy lead-intermediated handoffs. New `TeammateIdle` and `TaskCompleted` hooks enforce verification quality gates. Parallel multi-feature mode now uses Agent Team with one teammate per feature instead of fire-and-forget subagents. `setup.sh` auto-enables `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var. Loop-state schema bumped to v6. Removed: domain agent selection matrix, complexity-based pipeline, `--tdd` flag, subagent_type references. |
-| **5.2.0** | **Consolidated Workflow + Enforced Agent Swarms**: Merged /do, /do-tdd, and /orchestrate into unified /flow command with flags (--tdd, --plan-only). Agent swarms (Research → Implement → Review) are now enforced in every flow run. Auto-detects feature complexity (simple/standard/complex) and spawns specialized domain agents. Command count reduced from 8 to 5. |
+| **5.2.0** | **Consolidated Workflow + Enforced TDD**: Merged /do, /do-tdd, and /orchestrate into unified /flow command with flags (--plan-only). TDD enforcement (Research → Implement → Review) is now part of every flow run. Auto-detects feature complexity (simple/standard/complex). Command count reduced from 8 to 5. |
 | **5.1.4** | **Fix Autonomous Archive**: Passing features were not being archived during autonomous mode. Phase A.4.6 (Auto-Merge) updated status to "passing" but never moved the feature from `active.json` to `archive.json`. Added explicit archive step (new step 29) in Phase A.5 (Post-Feature Cleanup) that moves completed features to archive after merge. The normal flow Phase 6 already had this logic — autonomous mode was missing it. |
 | **5.1.3** | **Dynamic Command Sync**: Replaced 5 hardcoded simplified command stubs in `setup.sh` with a dynamic copy loop that copies ALL `.md` files from the plugin's `commands/` directory. Previously 5 commands (flow, do-tdd, prd-breakdown, worktree, setup) were completely missing from target projects, and the 5 existing stubs were outdated simplified versions. Now all commands are auto-discovered, always full-version, and automatically synced on version upgrade. |
 | **5.1.2** | **Fix Setup Auto-Update (v2)**: Session-start hook no longer writes `.plugin-version` on version mismatch — only `setup.sh` updates it now. This ensures `setup.sh` can detect the version gap and auto-force command file updates. Also tagged `hooks/session-end.sh` and `.claude-harness/init.sh` as updatable on version upgrade. |
 | **5.1.1** | **Fix Setup Auto-Update**: `setup.sh` now auto-detects version upgrades by comparing installed `.plugin-version` against `plugin.json`. When a version change is detected, command files are automatically updated (equivalent to `--force-commands`) without requiring the flag. Fixes issue where running setup on existing projects only bumped the version file but skipped command updates. |
 | **5.1.0** | **Autonomous Multi-Feature Processing**: New `--autonomous` flag on `/flow` command enables unattended batch processing of the entire feature backlog. Iterates through all active features with strict TDD enforcement (Red-Green-Refactor), automatic checkpoint (commit, push, PR), merge to main, context reset, and loop back. Git rebase conflict detection auto-skips conflicting features. Configurable termination: max iterations (20), consecutive failure threshold (3), or all features complete. Autonomous state persisted to `autonomous-state.json` for crash recovery and resume. Compatible with `--no-merge` (stop at checkpoint) and `--quick` (skip planning). Forces `--inline` mode. TDD-specific task chain (7 tasks) with visual progress tracking. |
-| **5.0.0** | **Opus 4.6 Optimizations**: Effort controls per workflow phase (low for mechanical operations, max for planning/debugging) across `/flow`, `/do`, `/do-tdd`, and `/orchestrate`. Agent Teams integration as preferred parallel agent spawning mechanism with Task tool fallback. 128K output token utilization for richer PRD analysis (exhaustive subagent output, PRD size limit increased to 100KB). Increased maxAttempts from 10 to 15 for better agentic loop sustaining. Adaptive loop strategy with progressive effort escalation on retries. Native context compaction awareness in PreCompact hook. Effort-per-agent-role table in orchestration. Session banner now displays Opus 4.6 capabilities. All changes backward compatible with pre-Opus 4.6 models. |
-| **4.5.1** | **Fix Version Tracking & Stale State Detection**: Removed hardcoded version from `setup.md` — now reads dynamically from `plugin.json`. Fixed `setup.sh` to use `$PLUGIN_VERSION` variable everywhere instead of hardcoded strings. Added active.json validation to `user-prompt-submit.sh` to prevent stale loop-state from falsely reporting archived features as active. Cleaned up stale legacy `loops/state.json`. |
-| **4.5.0** | **Native Claude Code Tasks Integration**: Features now create a 5-task chain using Claude Code's native Tasks system (TaskCreate, TaskUpdate, TaskList). Tasks provide visual progress tracking (`[✓] Research [✓] Plan [→] Implement [ ] Verify [ ] Checkpoint`), persist across sessions, and have built-in dependency management. Loop-state schema updated to v4 with task references. Backward compatible with v3 loop-state. Graceful fallback if TaskCreate fails. |
+| **5.0.0** | **Opus 4.6 Optimizations**: Effort controls per workflow phase (low for mechanical operations, max for planning/debugging) across `/flow`. 128K output token utilization for richer PRD analysis (exhaustive output, PRD size limit increased to 100KB). Increased maxAttempts from 10 to 15 for better agentic loop sustaining. Adaptive loop strategy with progressive effort escalation on retries. Native context compaction awareness in PreCompact hook. Session banner now displays Opus 4.6 capabilities. All changes backward compatible with pre-Opus 4.6 models. |
+| **4.5.1** | **Fix Version Tracking & Stale State Detection**: Removed hardcoded version from `setup.md` — now reads dynamically from `plugin.json`. Fixed `setup.sh` to use `$PLUGIN_VERSION` variable everywhere instead of hardcoded strings. Added active.json validation to prevent stale loop-state from falsely reporting archived features as active. Cleaned up stale legacy `loops/state.json`. |
+| **4.5.0** | **Native Claude Code Tasks Integration**: Features now create a 5-task chain using Claude Code's native Tasks system (TaskCreate, TaskUpdate, TaskList). Tasks provide visual progress tracking (`[x] Research [x] Plan [→] Implement [ ] Verify [ ] Checkpoint`), persist across sessions, and have built-in dependency management. Loop-state schema updated to v4 with task references. Backward compatible with v3 loop-state. Graceful fallback if TaskCreate fails. |
 | **4.4.2** | **Fix Stop Hook Command-Type**: Converted Stop hook from prompt-type (unreliable JSON validation) to command-type shell script for reliable completion detection. |
 | **4.4.1** | **Fix Stop Hook Schema**: Fixed prompt-based Stop hook schema validation error. The hook response must include `ok` boolean field for Claude Code to process it correctly. |
 | **4.4.0** | **Automated End-to-End Flow**: New `/claude-harness:flow` command combines start→do→checkpoint→merge into single automated workflow. Added prompt-based `Stop` hook (Haiku LLM) for intelligent completion detection. Added `UserPromptSubmit` hook for smart routing to active loops. GitHub repo now cached in SessionStart hook (eliminates 4 redundant parses). Memory layers read in parallel for 30-40% faster startup. Streaming memory updates after each verification attempt. Commands updated to use cached GitHub repo. |
@@ -871,7 +816,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 | **4.2.1** | **Removed Obsolete File References**: Cleaned up all references to legacy `feature-list.json` and `feature-archive.json` files. Fresh setups now only create `features/active.json` and `features/archive.json`. Updated migration instructions to properly move old files to new locations. |
 | **4.2.0** | **Simplified /merge Command**: Removed version tagging and GitHub release creation from `/merge` command since git tag operations are not directly supported by GitHub MCP. The command now focuses on merging PRs, closing issues, and cleaning up branches. Version tagging should be done manually using git commands or GitHub's release UI. |
 | **4.1.0** | **Auto-Create GitHub Issues from PRD**: New `--create-issues` flag on `/prd-breakdown` command automatically creates one GitHub issue per generated feature. Designed for explicit opt-in (not automatic) with full automation once flag is used. Issues include feature description, acceptance criteria, and priority metadata. Labeled with `feature` and `prd-generated` tags. Gracefully degrades if GitHub MCP unavailable. Enables teams to go from PRD → features → tracked backlog in one command. See [RELEASES/v4.1.0.md](./RELEASES/v4.1.0.md). |
-| **4.0.0** | **PRD Analysis & Decomposition**: New `/claude-harness:prd-breakdown` command analyzes Product Requirements Documents using 3 parallel subagents (Product Analyst, Architect, QA Lead). Automatically decomposes PRDs into atomic features with dependencies, priorities, and acceptance criteria. Supports inline PRD, file-based, GitHub issues, or interactive input. Essential for bootstrapping feature lists in new projects. Version bumped across all files (setup.sh, plugin.json, hooks, README). See [RELEASES/v4.0.0.md](./RELEASES/v4.0.0.md). |
+| **4.0.0** | **PRD Analysis & Decomposition**: New `/claude-harness:prd-breakdown` command analyzes Product Requirements Documents using 3 parallel analysis perspectives (Product, Architecture, QA). Automatically decomposes PRDs into atomic features with dependencies, priorities, and acceptance criteria. Supports inline PRD, file-based, GitHub issues, or interactive input. Essential for bootstrapping feature lists in new projects. Version bumped across all files (setup.sh, plugin.json, hooks, README). See [RELEASES/v4.0.0.md](./RELEASES/v4.0.0.md). |
 | **3.9.6** | **Remote Branch Cleanup in Merge**: `/merge` command now explicitly deletes remote branches after PR merge using `git push origin --delete {branch}`. Phase 4 clarified to include both remote and local deletion, Phase 7 adds verification step, Phase 8 reports both local and remote deletions. |
 | **3.9.2** | **Fix Multi-Select in Interactive Menu**: Made `multiSelect: true` requirement more explicit in `/do` Phase 0 documentation. Added CRITICAL marker and "DO NOT use multiSelect: false" warning to ensure parallel feature selection works correctly. |
 | **3.9.1** | **Interactive Feature Selection**: Running `/do` without arguments now shows an interactive menu of pending features with multi-select checkboxes. Select one to resume, select multiple to create worktrees for parallel development, or choose "Other" to create a new feature. |
@@ -1007,9 +952,9 @@ cd your-project
 claude
 
 # The harness commands work with auto-approved safe operations
-/claude-harness:start       # ✅ Uses git status, cat, grep
-/claude-harness:checkpoint  # ✅ Uses git add, commit (push prompts)
-/claude-harness:flow        # ✅ Uses npm run, npx tsc
+/claude-harness:start       # Uses git status, cat, grep
+/claude-harness:checkpoint  # Uses git add, commit (push prompts)
+/claude-harness:flow        # Uses npm run, npx tsc
 ```
 
 ### Extending for Your Project

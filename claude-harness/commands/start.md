@@ -247,7 +247,7 @@ Before anything else, check if legacy root-level harness files need migration:
        │  Feature: {feature}                                            │
        │  TDD Phase: {tddPhase}                                        │
        │  Attempt: {attemptAtInterrupt}/{maxAttempts}                   │
-       │  Stale Team: {staleTeamName} (dead — will create new)         │
+       │  Recovery: Will use fresh approach on resume                   │
        │                                                                │
        │  Resume: /claude-harness:flow {feature}                        │
        │  (Recovery options will be presented on resume)                │

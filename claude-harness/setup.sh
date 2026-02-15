@@ -343,20 +343,20 @@ migrate_legacy_root_files() {
 
 # Migrate from v5.x to v6.0: remove worktrees, handoffs, stale commands
 migrate_to_v6() {
-    echo "Running v6.0 migration (Agent Teams replaces subagent pipeline)..."
+    echo "Running v6.0 migration (cleanup legacy artifacts)..."
     CLEANED=0
 
-    # Remove worktrees directory (Agent Teams handle parallelism now)
+    # Remove worktrees directory (legacy parallelism approach)
     if [ -d ".claude-harness/worktrees" ]; then
         rm -rf ".claude-harness/worktrees"
-        echo "  [CLEANUP] Removed .claude-harness/worktrees/ (replaced by Agent Teams)"
+        echo "  [CLEANUP] Removed .claude-harness/worktrees/ (legacy)"
         CLEANED=$((CLEANED + 1))
     fi
 
-    # Remove handoffs.json (direct inter-agent messaging replaces handoffs)
+    # Remove handoffs.json (legacy handoff mechanism)
     if [ -f ".claude-harness/agents/handoffs.json" ]; then
         rm -f ".claude-harness/agents/handoffs.json"
-        echo "  [CLEANUP] Removed agents/handoffs.json (replaced by Agent Teams messaging)"
+        echo "  [CLEANUP] Removed agents/handoffs.json (legacy)"
         CLEANED=$((CLEANED + 1))
     fi
 
@@ -682,11 +682,6 @@ create_file ".claude-harness/config.json" '{
     "autoReflectOnCheckpoint": false,
     "autoApproveHighConfidence": true,
     "minConfidenceForAuto": "high"
-  },
-  "agentTeams": {
-    "maxTeammates": 3,
-    "displayMode": "auto",
-    "delegateMode": true
   }
 }'
 
@@ -835,7 +830,7 @@ echo "=== Environment Ready (v${DISPLAY_VERSION}) ==="
 echo "Commands (5 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
-echo "  /claude-harness:flow        - Unified workflow with Agent Teams (recommended)"
+echo "  /claude-harness:flow        - Unified workflow (recommended)"
 echo "  /claude-harness:checkpoint  - Save progress, persist memory"
 echo "  /claude-harness:merge       - Merge PRs, close issues"
 echo "  Flags: --no-merge --plan-only --autonomous --quick --fix"
@@ -888,12 +883,8 @@ mkdir -p .claude
 # 14. .claude/settings.local.json
 # ============================================================================
 
-# settings.local.json gets special handling: create if missing, but always
-# ensure the Agent Teams env var is present (even in existing files).
+# settings.local.json: create if missing with default permissions.
 create_file ".claude/settings.local.json" '{
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  },
   "permissions": {
     "allow": [
       "Bash(./.claude-harness/init.sh)",
@@ -905,22 +896,6 @@ create_file ".claude/settings.local.json" '{
   }
 }'
 
-# ALWAYS ensure Agent Teams env var is in settings.local.json (even if file was skipped above)
-if [ -f ".claude/settings.local.json" ]; then
-    if ! grep -q '"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"' ".claude/settings.local.json" 2>/dev/null; then
-        # File exists but missing the env var — merge it in using python for safe JSON handling
-        python3 -c "
-import json, sys
-with open('.claude/settings.local.json') as f:
-    data = json.load(f)
-data.setdefault('env', {})['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] = '1'
-with open('.claude/settings.local.json', 'w') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
-" 2>/dev/null && echo "  [UPDATE] .claude/settings.local.json (added CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)" \
-              || echo "  [WARN] Could not update settings.local.json — add CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS manually"
-    fi
-fi
 
 # ============================================================================
 # 15. CLEANUP: Remove legacy command copies from .claude/commands/
@@ -1074,6 +1049,6 @@ echo "  5. Run /claude-harness:flow --fix feature-XXX \"bug\" to create bug fixe
 echo ""
 echo "v6.0.0 Changes:"
 echo "  • Commands served from plugin cache (no longer copied to .claude/commands/)"
-echo "  • Hooks consolidated: 12 → 9 registrations (removed redundant hooks)"
+echo "  • Hooks consolidated: 6 registrations (safety, quality gates)"
 echo "  • Update plugin via: claude plugin update claude-harness"
 echo ""

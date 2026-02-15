@@ -1,7 +1,7 @@
 # Claude Harness Plugin
 
 ## Project Overview
-Claude Code plugin for automated, context-preserving coding sessions with 5-layer memory architecture, failure prevention, self-improving skills, feature tracking, GitHub integration, and multi-agent orchestration.
+Claude Code plugin for automated, context-preserving coding sessions with 5-layer memory architecture, failure prevention, self-improving skills, feature tracking, and GitHub integration.
 
 ## Tech Stack
 - Shell/Bash (setup.sh, hooks/)
@@ -19,7 +19,7 @@ On every session start:
 ## Project Structure
 - `claude-harness/` - Plugin directory (what gets installed by users)
   - `commands/` - Harness command definitions (markdown, served from plugin cache)
-  - `hooks/` - Session hooks (9 registrations: safety, quality gates, team coordination)
+  - `hooks/` - Session hooks (6 registrations: safety, quality gates)
   - `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
   - `.claude-plugin/plugin.json` - Plugin manifest
 - `.claude-plugin/marketplace.json` - Marketplace catalog (points to `./claude-harness`)
@@ -35,7 +35,7 @@ On every session start:
 ## Available Commands (5 total)
 - `/claude-harness:setup` - Initialize harness in project
 - `/claude-harness:start` - Start session, compile context
-- `/claude-harness:flow` - **Unified workflow with Agent Teams orchestration** (recommended)
+- `/claude-harness:flow` - **Unified workflow** (recommended)
   - Flags: `--no-merge` `--plan-only` `--autonomous` `--quick` `--fix`
 - `/claude-harness:checkpoint` - Manual commit + push + PR
 - `/claude-harness:merge` - Merge all PRs, auto-version, release

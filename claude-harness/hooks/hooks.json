@@ -1,5 +1,5 @@
 {
-  "description": "Claude Harness hooks: session management, safety, quality gates, and team coordination",
+  "description": "Claude Harness hooks: session management, safety, and quality gates",
   "hooks": {
     "SessionStart": [
       {
@@ -56,17 +56,6 @@
         ]
       }
     ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-start.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "PermissionRequest": [
       {
         "hooks": [
@@ -74,28 +63,6 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/permission-request.sh",
             "timeout": 5
-          }
-        ]
-      }
-    ],
-    "TeammateIdle": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/teammate-idle.sh",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/task-completed.sh",
-            "timeout": 60
           }
         ]
       }

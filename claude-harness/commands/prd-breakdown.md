@@ -39,82 +39,49 @@ Arguments: $ARGUMENTS
      }
      ```
 
-## Phase 0.5: Agent Teams Preflight
-
-**BLOCKER — Agent Teams required:**
-Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to `1`. If it is NOT:
-- Display: "BLOCKER: Agent Teams is not enabled. Run /claude-harness:setup, then restart Claude Code (env vars from settings.local.json take effect on next launch)."
-- **STOP. Do NOT proceed to any subsequent phase.**
-
 ---
 
-## Phase 1: Parallel Agent Teams Analysis
+## Phase 1: PRD Analysis
 
-4. **Create analyst team and enter delegate mode**:
-   - Create agent team: `"{project}-prd-analysis"`
-   - Lead enters **delegate mode** (coordinates only, doesn't analyze)
+Perform comprehensive analysis from three perspectives:
 
-5. **Spawn 3 analyst teammates** (all at once):
+4. **Product Analysis**:
+   - Extract business goals, user personas, functional requirements
+   - Identify non-functional requirements, dependencies, constraints
 
-   **Opus 4.6 Enhancement**: With 128K output tokens available, each teammate can produce
-   significantly richer and more exhaustive analysis. Append to each teammate prompt:
-   "Provide exhaustive analysis with detailed rationale for every recommendation.
-   Generate comprehensive acceptance criteria including edge cases and error scenarios."
+5. **Architecture Analysis**:
+   - Review feasibility and technical complexity
+   - Propose implementation order (dependency graph)
+   - Identify risks and mitigations
+   - Suggest MVP features
 
-   **Teammate: product-analyst**
-   - Extracts business goals, user personas, functional requirements
-   - Identifies non-functional requirements, dependencies, constraints
-   - **With 128K output**: Include full user journey mapping for each persona, not just bullet points
-   - Output: JSON with structured requirements list
+6. **QA Analysis**:
+   - Define acceptance criteria for each requirement
+   - Identify edge cases and error scenarios
+   - Specify performance/security requirements
 
-   **Teammate: architect**
-   - Reviews feasibility and technical complexity
-   - Proposes implementation order (dependency graph)
-   - Identifies risks and mitigations
-   - Suggests MVP features
-   - **With 128K output**: Include complete dependency graph with risk assessment per edge and migration paths
-   - Output: JSON with complexity scores, dependencies, risk assessment
-
-   **Teammate: qa-lead**
-   - Defines acceptance criteria for each requirement
-   - Identifies edge cases and error scenarios
-   - Specifies performance/security requirements
-   - **With 128K output**: Include comprehensive test matrix with boundary conditions, error paths, and integration scenarios
-   - Output: JSON with verification framework and test scenarios
-
-6. **Wait for all teammates to complete**:
-   - Lead waits for each teammate via `TeammateIdle` notifications
-   - Display progress: "Analyzing with product-analyst... architect... qa-lead..."
-   - On timeout: Message teammate to wrap up. If still idle after second prompt, proceed with partial results and log gap.
-
-7. **Merge analysis results**:
-   - Combine outputs from all 3 teammates
-   - Save to `.claude-harness/prd/analysis.json`:
-     ```json
-     {
-       "version": 1,
-       "analyzedAt": "{timestamp}",
-       "product": {
-         "businessGoals": [...],
-         "userPersonas": [...],
-         "functionalRequirements": [...]
-       },
-       "architecture": {
-         "feasibilityAssessment": [...],
-         "implementationOrder": [...],
-         "mvpFeatures": [...],
-         "dependencies": {...}
-       },
-       "qa": {
-         "verificationFramework": {...},
-         "edgeCases": [...]
-       }
+7. **Save analysis results** to `.claude-harness/prd/analysis.json`:
+   ```json
+   {
+     "version": 1,
+     "analyzedAt": "{timestamp}",
+     "product": {
+       "businessGoals": [...],
+       "userPersonas": [...],
+       "functionalRequirements": [...]
+     },
+     "architecture": {
+       "feasibilityAssessment": [...],
+       "implementationOrder": [...],
+       "mvpFeatures": [...],
+       "dependencies": {...}
+     },
+     "qa": {
+       "verificationFramework": {...},
+       "edgeCases": [...]
      }
-     ```
-
-7.5. **Team cleanup**:
-   - Shut down all teammates: "Ask all teammates to shut down"
-   - Clean up team: "Clean up the team"
+   }
+   ```
 
 ## Phase 2: Breakdown Generation
 
@@ -122,7 +89,7 @@ Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to 
    - For each functional requirement (from product analysis):
      - Generate feature name (readable title)
      - Extract acceptance criteria (from QA analysis)
-     - Determine complexity from architect assessment
+     - Determine complexity from architecture assessment
      - Identify dependencies
      - Assign risk level
 
@@ -167,7 +134,7 @@ Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to 
 
     ```
     ┌─────────────────────────────────────────────────────────────────┐
-    │  📋 PRD BREAKDOWN ANALYSIS COMPLETE                             │
+    │  PRD BREAKDOWN ANALYSIS COMPLETE                                │
     ├─────────────────────────────────────────────────────────────────┤
     │  Sections: 5 | Requirements: 23 | Features: 8                   │
     │  MVP Features: 3 | High-Risk: 1 | Dependencies: 5              │
@@ -251,7 +218,7 @@ Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to 
 
       4. Report results:
          ```
-         ✓ Created GitHub issues for {N} features:
+         Created GitHub issues for {N} features:
            - #{issue-num}: {feature-name}
            - #{issue-num}: {feature-name}
            ...
@@ -268,22 +235,21 @@ Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to 
 16. **Report completion**:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
-    │  ✅ FEATURES CREATED FROM PRD                                   │
+    │  FEATURES CREATED FROM PRD                                      │
     ├─────────────────────────────────────────────────────────────────┤
     │  PRD Sections: 5                                                │
     │  Features Extracted: 8                                          │
     │  Created Now: 3                                                 │
     │                                                                 │
-    │  📁 Files:                                                       │
+    │  Files:                                                         │
     │  - PRD input: .claude-harness/prd/input.md                      │
     │  - Analysis: .claude-harness/prd/analysis.json                  │
     │  - Breakdown: .claude-harness/prd/breakdown.json                │
     │                                                                 │
-    │  🎯 NEXT STEPS:                                                 │
-    │  1. Start implementation: /do feature-001                       │
-    │  2. Or interactive menu: /do (select multiple)                  │
-    │  3. Review analysis: cat .claude-harness/prd/breakdown.json      │
-    │  4. Create more features: /do feature-004 feature-005           │
+    │  NEXT STEPS:                                                    │
+    │  1. Start implementation: /flow feature-001                     │
+    │  2. Or batch process: /flow --autonomous                        │
+    │  3. Review analysis: cat .claude-harness/prd/breakdown.json     │
     └─────────────────────────────────────────────────────────────────┘
     ```
 
@@ -303,7 +269,7 @@ Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to 
 - Features linked with `github.issueNumber` in harness tracking
 - Requires: GitHub MCP integration configured
 - Behavior: No confirmation prompt (full automation)
-- Example: `/prd-breakdown @./prd.md --create-issues --auto`
+- Example: `/prd-breakdown @./prd.md --create-issues`
 
 **--analyze-only**
 - Run PRD analysis without creating features
@@ -341,7 +307,7 @@ Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to 
 | `/prd-breakdown --file path/to/file.md` | Read PRD from file (--flag syntax) |
 | `/prd-breakdown --url https://...` | Fetch PRD from GitHub issue |
 | `/prd-breakdown @file.md --create-issues` | Analyze PRD and create GitHub issues for features |
-| `/prd-breakdown @file.md --create-issues --auto` | Full automation: analyze, create features, create issues |
+| `/prd-breakdown @file.md --create-issues --auto` | Full automation: analyze, create features AND GitHub issues |
 | (no args) | Prompt user for interactive input |
 
 ## Error Handling
@@ -350,7 +316,6 @@ Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to 
 |----------|--------|
 | PRD not provided | Prompt via AskUserQuestion |
 | PRD too large (>100KB) | Warn user, ask to focus section |
-| Teammate timeout (>10min) | Message teammate to wrap up, proceed with partial results |
 | GitHub fetch fails (no MCP) | Fall back to interactive input |
 | Invalid markdown | Parse as plaintext, still extract |
 | Feature ID collision | Use timestamp suffix for uniqueness |
@@ -362,14 +327,6 @@ Before proceeding, verify that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to 
 
 ## Integration with Other Commands
 
-- **With `/do`**: Each created feature can be implemented via `/do feature-XXX`
+- **With `/flow`**: Each created feature can be implemented via `/flow feature-XXX`
 - **With `/start`**: Shows PRD analysis summary from prior sessions
 - **With memory**: Records decomposition patterns to procedural memory for future PRDs
-
-## Analyst Prompts
-
-Each teammate receives inline context at spawn time including:
-- Complete PRD content
-- Role-specific analysis instructions
-- Expected JSON output format
-- Schema validation rules

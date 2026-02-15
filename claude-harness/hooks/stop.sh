@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stop Hook v7.0.0 - Detect completion, mark active sessions on natural stop
+# Stop Hook v8.0.0 - Detect completion, mark active sessions on natural stop
 # Runs when Claude finishes responding (NOT on user interrupt - Ctrl+C/Escape)
 # Within 5-second timeout (hooks.json)
 
@@ -38,7 +38,6 @@ for session_dir in "$SESSIONS_DIR"/*/; do
   if [ "$status" = "in_progress" ] && [ -n "$feature" ]; then
     attempt=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$loop_state" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
     tdd_phase=$(grep -o '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_state" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-    team_name=$(grep -o '"teamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_state" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 
     mkdir -p "$RECOVERY_DIR"
     cat > "$RECOVERY_DIR/interrupted.json" << INTEOF
@@ -49,7 +48,6 @@ for session_dir in "$SESSIONS_DIR"/*/; do
   "feature": "$feature",
   "attemptAtInterrupt": ${attempt:-1},
   "tddPhase": "${tdd_phase:-null}",
-  "staleTeamName": "${team_name:-null}",
   "reason": "natural-stop-while-in-progress"
 }
 INTEOF

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v7.0.0
+# Claude Harness SessionStart Hook v8.0.0
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
@@ -80,7 +80,6 @@ if [ -d "$SESSIONS_DIR" ]; then
                     loop_feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
                     loop_attempt=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
                     tdd_phase=$(grep -o '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-                    team_name=$(grep -o '"teamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$loop_file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
                     mkdir -p "$RECOVERY_DIR"
                     cat > "$RECOVERY_DIR/interrupted.json" << INTEOF
 {
@@ -90,7 +89,6 @@ if [ -d "$SESSIONS_DIR" ]; then
   "feature": "$loop_feature",
   "attemptAtInterrupt": ${loop_attempt:-1},
   "tddPhase": "${tdd_phase:-null}",
-  "staleTeamName": "${team_name:-null}",
   "reason": "stale-session-detected"
 }
 INTEOF
@@ -181,12 +179,10 @@ fi
 # Interrupt recovery
 INT_FEATURE=""
 INT_ATTEMPT=""
-INT_TEAM=""
 INT_PHASE=""
 if [ -f "$RECOVERY_DIR/interrupted.json" ]; then
     INT_FEATURE=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
     INT_ATTEMPT=$(grep -o '"attemptAtInterrupt"[[:space:]]*:[[:space:]]*[0-9]*' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
-    INT_TEAM=$(grep -o '"staleTeamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
     INT_PHASE=$(grep -o '"tddPhase"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 fi
 
@@ -225,24 +221,11 @@ USER_MSG=$(build_box "${BOX_LINES[@]}")
 # Append notices
 [ -n "$VERSION_MSG" ] && USER_MSG="$USER_MSG"$'\n'"     ⚠️  $VERSION_MSG"
 
-if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
-    USER_MSG="$USER_MSG"$'\n'"     🚫 BLOCKER: Agent Teams not enabled. Run setup then restart Claude Code."
-fi
-
 # --- Build Claude context ---
 CLAUDE_CONTEXT="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ===\n"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession ID: $SESSION_ID"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nSession Dir: .claude-harness/sessions/$SESSION_ID/"
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
-
-# Agent Teams blocker
-if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" != "1" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** BLOCKER: AGENT TEAMS NOT ENABLED ***"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nCLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set to '1'."
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nDO NOT run /flow or any implementation workflow."
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTell user: run setup, then restart Claude Code."
-fi
-
 
 # GitHub info
 if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
@@ -278,7 +261,6 @@ if [ -n "$INT_FEATURE" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** INTERRUPTED SESSION DETECTED ***"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nFeature: $INT_FEATURE was interrupted at attempt $INT_ATTEMPT"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nTDD Phase: ${INT_PHASE:-null}"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nStale team: ${INT_TEAM:-none} (DEAD - do NOT reuse)"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nRecovery file: .claude-harness/sessions/.recovery/interrupted.json"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nResume: /claude-harness:flow $INT_FEATURE"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nIMPORTANT: On resume, flow will offer recovery options. Do NOT retry same approach blindly."

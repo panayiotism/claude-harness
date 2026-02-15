@@ -2,7 +2,7 @@
 # Session-start.sh Trim Tests for feature-021
 # Expected: ALL tests FAIL (RED phase)
 
-HOOKS_DIR="$(cd "$(dirname "$0")/../hooks" && pwd)"
+HOOKS_DIR="$(cd "$(dirname "$0")/../claude-harness/hooks" && pwd)"
 FILE="$HOOKS_DIR/session-start.sh"
 PASS=0
 FAIL=0
