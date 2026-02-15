@@ -2,22 +2,19 @@
   "lastUpdated": "2026-02-15T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v8.0.0: Removed Agent Teams support entirely. Direct implementation model replaces 3-specialist team orchestration. Deleted SubagentStart/TeammateIdle/TaskCompleted hooks. 9→6 hook registrations. No longer requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS.",
+    "summary": "v8.1.0: Added auto-update to session-start.sh. When stale plugin cache detected, hook automatically downloads latest from GitHub, updates cache and registry. Falls back to uninstall/reinstall instructions if auto-update fails. Replaces broken claude plugin update command.",
     "completedTasks": [
-      "Deleted subagent-start.sh, teammate-idle.sh, task-completed.sh",
-      "Removed SubagentStart, TeammateIdle, TaskCompleted from hooks.json",
-      "Cleaned session-start.sh and stop.sh of team references",
-      "Rewrote flow.md for direct implementation (no team delegation)",
-      "Rewrote prd-breakdown.md for direct analysis (no analyst team)",
-      "Removed CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS from setup.sh",
-      "Updated all descriptions, metadata, and README"
+      "Added stale cache detection back to session-start.sh (lost in v8.0.0 rewrite)",
+      "Added auto_update_cache() that pulls from GitHub and updates plugin cache + registry",
+      "Fixed version check URL for v7.0.0+ subdirectory structure (claude-harness/ prefix)",
+      "Replaced broken 'claude plugin update' instructions with uninstall+reinstall fallback",
+      "Bumped version to 8.1.0"
     ],
     "blockers": [],
-    "nextSteps": [
-      "Commit and push v8.0.0"
-    ]
+    "nextSteps": []
   },
   "recentChanges": [
+    "v8.1.0: Auto-update stale plugin cache from session-start hook",
     "v8.0.0: Remove Agent Teams — direct implementation model",
     "v7.0.1: Add marketplace metadata description",
     "v7.0.0: Restructure repo for marketplace compatibility",
