@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v8.1.0
+# Claude Harness SessionStart Hook v8.2.0
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 [ ! -d "$HARNESS_DIR" ] && exit 0
@@ -38,6 +38,7 @@ PLUGIN_REPO="panayiotism/claude-harness"
 CACHE_BASE="$HOME/.claude/plugins/cache/claude-harness/claude-harness"
 CACHE_CHECK="$HOME/.claude/plugins/cache/claude-harness/.version-check"
 INST_PLUGINS="$HOME/.claude/plugins/installed_plugins.json"
+MARKETPLACE_DIR="$HOME/.claude/plugins/marketplaces/claude-harness"
 LATEST_VERSION=""; CACHE_IS_STALE=false; CACHE_UPDATED=false
 
 check_latest_version() {
@@ -62,6 +63,12 @@ check_latest_version() {
 }
 
 auto_update_cache() {
+    # Step 1: Update marketplace git clone (Claude Code resolves plugins from here)
+    if [ -d "$MARKETPLACE_DIR/.git" ]; then
+        (cd "$MARKETPLACE_DIR" && git fetch origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null) || true
+    fi
+
+    # Step 2: Download latest plugin tarball
     local tmp; tmp=$(mktemp -d) || return 1
     trap 'rm -rf "$tmp"' RETURN
     local ok=false
@@ -75,10 +82,14 @@ auto_update_cache() {
     local sha=""
     command -v gh &>/dev/null && sha=$(gh api "repos/$PLUGIN_REPO/commits/main" --jq '.sha' 2>/dev/null)
     [ -z "$sha" ] && sha=$(curl -sf --max-time 5 "https://api.github.com/repos/$PLUGIN_REPO/commits/main" 2>/dev/null | grep '"sha"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+
+    # Step 3: Create new cache directory
     local nc="$CACHE_BASE/$LATEST_VERSION"
     rm -rf "$nc" 2>/dev/null; mkdir -p "$nc"
     cp -r "$src/." "$nc/" || return 1
     chmod +x "$nc/hooks/"*.sh "$nc/setup.sh" 2>/dev/null
+
+    # Step 4: Update installed_plugins.json registry
     if [ -f "$INST_PLUGINS" ] && command -v python3 &>/dev/null; then
         python3 -c "
 import json; from datetime import datetime, timezone
