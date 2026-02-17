@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Harness SessionStart Hook v8.2.0
+# Claude Harness SessionStart Hook v8.3.0
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 [ ! -d "$HARNESS_DIR" ] && exit 0
