@@ -665,6 +665,15 @@ This updates the marketplace cache, downloads the latest plugin, and updates the
 
 ## Changelog
 
+### v8.4.0 (2026-02-17) - Schema standardization
+
+- Added `claude-harness/schemas/` directory with JSON Schema files for key state files (loop-state, active-features, context, autonomous-state, memory-entries)
+- Fixed loop-state version drift: was referenced as v3 in setup.md, v4 in checkpoint.md, v8 in flow.md — now all reference canonical schema
+- Removed hardcoded version comments from hook `.sh` files (version lives only in plugin.json)
+- Added schema versioning convention to CLAUDE.md: `"version"` in JSON files = data schema version, not plugin version
+- Updated procedural memory patterns to reflect simplified version bump process
+- Command docs now reference schema files instead of embedding inline JSON examples
+
 ### v8.1.0 (2026-02-15) - Auto-update stale plugin cache
 
 - session-start.sh auto-downloads latest plugin from GitHub when stale cache detected
@@ -790,6 +799,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **8.4.0** | **Schema Standardization**: Added `schemas/` directory with JSON Schema files for 5 key state files. Fixed loop-state version drift across commands. Removed hardcoded version comments from hooks. Added schema versioning convention to CLAUDE.md. |
 | **8.0.0** | **Remove Agent Teams**: Direct implementation model replaces 3-specialist team orchestration. Removed SubagentStart, TeammateIdle, TaskCompleted hooks. 9→6 hook registrations. No longer requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS. |
 | **7.0.0** | **Restructure repo for marketplace compatibility**: Moved plugin files into `claude-harness/` subdirectory. Fixes "not found in marketplace" install error and infinite recursion from self-referencing GitHub source. Marketplace source now `"./claude-harness"`. |
 | **6.0.6** | **Fix installation instructions**: README Quick Start used invalid `github:owner/repo` syntax. Replaced with correct marketplace workflow (add marketplace → install plugin). Added terminal CLI equivalent. |

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "autonomous-state.schema.json",
+  "title": "Autonomous State",
+  "description": "Batch processing state at .claude-harness/sessions/{session-id}/autonomous-state.json",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 3,
+      "description": "Schema version (data shape version, not plugin version)"
+    },
+    "mode": {
+      "const": "autonomous"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxIterations": {
+      "type": "integer",
+      "default": 20
+    },
+    "consecutiveFailures": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxConsecutiveFailures": {
+      "type": "integer",
+      "default": 3
+    },
+    "completedFeatures": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "skippedFeatures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "failedFeatures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "reason": { "type": "string" },
+          "attempts": { "type": "integer" }
+        }
+      }
+    },
+    "currentFeature": {
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["version", "mode", "startedAt", "iteration", "maxIterations", "currentFeature"]
+}

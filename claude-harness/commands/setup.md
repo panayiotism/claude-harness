@@ -73,111 +73,18 @@ This command automatically detects what needs to be done:
 
 ## File Schemas
 
-### sessions/{session-id}/context.json (created at runtime)
-```json
-{
-  "version": 3,
-  "computedAt": null,
-  "sessionId": null,
-  "activeFeature": null,
-  "relevantMemory": {
-    "recentDecisions": [],
-    "projectPatterns": [],
-    "avoidApproaches": [],
-    "learnedRules": []
-  },
-  "currentTask": null,
-  "compilationLog": []
-}
-```
+Canonical schemas are defined in the plugin's `schemas/` directory (JSON Schema format). Key state files:
 
-### sessions/{session-id}/loop-state.json (created at runtime)
-```json
-{
-  "version": 3,
-  "feature": null,
-  "featureName": null,
-  "type": "feature",
-  "linkedTo": null,
-  "status": "idle",
-  "attempt": 0,
-  "maxAttempts": 15,
-  "startedAt": null,
-  "lastAttemptAt": null,
-  "verification": {},
-  "history": []
-}
-```
+| File | Schema | Created By |
+|------|--------|------------|
+| `sessions/{id}/context.json` | `schemas/context.schema.json` (v3) | Phase 1 context compilation |
+| `sessions/{id}/loop-state.json` | `schemas/loop-state.schema.json` (v8) | Phase 4 implementation |
+| `sessions/{id}/autonomous-state.json` | `schemas/autonomous-state.schema.json` (v3) | `--autonomous` mode |
+| `features/active.json` | `schemas/active-features.schema.json` (v3) | Phase 2 feature creation |
+| `memory/procedural/failures.json` | `schemas/memory-entries.schema.json` (v3) | Verification failures |
+| `memory/procedural/successes.json` | `schemas/memory-entries.schema.json` (v3) | Verification passes |
 
-### memory/episodic/decisions.json
-```json
-{
-  "maxEntries": 50,
-  "entries": []
-}
-```
-
-### memory/semantic/architecture.json
-```json
-{
-  "projectType": null,
-  "techStack": {},
-  "structure": {
-    "entryPoints": [],
-    "components": [],
-    "api": [],
-    "tests": []
-  },
-  "patterns": {},
-  "discoveredAt": "<current timestamp>",
-  "lastUpdated": "<current timestamp>"
-}
-```
-
-### memory/procedural/failures.json
-```json
-{
-  "entries": []
-}
-```
-
-### memory/procedural/successes.json
-```json
-{
-  "entries": []
-}
-```
-
-### features/active.json
-```json
-{
-  "features": []
-}
-```
-
-
-### agents/context.json
-```json
-{
-  "version": 1,
-  "currentSession": null,
-  "agentResults": []
-}
-```
-
-### claude-progress.json
-```json
-{
-  "lastUpdated": "<current timestamp>",
-  "currentProject": "<directory name>",
-  "lastSession": {
-    "summary": "Initial harness setup",
-    "completedTasks": [],
-    "blockers": [],
-    "nextSteps": ["Run /claude-harness:start to begin"]
-  }
-}
-```
+All other memory files (episodic, semantic, learned) use v3 schemas as created by `setup.sh`.
 
 ## After Setup
 

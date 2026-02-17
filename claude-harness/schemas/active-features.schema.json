@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "active-features.schema.json",
+  "title": "Active Features",
+  "description": "Feature and fix registry at .claude-harness/features/active.json",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 3,
+      "description": "Schema version (data shape version, not plugin version)"
+    },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" }
+    },
+    "fixes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fix" }
+    }
+  },
+  "required": ["version", "features", "fixes"],
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^feature-\\d+$" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "integer", "minimum": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "needs_tests", "in_progress", "passing", "failing", "blocked", "escalated"]
+        },
+        "phase": {
+          "type": ["string", "null"],
+          "enum": ["planning", "test_generation", "implementation", "verification", null]
+        },
+        "verification": { "$ref": "#/$defs/verificationCommands" },
+        "attempts": { "type": "integer", "minimum": 0 },
+        "maxAttempts": { "type": "integer", "default": 15 },
+        "relatedFiles": { "type": "array", "items": { "type": "string" } },
+        "github": { "$ref": "#/$defs/githubRefs" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "status"]
+    },
+    "fix": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^fix-feature-\\d+-\\d+$" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "linkedTo": {
+          "type": "object",
+          "properties": {
+            "featureId": { "type": "string" },
+            "featureName": { "type": "string" },
+            "issueNumber": { "type": ["integer", "null"] }
+          },
+          "required": ["featureId"]
+        },
+        "type": { "const": "bugfix" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_progress", "passing", "escalated"]
+        },
+        "verification": { "$ref": "#/$defs/verificationCommands" },
+        "attempts": { "type": "integer", "minimum": 0 },
+        "maxAttempts": { "type": "integer", "default": 15 },
+        "relatedFiles": { "type": "array", "items": { "type": "string" } },
+        "github": { "$ref": "#/$defs/githubRefs" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "linkedTo", "status"]
+    },
+    "verificationCommands": {
+      "type": "object",
+      "properties": {
+        "build": { "type": ["string", "null"] },
+        "tests": { "type": ["string", "null"] },
+        "lint": { "type": ["string", "null"] },
+        "typecheck": { "type": ["string", "null"] },
+        "acceptance": { "type": ["string", "null"] },
+        "custom": { "type": "array", "items": { "type": "string" } },
+        "inherited": { "type": "boolean" }
+      }
+    },
+    "githubRefs": {
+      "type": "object",
+      "properties": {
+        "issueNumber": { "type": ["integer", "null"] },
+        "prNumber": { "type": ["integer", "null"] },
+        "branch": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
