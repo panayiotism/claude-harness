@@ -162,7 +162,7 @@ Runs standard Phases 1-7 with autonomous overrides.
 25. **On escalation** (maxAttempts reached): add to `failedFeatures`, increment `consecutiveFailures`, record to procedural memory, proceed to A.5→A.6.
 
 #### A.4.5: Auto-Checkpoint
-26. Run Phase 5: update progress, persist memory, commit `feat({feature-id}): {description}`, push, create/update PR.
+26. Run Phase 5 (all sub-phases 5.1–5.6): update progress, capture working context, persist all memory layers (episodic, semantic, procedural, learned rules), auto-reflect on user corrections, persist orchestration memory, commit `feat({feature-id}): {description}`, push, create/update PR.
 
 #### A.4.6: Auto-Merge (unless --no-merge)
 27. Run Phase 6: check PR status, merge if ready (squash), close issue, delete branch, archive feature. If needs review: mark checkpointed, continue.
@@ -316,10 +316,70 @@ If `--plan-only`: display plan summary (feature ID, issue, branch) with resume c
 
 ## Phase 5: Auto-Checkpoint
 
-Triggers when verification passes.
+Triggers when verification passes. This phase mirrors `/claude-harness:checkpoint` to ensure all memory layers are updated.
 
-21. Update `.claude-harness/claude-progress.json`
-22. Persist to memory layers in parallel (episodic, semantic, learned)
+### 5.1: Update Progress
+
+21. Update `.claude-harness/claude-progress.json` with session summary, blockers, next steps.
+
+### 5.2: Capture Working Context
+
+21.5. Update session-scoped working context `.claude-harness/sessions/{session-id}/working-context.json`:
+   - Set `activeFeature`, `summary`, populate `workingFiles` from feature's `relatedFiles` + `git status`
+   - Populate `decisions` with key architectural/implementation decisions made
+   - Set `nextSteps` to immediate actionable items
+   - Keep concise (~25-40 lines)
+
+### 5.3: Persist to Memory Layers
+
+22. **Persist session decisions to episodic memory**:
+   - Read `${MEMORY_DIR}/episodic/decisions.json`
+   - For each key decision made during this session, append entry with id, timestamp, feature, decision, rationale, alternatives, impact
+   - If entries exceed `maxEntries` (50), remove oldest (FIFO)
+   - Write updated file
+
+22.1. **Update semantic memory with discovered patterns**:
+   - Read `${MEMORY_DIR}/semantic/architecture.json`
+   - Update `structure`, `patterns.naming`, `patterns.fileOrganization`, `patterns.codeStyle` based on work done
+   - Write updated file
+
+22.2. **Update semantic entities** (if new concepts discovered):
+   - Read `${MEMORY_DIR}/semantic/entities.json`
+   - Append new concepts/entities with name, type, location, relationships
+   - Write updated file
+
+22.3. **Update procedural patterns**:
+   - Read `${MEMORY_DIR}/procedural/patterns.json`
+   - Extract reusable patterns from this session (code patterns, naming conventions, project-specific rules)
+   - Merge into existing patterns (don't duplicate)
+   - Write updated file
+
+### 5.4: Auto-Reflect on User Corrections
+
+22.4. **Run reflection** (auto mode):
+   - Scan conversation for user correction patterns
+   - For corrections with high confidence: auto-save to `${MEMORY_DIR}/learned/rules.json`
+   - For lower confidence: queue for manual review (don't save)
+   - Display results if rules were extracted:
+     ```
+     AUTO-REFLECTION
+     High-confidence rules auto-saved: {N}
+     • {rule title}
+     ```
+   - If no corrections detected: continue silently
+
+### 5.5: Persist Orchestration Memory
+
+22.5. **Persist orchestration memory** (if agent results exist):
+   - Read `.claude-harness/agents/context.json`
+   - For completed agent results: add to `${MEMORY_DIR}/procedural/successes.json`
+   - For failed agent results: add to `${MEMORY_DIR}/procedural/failures.json`
+   - Merge `discoveredPatterns` into `${MEMORY_DIR}/procedural/patterns.json`
+   - Persist `architecturalDecisions` to `${MEMORY_DIR}/episodic/decisions.json`
+   - Clear `agentResults`, set `currentSession` to null
+
+### 5.6: Commit, Push, PR
+
 23. Commit `feat(feature-XXX): {description}`, push to remote
 24. Create/update PR via `mcp__github__create_pull_request`: title, body with Closes #{issue}
 24.5. Mark Checkpoint task completed.
