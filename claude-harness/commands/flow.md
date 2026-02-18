@@ -1,6 +1,6 @@
 ---
 description: Unified end-to-end workflow - creates, implements, checkpoints, and merges features automatically
-argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "bug description" | --autonomous | --plan-only
+argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "bug description" | --autonomous | --plan-only | --team
 ---
 
 The single command for all development workflows. Handles the entire feature lifecycle from creation to merge.
@@ -17,9 +17,12 @@ Arguments: $ARGUMENTS
 /claude-harness:flow "Add dark mode support"           # Standard workflow
 /claude-harness:flow --autonomous                      # Batch process all features
 /claude-harness:flow --plan-only "Big refactor"        # Plan only, implement later
+/claude-harness:flow --team "Add user login"           # ATDD with Agent Team (3 teammates)
 ```
 
 **Lifecycle**: Context → Creation → Planning → Implementation → Verification → Checkpoint → Merge
+
+**ATDD Team Lifecycle** (with `--team`): Context → Creation (with Gherkin criteria) → Planning → **Team Spawn** → Acceptance Tests (RED) → Implementation (GREEN) → Review → Verify → Checkpoint → Merge
 
 ---
 
@@ -56,10 +59,23 @@ On models without effort controls, all phases run at default effort.
    - `--quick`: Implement directly without planning phase
    - `--plan-only`: Stop after Phase 3. Resume later with feature ID.
    - `--autonomous`: Outer loop — iterate all active features
+   - `--team`: Use Agent Teams for ATDD implementation (requires `agentTeams.enabled` in config.json)
 
 3. **Mode validation**:
-   - `--autonomous`: Compatible with `--no-merge` and `--quick`. Proceed to Autonomous Wrapper.
-   - `--plan-only`: Proceeds through Phases 0-3 then STOPS.
+   - `--autonomous`: Compatible with `--no-merge`, `--quick`, and `--team`. Proceed to Autonomous Wrapper.
+   - `--plan-only`: Proceeds through Phases 0-3 then STOPS. Incompatible with `--team`.
+   - `--team`: Compatible with `--autonomous`, `--no-merge`. Incompatible with `--quick` (teams need planning) and `--plan-only` (no team to create yet).
+
+---
+
+## Phase 0.2: Team Preflight (if --team)
+
+2.5. **Verify Agent Teams environment**:
+   - Check `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var is set to `1`
+   - If not set: display error with instructions to enable in config.json → run `/claude-harness:setup`, then STOP
+   - Read `.claude-harness/config.json` `agentTeams` section:
+     - Verify `agentTeams.enabled` is `true`. If not: display "Enable agentTeams in config.json" and STOP
+     - Cache team config: `defaultTeamSize`, `roles`, `requirePlanApproval`, `teammateModel`
 
 ---
 
@@ -242,11 +258,34 @@ Use cached GitHub owner/repo from Phase 1.
 
 8. **Generate feature ID**: Read active.json, find highest ID, generate next `feature-XXX`.
 
-9. **Create GitHub Issue**: `mcp__github__create_issue` with labels `["feature", "claude-harness", "flow"]`, body with Problem/Solution/Acceptance/Verification. STOP if fails.
+8.5. **Define acceptance criteria** (ATDD — if `atdd.requireAcceptanceCriteria` is true in config.json):
+   - If feature has existing `acceptanceCriteria` (from PRD breakdown): use those
+   - Otherwise: generate Gherkin acceptance criteria from the feature description
+   - Format each criterion as structured Gherkin:
+     ```json
+     {
+       "scenario": "Descriptive scenario name",
+       "given": "precondition (context setup)",
+       "when": "action performed",
+       "then": "expected outcome"
+     }
+     ```
+   - Aim for 2-5 scenarios covering: happy path, error cases, edge cases
+
+9. **Create GitHub Issue**: `mcp__github__create_issue` with labels `["feature", "claude-harness", "flow"]`, body with Problem/Solution/Acceptance Criteria (Gherkin)/Verification. Include acceptance criteria as a `## Acceptance Tests` section using Gherkin format:
+   ```
+   ## Acceptance Tests
+
+   **Scenario: {scenario}**
+   - Given {given}
+   - When {when}
+   - Then {then}
+   ```
+   STOP if fails.
 
 10. **Create and checkout branch**: `mcp__github__create_branch`, then `git fetch origin && git checkout feature/feature-XXX`. Verify branch.
 
-11. **Create feature entry** in active.json: id, name, status "in_progress", github refs, verificationCommands, maxAttempts 15.
+11. **Create feature entry** in active.json: id, name, status "in_progress", `acceptanceCriteria` array (from step 8.5), github refs, verificationCommands, maxAttempts 15.
 
 ---
 
@@ -273,6 +312,94 @@ Uses Claude Code's native Tasks for visual progress tracking.
 
 ---
 
+## Phase 3.7: Team Roster (if --team)
+
+15.8. **Prepare team structure** from config.json `agentTeams`:
+   - Team name: `"{projectName}-{feature-id}"`
+   - Roles from config (default: `["implementer", "reviewer", "tester"]`)
+   - Model override from config `teammateModel` (null = inherit lead's model)
+
+15.9. **Prepare ATDD spawn prompts** for each role:
+
+   **Tester** (spawns first — writes acceptance tests):
+   ```
+   You are the Tester for {feature-id}: {featureName}.
+
+   YOUR PRIMARY TASK: Write executable acceptance tests from these Gherkin criteria BEFORE any implementation exists.
+   This is the RED phase of ATDD — tests MUST fail initially (there's no implementation yet).
+
+   Acceptance Criteria:
+   {for each criterion in acceptanceCriteria}
+   Scenario: {scenario}
+     Given {given}
+     When {when}
+     Then {then}
+   {end}
+
+   Test framework: {from config.json verification.tests}
+   Acceptance test command: {from config.json verification.acceptance}
+   Project patterns: {from procedural memory test patterns}
+
+   Write tests that are:
+   - Executable with the project's test framework
+   - Focused on behavior (not implementation details)
+   - Independent of each other
+   - Clear about expected outcomes
+
+   After writing tests, run them to confirm they execute (failures expected in RED phase).
+   ```
+
+   **Implementer** (spawns in parallel — plans approach):
+   ```
+   You are the Implementer for {feature-id}: {featureName}.
+
+   YOUR PRIMARY TASK: Make all acceptance tests pass (GREEN phase of ATDD).
+
+   Wait for the Tester to complete writing acceptance tests (Task 1).
+   Then implement the feature to make every test pass.
+
+   Plan: {from Phase 3}
+   Acceptance Criteria: {acceptanceCriteria summary}
+   Related files: {relatedFiles}
+   Verification commands: {from config.json}
+
+   Past failures to AVOID: {from procedural memory, last 3}
+   Learned rules: {from learned rules}
+
+   Follow test-driven approach:
+   1. Read the acceptance tests the Tester wrote
+   2. Implement minimal code to make each test pass
+   3. Refactor while keeping tests green
+   4. Run ALL verification commands before marking complete
+   ```
+
+   **Reviewer** (spawns last — reviews after implementation):
+   ```
+   You are the Reviewer for {feature-id}: {featureName}.
+
+   YOUR PRIMARY TASK: Review the implementation for quality, security, and adherence to patterns.
+
+   Wait for the Implementer to complete (Task 3). Then review:
+
+   Code standards: {from semantic memory architecture.patterns}
+   Project patterns: {from procedural memory patterns}
+   Acceptance criteria: {acceptanceCriteria — verify all are covered}
+
+   Review checklist:
+   - [ ] All acceptance criteria covered by tests
+   - [ ] No security vulnerabilities (OWASP top 10)
+   - [ ] Follows existing code patterns and naming conventions
+   - [ ] Error handling for edge cases
+   - [ ] No unnecessary complexity or over-engineering
+   - [ ] Clean, readable code
+
+   Report findings with severity: CRITICAL (must fix), WARNING (should fix), INFO (suggestion).
+   ```
+
+15.10. Store roster in session context for checkpoint persistence.
+
+---
+
 ## Phase 3.8: Plan-Only Gate (if --plan-only)
 
 If `--plan-only`: display plan summary (feature ID, issue, branch) with resume command and **EXIT**.
@@ -283,24 +410,95 @@ If `--plan-only`: display plan summary (feature ID, issue, branch) with resume c
 
 16. **Branch verification**: `git branch --show-current` — STOP if on main/master.
 
-17. **Initialize loop state** (canonical Loop-State Schema v8):
+17. **Initialize loop state** (canonical Loop-State Schema v9):
     ```json
     {
-      "version": 8,
+      "version": 9,
       "feature": "feature-XXX", "featureName": "{description}",
       "type": "feature", "status": "in_progress",
       "attempt": 1, "maxAttempts": 15,
       "startedAt": "{ISO}", "history": [],
-      "tasks": { "enabled": true, "chain": ["{task-ids}"], "current": null, "completed": [] }
+      "tasks": { "enabled": true, "chain": ["{task-ids}"], "current": null, "completed": [] },
+      "team": null
+    }
+    ```
+    If `--team`: set `team` field:
+    ```json
+    "team": {
+      "enabled": true,
+      "teamName": "{projectName}-{feature-id}",
+      "leadMode": "delegate",
+      "teammates": [
+        { "role": "tester", "name": null, "status": "pending", "tasksCompleted": 0 },
+        { "role": "implementer", "name": null, "status": "pending", "tasksCompleted": 0 },
+        { "role": "reviewer", "name": null, "status": "pending", "tasksCompleted": 0 }
+      ]
     }
     ```
 
-17.5. Update task status: mark Implement task as in_progress.
+17.5. Update task status: mark Implement task as in_progress (standard) or mark first team task as in_progress (team mode).
+
+---
+
+### Phase 4 (Standard — no --team): Direct Implementation
 
 18. **Implement the feature** directly based on the plan from Phase 3:
-    - Follow test-driven practices where applicable (write/update tests, then implement)
+    - If `atdd.acceptanceTestFirst` is true: write acceptance tests first (RED), then implement to pass (GREEN)
+    - Otherwise: follow test-driven practices where applicable (write/update tests, then implement)
     - Run verification commands after implementation
     - On failure: record to failures.json, increment attempts, retry with escalation
+
+---
+
+### Phase 4 (Team — if --team): ATDD with Agent Teams
+
+18T. **Create the Agent Team**:
+   - Tell Claude to create an agent team named `"{teamName}"` with delegate mode
+   - Spawn 3 teammates using the prompts from Phase 3.7:
+     - Tester (with `requirePlanApproval: true` from config)
+     - Implementer (with `requirePlanApproval: true` from config)
+     - Reviewer (no plan approval needed)
+   - If `agentTeams.teammateModel` is set, specify model for each teammate
+   - Update loop-state `team.teammates[].name` with spawned teammate names
+   - Update `.claude-harness/agents/context.json` with `teamState`
+
+19T. **Create ATDD shared task chain** (6 tasks with dependencies):
+   ```
+   Task 1: "Write acceptance tests for {feature}" (tester)       ── no deps
+   Task 2: "Plan implementation for {feature}" (implementer)     ── no deps
+   Task 3: "Implement {feature}" (implementer)                    ── blocked by Task 1, Task 2
+   Task 4: "Code review {feature}" (reviewer)                     ── blocked by Task 3
+   Task 5: "Address review feedback for {feature}" (implementer)  ── blocked by Task 4
+   Task 6: "Final verification for {feature}" (tester)            ── blocked by Task 5
+   ```
+   Tasks 1 and 2 run in parallel. The implementer cannot start coding until acceptance tests exist.
+
+20T. **Monitor team progress**:
+   - The lead (this session) operates in delegate mode — coordination only
+   - `TeammateIdle` hook enforces: no uncommitted changes, verification passing
+   - `TaskCompleted` hook enforces ATDD gates:
+     - Task 1 (RED): acceptance tests exist and can be executed
+     - Task 3 (GREEN): acceptance tests pass
+     - Task 6 (VERIFY): ALL verification commands pass
+   - When teammates send messages, review and redirect if needed
+   - Periodically check task list progress
+
+21T. **Handle team completion or failure**:
+   - **Success**: All 6 tasks complete → shut down teammates → clean up team → proceed to Phase 4.1
+   - **Teammate failure**: If a teammate stops with errors:
+     - Spawn replacement teammate with same role and context
+     - Increment attempt count
+   - **Team failure** (max attempts exhausted):
+     - Shut down all teammates
+     - Clean up team resources
+     - Record failure to procedural memory
+     - Fall back to standard Phase 4 (direct implementation) as safety net
+
+22T. **Team cleanup**: After all tasks complete:
+   - Ask each teammate to shut down
+   - Run team cleanup
+   - Persist team results to `agents/context.json` `agentResults`
+   - Update loop-state `team.teammates[].status` to "completed"
 
 ---
 
@@ -447,8 +645,11 @@ Only proceeds if PR approved and CI passes.
 | `/flow --autonomous` | Batch process all features |
 | `/flow --autonomous --no-merge` | Batch, stop at checkpoint |
 | `/flow --autonomous --quick` | Autonomous without planning |
+| `/flow --team "Add X"` | ATDD with Agent Team: tester + implementer + reviewer |
+| `/flow --team --no-merge "Add X"` | Team ATDD, stop at checkpoint |
+| `/flow --team --autonomous` | Teams for each feature in autonomous batch |
 
-**Flag combinations**: `--no-merge --plan-only` (plan before implementing), `--autonomous --no-merge --quick` (fast batch without merge)
+**Flag combinations**: `--no-merge --plan-only` (plan before implementing), `--autonomous --no-merge --quick` (fast batch without merge), `--team --autonomous --no-merge` (team ATDD batch without merge)
 
 ---
 
@@ -461,3 +662,5 @@ Only proceeds if PR approved and CI passes.
 | `--plan-only` | Complex features needing upfront design |
 | `--quick` | Simple fixes — skips planning |
 | `--autonomous` | Batch processing feature backlog unattended |
+| `--team` | Complex features benefiting from parallel review + ATDD |
+| `--team --autonomous` | High-quality batch processing with code review |
