@@ -396,6 +396,68 @@ if [ "${V6_MIGRATE:-false}" = true ]; then
     migrate_to_v6
 fi
 
+# v9.0 migration: add agentTeams + atdd config sections to existing config.json
+if [ -f ".claude-harness/config.json" ]; then
+    if ! grep -q '"agentTeams"' ".claude-harness/config.json" 2>/dev/null; then
+        if command -v python3 >/dev/null 2>&1; then
+            python3 -c "
+import json
+with open('.claude-harness/config.json') as f:
+    data = json.load(f)
+if 'agentTeams' not in data:
+    data['agentTeams'] = {
+        'enabled': False,
+        'defaultTeamSize': 3,
+        'roles': ['implementer', 'reviewer', 'tester'],
+        'requirePlanApproval': True,
+        'teammateModel': None
+    }
+if 'atdd' not in data:
+    data['atdd'] = {
+        'enabled': True,
+        'criteriaFormat': 'gherkin',
+        'requireAcceptanceCriteria': True,
+        'acceptanceTestFirst': True
+    }
+with open('.claude-harness/config.json', 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+print('  [MIGRATE] Added agentTeams + atdd config sections')
+" 2>/dev/null
+        else
+            echo "  [SKIP] python3 not available for config.json migration (agentTeams + atdd)"
+        fi
+    fi
+fi
+
+# v9.0 migration: inject Agent Teams env var into settings.local.json if enabled
+if [ -f ".claude-harness/config.json" ] && [ -f ".claude/settings.local.json" ]; then
+    if grep -q '"agentTeams"' ".claude-harness/config.json" 2>/dev/null; then
+        TEAMS_ENABLED=$(python3 -c "
+import json
+with open('.claude-harness/config.json') as f:
+    data = json.load(f)
+print('true' if data.get('agentTeams', {}).get('enabled', False) else 'false')
+" 2>/dev/null || echo "false")
+        if [ "$TEAMS_ENABLED" = "true" ]; then
+            if ! grep -q 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' ".claude/settings.local.json" 2>/dev/null; then
+                python3 -c "
+import json
+with open('.claude/settings.local.json') as f:
+    data = json.load(f)
+if 'env' not in data:
+    data['env'] = {}
+data['env']['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] = '1'
+with open('.claude/settings.local.json', 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+print('  [MIGRATE] Added CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 to settings.local.json')
+" 2>/dev/null
+            fi
+        fi
+    fi
+fi
+
 echo "Creating harness files (v3.0 Memory Architecture)..."
 echo ""
 
@@ -682,6 +744,19 @@ create_file ".claude-harness/config.json" '{
     "autoReflectOnCheckpoint": false,
     "autoApproveHighConfidence": true,
     "minConfidenceForAuto": "high"
+  },
+  "agentTeams": {
+    "enabled": false,
+    "defaultTeamSize": 3,
+    "roles": ["implementer", "reviewer", "tester"],
+    "requirePlanApproval": true,
+    "teammateModel": null
+  },
+  "atdd": {
+    "enabled": true,
+    "criteriaFormat": "gherkin",
+    "requireAcceptanceCriteria": true,
+    "acceptanceTestFirst": true
   }
 }'
 
