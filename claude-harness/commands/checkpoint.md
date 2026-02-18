@@ -233,17 +233,14 @@ Create a checkpoint of the current session:
        - Call `TaskList` to find feature's tasks
        - For any tasks not yet "completed", call `TaskUpdate` to mark as "completed"
        - Report: "All 5 tasks completed"
-     - Reset loop state to idle (v4 schema):
+     - Reset loop state to idle (see `schemas/loop-state.schema.json` for canonical shape):
        ```json
        {
-         "version": 4,
+         "version": 8,
          "feature": null,
          "featureName": null,
          "type": "feature",
-         "linkedTo": {
-           "featureId": null,
-           "featureName": null
-         },
+         "linkedTo": null,
          "status": "idle",
          "attempt": 0,
          "maxAttempts": 15,

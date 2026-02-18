@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "memory-entries.schema.json",
+  "title": "Procedural Memory Entries",
+  "description": "Shared schema for failures.json and successes.json in .claude-harness/memory/procedural/",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 3,
+      "description": "Schema version (data shape version, not plugin version)"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/failureEntry" },
+          { "$ref": "#/$defs/successEntry" }
+        ]
+      }
+    }
+  },
+  "required": ["entries"],
+  "$defs": {
+    "failureEntry": {
+      "type": "object",
+      "description": "Used in memory/procedural/failures.json",
+      "properties": {
+        "id": { "type": "string", "description": "Format: fail-YYYYMMDD-NNN" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "feature": { "type": "string" },
+        "type": { "type": "string", "enum": ["feature", "fix", "orchestration"] },
+        "linkedTo": { "type": ["string", "null"] },
+        "approach": { "type": "string", "description": "What was attempted" },
+        "agent": { "type": "string", "description": "Agent name (for orchestration type)" },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "rootCause": { "type": "string" },
+        "prevention": { "type": "string", "description": "How to avoid this in the future" }
+      },
+      "required": ["id", "timestamp", "feature", "approach", "errors"]
+    },
+    "successEntry": {
+      "type": "object",
+      "description": "Used in memory/procedural/successes.json",
+      "properties": {
+        "id": { "type": "string", "description": "Format: suc-YYYYMMDD-NNN" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "feature": { "type": "string" },
+        "type": { "type": "string", "enum": ["feature", "fix", "orchestration"] },
+        "linkedTo": { "type": ["string", "null"] },
+        "approach": { "type": "string", "description": "What was done" },
+        "agent": { "type": "string", "description": "Agent name (for orchestration type)" },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "verificationResults": { "type": "object" },
+        "patterns": { "type": "array", "items": { "type": "string" }, "description": "Reusable patterns extracted" },
+        "lessons": { "type": "array", "items": { "type": "string" }, "description": "Lessons learned" }
+      },
+      "required": ["id", "timestamp", "feature", "approach"]
+    }
+  }
+}

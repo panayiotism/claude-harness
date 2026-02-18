@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stop Hook v8.0.0 - Detect completion, mark active sessions on natural stop
+# Stop Hook - Detect completion, mark active sessions on natural stop
 # Runs when Claude finishes responding (NOT on user interrupt - Ctrl+C/Escape)
 # Within 5-second timeout (hooks.json)
 

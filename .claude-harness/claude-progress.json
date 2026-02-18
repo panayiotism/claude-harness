@@ -1,19 +1,21 @@
 {
-  "lastUpdated": "2026-02-15T12:00:00Z",
+  "lastUpdated": "2026-02-17T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v8.1.0: Added auto-update to session-start.sh. When stale plugin cache detected, hook automatically downloads latest from GitHub, updates cache and registry. Falls back to uninstall/reinstall instructions if auto-update fails. Replaces broken claude plugin update command.",
+    "summary": "v8.4.0: Schema standardization. Added schemas/ directory with JSON Schema files for 5 key state files. Fixed loop-state version drift across commands. Removed hardcoded version comments from hooks. Added schema versioning convention to CLAUDE.md.",
     "completedTasks": [
-      "Added stale cache detection back to session-start.sh (lost in v8.0.0 rewrite)",
-      "Added auto_update_cache() that pulls from GitHub and updates plugin cache + registry",
-      "Fixed version check URL for v7.0.0+ subdirectory structure (claude-harness/ prefix)",
-      "Replaced broken 'claude plugin update' instructions with uninstall+reinstall fallback",
-      "Bumped version to 8.1.0"
+      "Created claude-harness/schemas/ with 5 JSON Schema files",
+      "Updated setup.md to reference schemas instead of inline examples",
+      "Fixed loop-state v4 reference in checkpoint.md to v8",
+      "Removed version comments from all 5 hook .sh files",
+      "Added schema versioning convention to CLAUDE.md",
+      "Updated procedural memory patterns for simplified version bumps"
     ],
     "blockers": [],
     "nextSteps": []
   },
   "recentChanges": [
+    "v8.4.0: Schema standardization — canonical schemas, version drift fixes, hook version cleanup",
     "v8.1.0: Auto-update stale plugin cache from session-start hook",
     "v8.0.0: Remove Agent Teams — direct implementation model",
     "v7.0.1: Add marketplace metadata description",

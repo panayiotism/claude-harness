@@ -17,8 +17,8 @@
       "source": "feature-005"
     },
     {
-      "pattern": "Version bump requires updating ALL files: plugin.json, .plugin-version, all hook version comments, README, setup.sh, claude-progress.json, and schema examples in command docs",
-      "source": "v5.0.0"
+      "pattern": "Version bump requires updating both plugin.json files and README changelog. Hook .sh files and command docs no longer embed version numbers — schemas/ is the canonical reference for data shapes",
+      "source": "v8.4.0"
     },
     {
       "pattern": "Use Grep with replace_all to find all occurrences of hardcoded values (like maxAttempts) across the codebase before updating",
@@ -29,8 +29,8 @@
       "source": "v5.0.0"
     },
     {
-      "pattern": "When migrating orchestration patterns, update ALL copies: commands/, .claude/commands/ (synced copy), setup.sh (file creation), README.md (docs + directory tree)",
-      "source": "v6.2.0"
+      "pattern": "Commands are served from plugin cache since v6.0 — only update commands/ in the plugin directory, not .claude/commands/",
+      "source": "v8.4.0"
     },
     {
       "pattern": "Critical behavioral instructions (like delegate mode) must be persisted to state files on disk and re-read at loop iteration points — conversation-only instructions are lost during context compaction",

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "context.schema.json",
+  "title": "Session Context",
+  "description": "Compiled working context at .claude-harness/sessions/{session-id}/context.json",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 3,
+      "description": "Schema version (data shape version, not plugin version)"
+    },
+    "computedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "sessionId": {
+      "type": ["string", "null"]
+    },
+    "github": {
+      "type": "object",
+      "properties": {
+        "owner": { "type": "string" },
+        "repo": { "type": "string" }
+      }
+    },
+    "activeFeature": {
+      "type": ["string", "null"],
+      "description": "Currently active feature or fix ID"
+    },
+    "relevantMemory": {
+      "type": "object",
+      "properties": {
+        "recentDecisions": { "type": "array" },
+        "projectPatterns": { "type": "array" },
+        "avoidApproaches": { "type": "array" },
+        "learnedRules": { "type": "array" }
+      }
+    },
+    "currentTask": {
+      "type": ["object", "null"]
+    },
+    "compilationLog": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["version", "sessionId", "relevantMemory"]
+}

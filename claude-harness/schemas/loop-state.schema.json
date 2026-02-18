@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "loop-state.schema.json",
+  "title": "Loop State",
+  "description": "Agentic loop state for feature/fix implementation. Session-scoped at .claude-harness/sessions/{session-id}/loop-state.json",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 8,
+      "description": "Schema version (data shape version, not plugin version)"
+    },
+    "feature": {
+      "type": ["string", "null"],
+      "description": "Feature or fix ID (e.g. 'feature-001', 'fix-feature-001-001')"
+    },
+    "featureName": {
+      "type": ["string", "null"],
+      "description": "Human-readable feature description"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["feature", "fix"],
+      "default": "feature"
+    },
+    "linkedTo": {
+      "type": ["object", "null"],
+      "description": "Parent feature reference (for fixes only)",
+      "properties": {
+        "featureId": { "type": ["string", "null"] },
+        "featureName": { "type": ["string", "null"] }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["idle", "pending", "in_progress", "completed", "escalated", "needs_review"]
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxAttempts": {
+      "type": "integer",
+      "default": 15
+    },
+    "startedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "lastAttemptAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "phase": {
+      "type": ["string", "null"],
+      "enum": ["research", "plan", "implement", "verify", "accept", "checkpoint", null]
+    },
+    "verification": {
+      "type": "object",
+      "description": "Last verification results keyed by command name"
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "attempt": { "type": "integer" },
+          "approach": { "type": "string" },
+          "result": { "type": "string", "enum": ["success", "failure"] },
+          "errors": { "type": "array", "items": { "type": "string" } },
+          "rootCause": { "type": "string" }
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "chain": { "type": "array", "items": { "type": "string" } },
+        "current": { "type": ["string", "null"] },
+        "completed": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "lastCheckpoint": {
+      "type": ["string", "null"],
+      "description": "Commit hash of last checkpoint"
+    },
+    "escalationRequested": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": ["version", "feature", "status", "attempt", "maxAttempts", "history"]
+}
