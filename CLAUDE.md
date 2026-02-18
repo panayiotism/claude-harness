@@ -1,7 +1,7 @@
 # Claude Harness Plugin
 
 ## Project Overview
-Claude Code plugin for automated, context-preserving coding sessions with 5-layer memory architecture, failure prevention, self-improving skills, feature tracking, and GitHub integration.
+Claude Code plugin for automated, context-preserving coding sessions with 5-layer memory architecture, failure prevention, self-improving skills, feature tracking, GitHub integration, Agent Teams with ATDD (Acceptance Test-Driven Development), and quality gate hooks.
 
 ## Tech Stack
 - Shell/Bash (setup.sh, hooks/)
@@ -19,7 +19,7 @@ On every session start:
 ## Project Structure
 - `claude-harness/` - Plugin directory (what gets installed by users)
   - `commands/` - Harness command definitions (markdown, served from plugin cache)
-  - `hooks/` - Session hooks (6 registrations: safety, quality gates)
+  - `hooks/` - Session hooks (9 registrations: safety, quality gates, team coordination)
   - `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
   - `.claude-plugin/plugin.json` - Plugin manifest
 - `.claude-plugin/marketplace.json` - Marketplace catalog (points to `./claude-harness`)
@@ -33,13 +33,14 @@ On every session start:
 - Commit with descriptive messages
 - Leave codebase in clean, working state
 
-## Available Commands (5 total)
+## Available Commands (6 total)
 - `/claude-harness:setup` - Initialize harness in project
 - `/claude-harness:start` - Start session, compile context
 - `/claude-harness:flow` - **Unified workflow** (recommended)
-  - Flags: `--no-merge` `--plan-only` `--autonomous` `--quick` `--fix`
+  - Flags: `--no-merge` `--plan-only` `--autonomous` `--quick` `--fix` `--team`
 - `/claude-harness:checkpoint` - Manual commit + push + PR
 - `/claude-harness:merge` - Merge all PRs, auto-version, release
+- `/claude-harness:prd-breakdown` - Analyze PRD and break down into features with Gherkin acceptance criteria
 
 ## Schema Versioning Convention
 - The `"version"` field in JSON state files refers to the **data schema version**, not the plugin version

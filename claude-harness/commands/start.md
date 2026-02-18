@@ -305,6 +305,25 @@ Before anything else, check if legacy root-level harness files need migration:
    - Read `.claude-harness/agents/context.json` (or legacy `agent-context.json`) if it exists
    - Check for `currentSession.activeFeature` - indicates incomplete orchestration
    - Check `agentResults` for recently completed agent work
+   - **Check `teamState`** — if non-null, display active team:
+     ```
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  ACTIVE AGENT TEAM                                             │
+     ├─────────────────────────────────────────────────────────────────┤
+     │  Team: {teamState.teamName}                                    │
+     │  Feature: {teamState.feature}                                  │
+     │  Mode: {teamState.leadMode}                                    │
+     │  Teammates:                                                    │
+     │    tester: {status}                                            │
+     │    implementer: {status}                                       │
+     │    reviewer: {status}                                          │
+     │                                                                │
+     │  Resume: /claude-harness:flow --team {feature-id}              │
+     └─────────────────────────────────────────────────────────────────┘
+     ```
+     **Note**: Agent Teams do not survive session restarts. If teamState exists
+     but teammates are gone, the flow will detect this and offer to spawn fresh
+     teammates or fall back to direct implementation.
    - If active orchestration exists, recommend: "Run `/claude-harness:flow {feature-id}` to resume"
 
 14. Check procedural memory hotspots:

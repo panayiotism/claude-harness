@@ -99,7 +99,7 @@ Perform comprehensive analysis from three perspectives:
    - Detect cycles: ERROR if circular dependency found
    - Generate priority ordering
 
-10. **Generate feature specifications**:
+10. **Generate feature specifications** (with structured Gherkin acceptance criteria):
     ```json
     {
       "id": "feature-XXX",
@@ -112,12 +112,20 @@ Perform comprehensive analysis from three perspectives:
       "detailedDescription": "Full description from PRD",
       "priority": 1,
       "dependencies": ["feature-YYY"],
-      "acceptanceCriteria": ["Given X when Y then Z"],
+      "acceptanceCriteria": [
+        {
+          "scenario": "Descriptive scenario name",
+          "given": "precondition (context setup)",
+          "when": "action performed",
+          "then": "expected outcome"
+        }
+      ],
       "riskLevel": "low|medium|high",
       "estimatedComplexity": "low|medium|high",
       "mvpFeature": true|false
     }
     ```
+    **Important**: `acceptanceCriteria` MUST use structured Gherkin format (`{ scenario, given, when, then }`) — not plain strings. This enables the ATDD workflow in `/flow --team` where the tester teammate programmatically iterates scenarios to write executable tests.
 
 11. **Apply limits** (if `--max-features N` provided):
     - Sort by priority, keep top N
@@ -170,10 +178,17 @@ Perform comprehensive analysis from three perspectives:
           "description": "...",
           "priority": N,
           "status": "pending",
+          "acceptanceCriteria": [
+            {
+              "scenario": "...",
+              "given": "...",
+              "when": "...",
+              "then": "..."
+            }
+          ],
           "prdMetadata": {
             "section": "...",
-            "breakdown": "prd-{date}-{hash}",
-            "acceptanceCriteria": [...]
+            "breakdown": "prd-{date}-{hash}"
           },
           "verification": {
             "build": "{auto-detected}",

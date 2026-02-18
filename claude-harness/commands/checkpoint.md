@@ -236,7 +236,7 @@ Create a checkpoint of the current session:
      - Reset loop state to idle (see `schemas/loop-state.schema.json` for canonical shape):
        ```json
        {
-         "version": 8,
+         "version": 9,
          "feature": null,
          "featureName": null,
          "type": "feature",
@@ -329,6 +329,11 @@ Create a checkpoint of the current session:
    - Clear `agentResults` array (already persisted to memory)
    - Set `currentSession` to null
    - Update `lastUpdated` timestamp
+
+   - **If `teamState` is non-null** (Agent Teams was active):
+     - Persist each teammate's results to `agentResults` (if not already there)
+     - Set `teamState` to null (team cleanup complete)
+     - Report: "Cleaned up team state for {teamState.teamName}"
 
    - Write updated files
    - Report: "Persisted {N} agent results to procedural memory"
