@@ -39,6 +39,8 @@ CACHE_BASE="$HOME/.claude/plugins/cache/claude-harness/claude-harness"
 CACHE_CHECK="$HOME/.claude/plugins/cache/claude-harness/.version-check"
 INST_PLUGINS="$HOME/.claude/plugins/installed_plugins.json"
 MARKETPLACE_DIR="$HOME/.claude/plugins/marketplaces/claude-harness"
+PLUGIN_BRANCH="main"
+[ -f "$CACHE_BASE/.branch" ] && PLUGIN_BRANCH=$(cat "$CACHE_BASE/.branch" 2>/dev/null)
 LATEST_VERSION=""; CACHE_IS_STALE=false; CACHE_UPDATED=false
 
 check_latest_version() {
@@ -50,10 +52,10 @@ check_latest_version() {
         fi
     fi
     local v=""
-    command -v gh &>/dev/null && v=$(gh api "repos/$PLUGIN_REPO/contents/claude-harness/.claude-plugin/plugin.json" \
+    command -v gh &>/dev/null && v=$(gh api "repos/$PLUGIN_REPO/contents/claude-harness/.claude-plugin/plugin.json?ref=$PLUGIN_BRANCH" \
         --jq '.content' 2>/dev/null | base64 -d 2>/dev/null | grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
     [ -z "$v" ] && v=$(curl -sf --max-time 5 \
-        "https://raw.githubusercontent.com/$PLUGIN_REPO/main/claude-harness/.claude-plugin/plugin.json" \
+        "https://raw.githubusercontent.com/$PLUGIN_REPO/$PLUGIN_BRANCH/claude-harness/.claude-plugin/plugin.json" \
         2>/dev/null | grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
     if [ -n "$v" ]; then
         LATEST_VERSION="$v"
@@ -65,23 +67,23 @@ check_latest_version() {
 auto_update_cache() {
     # Step 1: Update marketplace git clone (Claude Code resolves plugins from here)
     if [ -d "$MARKETPLACE_DIR/.git" ]; then
-        (cd "$MARKETPLACE_DIR" && git fetch origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null) || true
+        (cd "$MARKETPLACE_DIR" && git fetch origin "$PLUGIN_BRANCH" 2>/dev/null && git reset --hard "origin/$PLUGIN_BRANCH" 2>/dev/null) || true
     fi
 
     # Step 2: Download latest plugin tarball
     local tmp; tmp=$(mktemp -d) || return 1
     trap 'rm -rf "$tmp"' RETURN
     local ok=false
-    command -v gh &>/dev/null && gh api "repos/$PLUGIN_REPO/tarball/main" > "$tmp/r.tar.gz" 2>/dev/null && ok=true
-    [ "$ok" = false ] && curl -sfL --max-time 30 "https://github.com/$PLUGIN_REPO/archive/refs/heads/main.tar.gz" -o "$tmp/r.tar.gz" 2>/dev/null && ok=true
+    command -v gh &>/dev/null && gh api "repos/$PLUGIN_REPO/tarball/$PLUGIN_BRANCH" > "$tmp/r.tar.gz" 2>/dev/null && ok=true
+    [ "$ok" = false ] && curl -sfL --max-time 30 "https://github.com/$PLUGIN_REPO/archive/refs/heads/$PLUGIN_BRANCH.tar.gz" -o "$tmp/r.tar.gz" 2>/dev/null && ok=true
     [ "$ok" = false ] && return 1
     tar -xzf "$tmp/r.tar.gz" -C "$tmp" 2>/dev/null || return 1
     local ext; ext=$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -1)
     local src="$ext/claude-harness"
     [ ! -f "$src/.claude-plugin/plugin.json" ] && return 1
     local sha=""
-    command -v gh &>/dev/null && sha=$(gh api "repos/$PLUGIN_REPO/commits/main" --jq '.sha' 2>/dev/null)
-    [ -z "$sha" ] && sha=$(curl -sf --max-time 5 "https://api.github.com/repos/$PLUGIN_REPO/commits/main" 2>/dev/null | grep '"sha"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    command -v gh &>/dev/null && sha=$(gh api "repos/$PLUGIN_REPO/commits/$PLUGIN_BRANCH" --jq '.sha' 2>/dev/null)
+    [ -z "$sha" ] && sha=$(curl -sf --max-time 5 "https://api.github.com/repos/$PLUGIN_REPO/commits/$PLUGIN_BRANCH" 2>/dev/null | grep '"sha"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 
     # Step 3: Create new cache directory
     local nc="$CACHE_BASE/$LATEST_VERSION"
