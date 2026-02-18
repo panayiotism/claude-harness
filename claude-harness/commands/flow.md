@@ -187,6 +187,12 @@ Runs standard Phases 1-7 with autonomous overrides.
 
 ### Phase A.5: Post-Feature Cleanup
 
+27.5. **Mandatory Team Teardown (if --team)** — MUST run before anything else in A.5:
+   - Execute the full Mandatory Team Shutdown Gate (Step 22T, Steps A through E)
+   - If team cleanup fails: mark feature as "needs_review" with reason "team-cleanup-failed", add to `skippedFeatures`, **do NOT proceed to A.5 step 28** — jump directly to A.6
+   - Verify: `agents/context.json` `teamState` is null, no orphaned tmux sessions
+   - This prevents zombie agents from accumulating across autonomous iterations
+
 28. **Archive completed feature**: If status "passing", archive to archive.json and remove from active.json. Otherwise skip.
 
 29. **Update autonomous state**: Add to `completedFeatures`, reset `consecutiveFailures`.
@@ -195,7 +201,7 @@ Runs standard Phases 1-7 with autonomous overrides.
 
 31. **Reset session state**: Clear loop-state, task references.
 
-32. **Brief per-feature report**: feature ID, test counts, PR status, attempts, duration, progress.
+32. **Brief per-feature report**: feature ID, test counts, PR status, attempts, duration, progress. If team mode: include teammate stats and any shutdown warnings.
 
 ---
 
@@ -494,11 +500,47 @@ If `--plan-only`: display plan summary (feature ID, issue, branch) with resume c
      - Record failure to procedural memory
      - Fall back to standard Phase 4 (direct implementation) as safety net
 
-22T. **Team cleanup**: After all tasks complete:
-   - Ask each teammate to shut down
-   - Run team cleanup
+22T. **Mandatory Team Shutdown Gate** (MUST complete before Phase 5):
+
+   This gate ensures ALL teammates are fully stopped before proceeding. Skipping this creates zombie agents that drain CPU/RAM.
+
+   **Step A — Request shutdown for each teammate** (in parallel):
+   - For each teammate in the team roster:
+     - Send shutdown request: "Please shut down now. Your work is complete."
+     - Record shutdown request time
+
+   **Step B — Verify shutdown with polling loop** (max 60 seconds):
+   ```
+   attempts = 0
+   max_poll_attempts = 12  (every 5 seconds for 60s total)
+   while attempts < max_poll_attempts:
+     Check each teammate status (via team list / Shift+Up/Down)
+     If ALL teammates stopped: BREAK → proceed to Step C
+     If any still running: wait 5 seconds, increment attempts
+   ```
+
+   **Step C — Handle stragglers** (if any teammate still running after 60s):
+   - For each still-running teammate:
+     - Send forceful message: "You must shut down immediately. Ignoring will result in forced cleanup."
+     - Wait 10 seconds
+     - If STILL running: proceed anyway — the team cleanup command will report which teammates couldn't be stopped
+   - **Log warning** to stderr and loop-state history: "Teammate {name} ({role}) did not shut down within timeout"
+
+   **Step D — Run team cleanup**:
+   - Execute team cleanup command (this removes shared team resources)
+   - If cleanup fails because teammates are still active:
+     - Log the failure
+     - **In autonomous mode**: this is CRITICAL — do NOT proceed to next feature. Mark current feature as "needs_review" and add to `skippedFeatures` with reason "team-cleanup-failed"
+     - **In standard mode**: warn user, suggest manual tmux session cleanup
+
+   **Step E — Verify and persist**:
+   - Confirm no orphaned tmux sessions remain for this team: `tmux ls 2>/dev/null | grep "{teamName}"` — if found, kill: `tmux kill-session -t "{teamName}"`
    - Persist team results to `agents/context.json` `agentResults`
+   - Set `agents/context.json` `teamState` to null
    - Update loop-state `team.teammates[].status` to "completed"
+   - Update loop-state `team.enabled` to false
+
+   **IMPORTANT**: The flow MUST NOT proceed to Phase 5 (Checkpoint) until Step E completes successfully. This is a hard gate, not a soft recommendation.
 
 ---
 
