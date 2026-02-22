@@ -86,6 +86,8 @@ The **`/flow`** command handles the entire lifecycle automatically - from contex
                    Options: --no-merge, --quick, --autonomous,
                             --plan-only, --fix, --team
                    --autonomous: Batch loop through ALL features
+                                 (context-isolated: each feature runs
+                                  in a fresh subagent context window)
                    OPTIMIZATIONS: Parallel memory reads, cached GitHub parsing
 
 /checkpoint      → Manual commit + push + PR (when not using /flow)
@@ -342,8 +344,8 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/flow --plan-only "Big feature"` | Plan only, implement later |
 | `/flow --quick "Simple change"` | Skip planning phase |
 | `/flow --fix feature-001 "Bug"` | Complete lifecycle for a bug fix |
-| `/flow --autonomous` | **Batch loop**: process all active features, checkpoint, merge, repeat |
-| `/flow --autonomous --no-merge` | Batch loop but stop each feature at checkpoint (PRs created, not merged) |
+| `/flow --autonomous` | **Batch loop**: process all active features with context isolation, checkpoint, merge, repeat |
+| `/flow --autonomous --no-merge` | Batch loop with context isolation but stop each feature at checkpoint (PRs created, not merged) |
 
 **Key Features in /flow**:
 - **TDD enforcement**: RED→GREEN→REFACTOR cycle enforced by design
@@ -664,6 +666,15 @@ This updates the marketplace cache, downloads the latest plugin, and updates the
 **Note:** v8.1.0+ includes auto-update — the session-start hook automatically fixes stale caches on startup.
 
 ## Changelog
+
+### v9.1.0 (2026-02-22) - Autonomous Context Isolation
+
+- **Context isolation**: Autonomous mode (`--autonomous`) now delegates each feature to a fresh subagent via the Task tool. Each feature runs in its own context window — zero accumulated context between features.
+- **Subagent-per-feature**: The orchestrator loop stays lean (feature selection, conflict detection, result processing). All feature work (planning, implementation, verification, checkpoint, merge) runs in an isolated subagent.
+- **Memory continuity**: Subagents return structured memory updates (decisions, failures, successes, patterns) which the orchestrator persists between features. Feature B benefits from Feature A's learnings without context pollution.
+- **Team containment**: When `--team --autonomous` is used, Agent Team lifecycle is fully contained within each subagent — no zombie agents leak to the orchestrator.
+- **Schema update**: autonomous-state schema v3 to v4 (adds `contextIsolation` and `featureResults` fields)
+- Checkpoint Phase 9 now notes that autonomous mode handles context isolation automatically (no manual `/clear` needed)
 
 ### v9.0.0 (2026-02-18) - Agent Teams with ATDD
 

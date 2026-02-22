@@ -38,6 +38,7 @@ Opus 4.6 supports effort levels (low/medium/high/max). Apply per phase:
 | Implementation | high | Core coding, escalate to max on retry |
 | Verification / Debug | max | Root-cause analysis needs deepest reasoning |
 | Checkpoint / Merge | low | Mechanical operations |
+| Subagent Delegation (autonomous) | low | Mechanical prompt assembly and result parsing |
 
 **Adaptive Escalation** (progressive on retries): Attempts 1-5: high. Attempts 6-10: max. Attempts 11-15: max + full procedural memory.
 
@@ -81,9 +82,19 @@ On models without effort controls, all phases run at default effort.
 
 ## Autonomous Wrapper (if --autonomous)
 
-When `--autonomous` is set, the flow operates as an outer loop iterating all active features. Each feature is implemented directly, then cleaned up before moving to the next.
+When `--autonomous` is set, the flow operates as a **lean orchestrator loop** that iterates all active features. Each feature is executed in an **isolated subagent context** via the Task tool, providing complete context isolation between features. The orchestrator handles only feature selection, conflict detection, result processing, and state management.
 
-See **Effort Controls** table above for per-phase effort levels. Progressive escalation on retries per feature applies.
+See **Effort Controls** table above for per-phase effort levels. Progressive escalation on retries per feature applies within each subagent.
+
+### Context Isolation (Autonomous Mode)
+
+Each feature is delegated to a `general-purpose` subagent via the Task tool. This provides:
+
+- **Fresh context window**: Each feature starts with zero accumulated context from previous features
+- **Clean token budget**: No context waste from irrelevant details of previous features
+- **Contained failures**: A failing feature's debugging context does not pollute the next feature
+- **Memory continuity**: The orchestrator persists memory updates between features, so learnings from Feature A are available to Feature B through procedural/episodic memory (not through raw context accumulation)
+- **Team containment**: When `--team` is used, the Agent Team lifecycle is fully contained within the subagent — no zombie agents leak to the orchestrator
 
 ---
 
@@ -105,13 +116,15 @@ See **Effort Controls** table above for per-phase effort levels. Progressive esc
 6. **Create autonomous state file** at `.claude-harness/sessions/{session-id}/autonomous-state.json`:
    ```json
    {
-     "version": 3,
+     "version": 4,
      "mode": "autonomous",
      "startedAt": "{ISO timestamp}",
      "iteration": 0, "maxIterations": 20,
      "consecutiveFailures": 0, "maxConsecutiveFailures": 3,
      "completedFeatures": [], "skippedFeatures": [], "failedFeatures": [],
-     "currentFeature": null
+     "currentFeature": null,
+     "contextIsolation": { "enabled": true, "subagentType": "general-purpose" },
+     "featureResults": []
    }
    ```
 
@@ -122,7 +135,7 @@ See **Effort Controls** table above for per-phase effort levels. Progressive esc
 
 8. **Read all memory layers IN PARALLEL**: failures.json, successes.json, decisions.json, rules.json
 
-9. **Display autonomous banner** showing: feature count, max iterations, merge/planning mode, GitHub info, memory stats.
+9. **Display autonomous banner** showing: feature count, max iterations, merge/planning mode, GitHub info, memory stats, context isolation status.
 
 ---
 
@@ -134,94 +147,205 @@ See **Effort Controls** table above for per-phase effort levels. Progressive esc
 
 11. **Select next feature**: lowest ID (deterministic ordering). Update `currentFeature` and increment `iteration`.
 
-12. **Display iteration header**: iteration count, feature info, progress.
+12. **Read full feature entry** from active.json (entire object including acceptanceCriteria, relatedFiles, verification, github refs). Store for A.4.0 prompt compilation.
+
+13. **Display iteration header**: iteration count, feature info, progress.
 
 ---
 
 ### Phase A.3: Conflict Detection
 
-13. Switch to main and pull: `git checkout main && git pull origin main`
+14. Switch to main and pull: `git checkout main && git pull origin main`
 
-14. Checkout feature branch and rebase onto main.
+15. Checkout feature branch and rebase onto main.
 
-15. **Handle rebase result**:
-    - Success: proceed to A.4
+16. **Handle rebase result**:
+    - Success: proceed to A.4.0
     - Conflict: `git rebase --abort`, add to `skippedFeatures` with reason, go back to A.2
 
 ---
 
-### Phase A.4: Execute Feature Flow
+### Phase A.4.0: Compile Subagent Prompt
 
-Runs standard Phases 1-7 with autonomous overrides.
+17. **Assemble all context the subagent needs** (effort: low — mechanical data assembly):
 
-#### A.4.1: Context Compilation
-16. Run Phase 1 normally (reuse GitHub/memory from A.1). Write context.json.
+    Read and compile from cached memory (loaded in A.1):
+    - **Feature entry**: full object from active.json (id, name, description, acceptanceCriteria, relatedFiles, verification, github refs)
+    - **Verification commands**: from `.claude-harness/config.json` verification section
+    - **Relevant failures**: max 5 from `failures.json`, filtered by feature's relatedFiles overlap or similar feature type
+    - **Success patterns**: max 5 from `successes.json`, filtered for similar file patterns
+    - **Recent decisions**: max 10 from `decisions.json`
+    - **Learned rules**: all active rules from `rules.json` applicable to this feature (max 5)
+    - **GitHub info**: owner/repo from A.1 cache
+    - **Loop history**: previous attempts for this specific feature (if resuming from failedFeatures or interrupted state)
+    - **Flag states**: `--team` (boolean), `--quick` (boolean), `--no-merge` (boolean)
+    - **Team config**: `agentTeams` section from config.json (if `--team`)
 
-#### A.4.2: Feature Creation (conditional)
-17. Skip if feature already exists with status `pending` or `in_progress`. Otherwise run Phase 2.
+18. **Format structured subagent prompt** (target: under 3,000 tokens):
 
-#### A.4.3: Planning
-18. Run Phase 3 unless `--quick`. Create task chain (6 tasks for autonomous: Research, Plan, Implement, Verify, Accept, Checkpoint). If TaskCreate fails, retry once then fall back to manual tracking.
+    ```
+    You are executing feature {feature-id}: {featureName} as part of an autonomous batch.
+    Run the full feature lifecycle (Phases 1-7) and return a structured result.
 
-#### A.4.4: Implementation
+    ## Feature
+    {feature JSON entry — id, name, description, acceptanceCriteria, relatedFiles}
 
-**Branch verification**: `git branch --show-current` — STOP if on main/master.
+    ## GitHub
+    Owner: {owner} | Repo: {repo}
+    Issue: #{issueNumber} | Branch: {branch}
 
-21. **Initialize loop state** — see canonical Loop-State Schema (Phase 4, step 17).
+    ## Verification Commands
+    build: {build} | tests: {tests} | lint: {lint} | typecheck: {typecheck} | acceptance: {acceptance}
 
-22. **Implement the feature** directly based on the plan from Phase 3. Follow test-driven practices where applicable: write/update tests, then implement, then verify.
+    ## Memory: Approaches to AVOID
+    {for each relevant failure: "- {approach} → {rootCause}"}
 
-23. **Run ALL verification commands** after implementation. On failure: record to failures.json, increment attempts, retry with escalation (>5: max effort, >10: max + procedural memory).
+    ## Memory: Success Patterns
+    {for each relevant success: "- {approach} ({feature})"}
 
-24. **Final Verification Gate**: Run ALL verification commands. Record success to successes.json. Update loop status to `"completed"`.
+    ## Memory: Learned Rules
+    {for each applicable rule: "- {title}: {description}"}
 
-25. **On escalation** (maxAttempts reached): add to `failedFeatures`, increment `consecutiveFailures`, record to procedural memory, proceed to A.5→A.6.
+    ## Recent Decisions
+    {for each decision: "- {decision} ({feature})"}
 
-#### A.4.5: Auto-Checkpoint
-26. Run Phase 5 (all sub-phases 5.1–5.6): update progress, capture working context, persist all memory layers (episodic, semantic, procedural, learned rules), auto-reflect on user corrections, persist orchestration memory, commit `feat({feature-id}): {description}`, push, create/update PR.
+    ## Previous Attempts (if any)
+    {loop history from previous attempts of this feature}
 
-#### A.4.6: Auto-Merge (unless --no-merge)
-27. Run Phase 6: check PR status, merge if ready (squash), close issue, delete branch, archive feature. If needs review: mark checkpointed, continue.
+    ## Instructions
+    1. Checkout the feature branch: git checkout {branch}
+    2. Plan the implementation {unless --quick: "(skip planning — --quick mode)"}
+    3. {if --team: "Create an Agent Team (tester, implementer, reviewer) and follow ATDD: acceptance tests first (RED), implement (GREEN), review. Execute Mandatory Team Shutdown Gate (22T) before checkpoint."}
+    4. {if NOT --team: "Implement the feature directly. Follow test-driven practices where applicable."}
+    5. Run ALL verification commands after implementation
+    6. On pass: commit as `feat({feature-id}): {description}`, push, create/update PR with `Closes #{issueNumber}`
+    7. On fail: retry with escalation (attempts 1-5: high effort, 6-10: max, 11-15: max + full memory). Max 15 attempts.
+    8. {if NOT --no-merge: "Merge PR (squash), close issue, delete branch, update feature status to 'passing'"}
+    9. {if --no-merge: "Stop at checkpoint. Do not merge."}
+
+    ## Return Format
+    End your response with this exact structured block:
+
+    RESULT:
+    status: completed | failed | escalated | needs_review
+    commitHash: {hash or null}
+    prNumber: {number or null}
+    attempts: {number}
+    featureStatus: passing | failed | needs_review | escalated
+    memoryUpdates:
+      decisions: [{decision, rationale, impact}]
+      failures: [{approach, errors, rootCause}]
+      successes: [{approach, files, patterns}]
+      patterns: [{pattern, source}]
+    summary: {one-line summary of what was done}
+    ```
 
 ---
 
-### Phase A.5: Post-Feature Cleanup
+### Phase A.4: Execute Feature Flow (Subagent Delegation)
 
-27.5. **Mandatory Team Teardown (if --team)** — MUST run before anything else in A.5:
-   - Execute the full Mandatory Team Shutdown Gate (Step 22T, Steps A through E)
-   - If team cleanup fails: mark feature as "needs_review" with reason "team-cleanup-failed", add to `skippedFeatures`, **do NOT proceed to A.5 step 28** — jump directly to A.6
-   - Verify: `agents/context.json` `teamState` is null, no orphaned tmux sessions
-   - This prevents zombie agents from accumulating across autonomous iterations
+19. **Delegate feature to isolated subagent** (effort: low — mechanical delegation):
+    - Use Task tool with `subagent_type="general-purpose"`
+    - Pass the compiled prompt from Phase A.4.0
+    - The subagent executes in its **own fresh context window** (complete isolation from orchestrator)
+    - The subagent runs the full standard flow (Phases 1-7) autonomously:
+      - Phase 1: Context compilation (using passed-in context, minimal I/O)
+      - Phase 2: Feature creation (if status is `pending`)
+      - Phase 3: Planning (unless `--quick`)
+      - Phase 3.7: Team roster + Phase 4 Team (if `--team`)
+      - Phase 4: Implementation with retry loop (up to 15 attempts)
+      - Phase 5: Checkpoint (commit, push, PR)
+      - Phase 6: Merge (unless `--no-merge`)
+    - Wait for subagent completion
+    - Parse the RESULT block from the subagent's return message
 
-28. **Archive completed feature**: If status "passing", archive to archive.json and remove from active.json. Otherwise skip.
+20. **Handle subagent return parsing**:
+    - Search for `RESULT:` prefix in the subagent's response
+    - Parse key-value pairs (status, commitHash, prNumber, attempts, featureStatus, memoryUpdates, summary)
+    - If RESULT block not found: treat as `needs_review`, check external state:
+      - `git log --oneline -1` on feature branch for commit evidence
+      - `gh pr list --head {branch}` for PR evidence
+      - Log warning: "Subagent did not return structured result — checking external state"
 
-29. **Update autonomous state**: Add to `completedFeatures`, reset `consecutiveFailures`.
+---
 
-30. Switch to main: `git checkout main && git pull origin main`
+### Phase A.5: Post-Feature Processing
 
-31. **Reset session state**: Clear loop-state, task references.
+21. **Safety-net team cleanup check** (if `--team`):
+    - Read `.claude-harness/agents/context.json`
+    - If `teamState` is non-null: team cleanup failed inside subagent
+      - Attempt cleanup: send shutdown requests, wait, clean up team resources
+      - Check for orphaned tmux sessions: `tmux ls 2>/dev/null | grep "{teamName}"` — kill if found
+      - If cleanup still fails: mark feature as `needs_review` with reason "team-cleanup-failed", add to `skippedFeatures`, jump to A.6
+    - Set `teamState` to null, write updated file
 
-32. **Brief per-feature report**: feature ID, test counts, PR status, attempts, duration, progress. If team mode: include teammate stats and any shutdown warnings.
+22. **Process subagent result** based on parsed status:
+
+    **If `completed`**:
+    - Update feature in active.json: set status to `"passing"`
+    - Archive feature to archive.json, remove from active.json
+    - Add feature ID to `completedFeatures` in autonomous-state
+    - Reset `consecutiveFailures` to 0
+
+    **If `failed` or `escalated`**:
+    - Add to `failedFeatures` with reason and attempt count
+    - Increment `consecutiveFailures`
+
+    **If `needs_review`**:
+    - Add to `skippedFeatures` with reason `"needs_review"`
+    - Do NOT increment `consecutiveFailures`
+
+23. **Persist memory updates from subagent** (critical for cross-feature learning):
+    - For each decision in `memoryUpdates.decisions`:
+      - Append to `${MEMORY_DIR}/episodic/decisions.json` with id, timestamp, feature
+      - Enforce maxEntries (50) — FIFO if exceeded
+    - For each failure in `memoryUpdates.failures`:
+      - Append to `${MEMORY_DIR}/procedural/failures.json`
+    - For each success in `memoryUpdates.successes`:
+      - Append to `${MEMORY_DIR}/procedural/successes.json`
+    - For each pattern in `memoryUpdates.patterns`:
+      - Merge into `${MEMORY_DIR}/procedural/patterns.json` (deduplicate)
+
+24. **Record feature result** in autonomous-state `featureResults` array:
+    ```json
+    {
+      "featureId": "{feature-id}",
+      "status": "{from RESULT}",
+      "attempts": "{from RESULT}",
+      "commitHash": "{from RESULT}",
+      "prNumber": "{from RESULT}",
+      "duration": "{elapsed time}",
+      "memoryUpdatesCount": "{total items persisted}"
+    }
+    ```
+
+25. **Update autonomous state**: write updated state file with incremented iteration, updated feature lists.
+
+26. Switch to main: `git checkout main && git pull origin main`
+
+27. **Reset session state**: Clear loop-state.json, clear task references, clear working-context.json (all session-scoped files).
+
+28. **Brief per-feature report**: feature ID, status, attempts, commit hash, PR number, duration, memory updates count, progress (N/M features complete).
 
 ---
 
 ### Phase A.6: Loop Continuation Check
 
-33. **Check termination conditions** (in order):
+29. **Check termination conditions** (in order):
     1. No eligible features remaining → Phase A.7
     2. `iteration` reached `maxIterations` (20) → Phase A.7
     3. `consecutiveFailures` reached `maxConsecutiveFailures` (3) → Phase A.7
     4. All remaining features skipped/failed → Phase A.7
 
-34. **If continuing**: write state, go back to A.2.
+30. **If continuing**: write state, go back to A.2.
 
 ---
 
 ### Phase A.7: Autonomous Completion Report
 
-35. **Generate final report**: duration, iterations, completed/skipped/failed features with details, memory updates (decisions/patterns/rules).
+31. **Generate final report**: duration, iterations, completed/skipped/failed features with details, per-feature results summary, total memory updates (decisions/patterns/rules persisted across all features).
 
-36. **Final cleanup**: ensure on main, clear autonomous state, clean up task references.
+32. **Final cleanup**: ensure on main, clear autonomous state, clean up task references.
 
 ---
 

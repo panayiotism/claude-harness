@@ -367,3 +367,7 @@ Create a checkpoint of the current session:
    - Reduces token costs for subsequent work
    - Improves Claude's focus on the next task
    - Memory files preserve all important learnings
+
+   **NOTE**: In `--autonomous` mode, context isolation is handled automatically
+   via subagent-per-feature delegation. Each feature runs in a fresh context
+   window — no manual `/clear` needed between features.
