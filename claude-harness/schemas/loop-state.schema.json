@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "version": {
-      "const": 8,
+      "const": 9,
       "description": "Schema version (data shape version, not plugin version)"
     },
     "feature": {
@@ -87,6 +87,32 @@
     "escalationRequested": {
       "type": "boolean",
       "default": false
+    },
+    "team": {
+      "type": ["object", "null"],
+      "description": "Agent Teams state (when --team flag is active)",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "teamName": { "type": ["string", "null"] },
+        "leadMode": {
+          "type": "string",
+          "enum": ["delegate", "active"],
+          "default": "delegate"
+        },
+        "teammates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string", "enum": ["implementer", "reviewer", "tester"] },
+              "name": { "type": ["string", "null"] },
+              "status": { "type": "string", "enum": ["pending", "active", "idle", "completed", "failed"] },
+              "tasksCompleted": { "type": "integer", "default": 0 }
+            },
+            "required": ["role", "status"]
+          }
+        }
+      }
     }
   },
   "required": ["version", "feature", "status", "attempt", "maxAttempts", "history"]

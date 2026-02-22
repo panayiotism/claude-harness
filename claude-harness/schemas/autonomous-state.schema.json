@@ -6,8 +6,8 @@
   "type": "object",
   "properties": {
     "version": {
-      "const": 3,
-      "description": "Schema version (data shape version, not plugin version)"
+      "const": 4,
+      "description": "Schema version (data shape version, not plugin version). v4: added contextIsolation and featureResults"
     },
     "mode": {
       "const": "autonomous"
@@ -59,6 +59,30 @@
     },
     "currentFeature": {
       "type": ["string", "null"]
+    },
+    "contextIsolation": {
+      "type": "object",
+      "description": "Context isolation mode for batch processing. Subagent-per-feature delegation ensures each feature runs in a fresh context window.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "subagentType": { "type": "string", "default": "general-purpose" }
+      }
+    },
+    "featureResults": {
+      "type": "array",
+      "description": "Results from each feature subagent execution",
+      "items": {
+        "type": "object",
+        "properties": {
+          "featureId": { "type": "string" },
+          "status": { "type": "string", "enum": ["completed", "failed", "escalated", "needs_review"] },
+          "attempts": { "type": "integer" },
+          "commitHash": { "type": ["string", "null"] },
+          "prNumber": { "type": ["integer", "null"] },
+          "duration": { "type": "string" },
+          "memoryUpdatesCount": { "type": "integer" }
+        }
+      }
     }
   },
   "required": ["version", "mode", "startedAt", "iteration", "maxIterations", "currentFeature"]

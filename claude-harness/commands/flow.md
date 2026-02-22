@@ -1,6 +1,6 @@
 ---
 description: Unified end-to-end workflow - creates, implements, checkpoints, and merges features automatically
-argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "bug description" | --autonomous | --plan-only
+argument-hint: "DESCRIPTION" | FEATURE-ID | --fix FEATURE-ID "bug description" | --autonomous | --plan-only | --team
 ---
 
 The single command for all development workflows. Handles the entire feature lifecycle from creation to merge.
@@ -17,9 +17,12 @@ Arguments: $ARGUMENTS
 /claude-harness:flow "Add dark mode support"           # Standard workflow
 /claude-harness:flow --autonomous                      # Batch process all features
 /claude-harness:flow --plan-only "Big refactor"        # Plan only, implement later
+/claude-harness:flow --team "Add user login"           # ATDD with Agent Team (3 teammates)
 ```
 
 **Lifecycle**: Context → Creation → Planning → Implementation → Verification → Checkpoint → Merge
+
+**ATDD Team Lifecycle** (with `--team`): Context → Creation (with Gherkin criteria) → Planning → **Team Spawn** → Acceptance Tests (RED) → Implementation (GREEN) → Review → Verify → Checkpoint → Merge
 
 ---
 
@@ -35,6 +38,7 @@ Opus 4.6 supports effort levels (low/medium/high/max). Apply per phase:
 | Implementation | high | Core coding, escalate to max on retry |
 | Verification / Debug | max | Root-cause analysis needs deepest reasoning |
 | Checkpoint / Merge | low | Mechanical operations |
+| Subagent Delegation (autonomous) | low | Mechanical prompt assembly and result parsing |
 
 **Adaptive Escalation** (progressive on retries): Attempts 1-5: high. Attempts 6-10: max. Attempts 11-15: max + full procedural memory.
 
@@ -56,18 +60,41 @@ On models without effort controls, all phases run at default effort.
    - `--quick`: Implement directly without planning phase
    - `--plan-only`: Stop after Phase 3. Resume later with feature ID.
    - `--autonomous`: Outer loop — iterate all active features
+   - `--team`: Use Agent Teams for ATDD implementation (requires `agentTeams.enabled` in config.json)
 
 3. **Mode validation**:
-   - `--autonomous`: Compatible with `--no-merge` and `--quick`. Proceed to Autonomous Wrapper.
-   - `--plan-only`: Proceeds through Phases 0-3 then STOPS.
+   - `--autonomous`: Compatible with `--no-merge`, `--quick`, and `--team`. Proceed to Autonomous Wrapper.
+   - `--plan-only`: Proceeds through Phases 0-3 then STOPS. Incompatible with `--team`.
+   - `--team`: Compatible with `--autonomous`, `--no-merge`. Incompatible with `--quick` (teams need planning) and `--plan-only` (no team to create yet).
+
+---
+
+## Phase 0.2: Team Preflight (if --team)
+
+2.5. **Verify Agent Teams environment**:
+   - Check `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var is set to `1`
+   - If not set: display error with instructions to enable in config.json → run `/claude-harness:setup`, then STOP
+   - Read `.claude-harness/config.json` `agentTeams` section:
+     - Verify `agentTeams.enabled` is `true`. If not: display "Enable agentTeams in config.json" and STOP
+     - Cache team config: `defaultTeamSize`, `roles`, `requirePlanApproval`, `teammateModel`
 
 ---
 
 ## Autonomous Wrapper (if --autonomous)
 
-When `--autonomous` is set, the flow operates as an outer loop iterating all active features. Each feature is implemented directly, then cleaned up before moving to the next.
+When `--autonomous` is set, the flow operates as a **lean orchestrator loop** that iterates all active features. Each feature is executed in an **isolated subagent context** via the Task tool, providing complete context isolation between features. The orchestrator handles only feature selection, conflict detection, result processing, and state management.
 
-See **Effort Controls** table above for per-phase effort levels. Progressive escalation on retries per feature applies.
+See **Effort Controls** table above for per-phase effort levels. Progressive escalation on retries per feature applies within each subagent.
+
+### Context Isolation (Autonomous Mode)
+
+Each feature is delegated to a `general-purpose` subagent via the Task tool. This provides:
+
+- **Fresh context window**: Each feature starts with zero accumulated context from previous features
+- **Clean token budget**: No context waste from irrelevant details of previous features
+- **Contained failures**: A failing feature's debugging context does not pollute the next feature
+- **Memory continuity**: The orchestrator persists memory updates between features, so learnings from Feature A are available to Feature B through procedural/episodic memory (not through raw context accumulation)
+- **Team containment**: When `--team` is used, the Agent Team lifecycle is fully contained within the subagent — no zombie agents leak to the orchestrator
 
 ---
 
@@ -89,13 +116,15 @@ See **Effort Controls** table above for per-phase effort levels. Progressive esc
 6. **Create autonomous state file** at `.claude-harness/sessions/{session-id}/autonomous-state.json`:
    ```json
    {
-     "version": 3,
+     "version": 4,
      "mode": "autonomous",
      "startedAt": "{ISO timestamp}",
      "iteration": 0, "maxIterations": 20,
      "consecutiveFailures": 0, "maxConsecutiveFailures": 3,
      "completedFeatures": [], "skippedFeatures": [], "failedFeatures": [],
-     "currentFeature": null
+     "currentFeature": null,
+     "contextIsolation": { "enabled": true, "subagentType": "general-purpose" },
+     "featureResults": []
    }
    ```
 
@@ -106,7 +135,7 @@ See **Effort Controls** table above for per-phase effort levels. Progressive esc
 
 8. **Read all memory layers IN PARALLEL**: failures.json, successes.json, decisions.json, rules.json
 
-9. **Display autonomous banner** showing: feature count, max iterations, merge/planning mode, GitHub info, memory stats.
+9. **Display autonomous banner** showing: feature count, max iterations, merge/planning mode, GitHub info, memory stats, context isolation status.
 
 ---
 
@@ -118,88 +147,205 @@ See **Effort Controls** table above for per-phase effort levels. Progressive esc
 
 11. **Select next feature**: lowest ID (deterministic ordering). Update `currentFeature` and increment `iteration`.
 
-12. **Display iteration header**: iteration count, feature info, progress.
+12. **Read full feature entry** from active.json (entire object including acceptanceCriteria, relatedFiles, verification, github refs). Store for A.4.0 prompt compilation.
+
+13. **Display iteration header**: iteration count, feature info, progress.
 
 ---
 
 ### Phase A.3: Conflict Detection
 
-13. Switch to main and pull: `git checkout main && git pull origin main`
+14. Switch to main and pull: `git checkout main && git pull origin main`
 
-14. Checkout feature branch and rebase onto main.
+15. Checkout feature branch and rebase onto main.
 
-15. **Handle rebase result**:
-    - Success: proceed to A.4
+16. **Handle rebase result**:
+    - Success: proceed to A.4.0
     - Conflict: `git rebase --abort`, add to `skippedFeatures` with reason, go back to A.2
 
 ---
 
-### Phase A.4: Execute Feature Flow
+### Phase A.4.0: Compile Subagent Prompt
 
-Runs standard Phases 1-7 with autonomous overrides.
+17. **Assemble all context the subagent needs** (effort: low — mechanical data assembly):
 
-#### A.4.1: Context Compilation
-16. Run Phase 1 normally (reuse GitHub/memory from A.1). Write context.json.
+    Read and compile from cached memory (loaded in A.1):
+    - **Feature entry**: full object from active.json (id, name, description, acceptanceCriteria, relatedFiles, verification, github refs)
+    - **Verification commands**: from `.claude-harness/config.json` verification section
+    - **Relevant failures**: max 5 from `failures.json`, filtered by feature's relatedFiles overlap or similar feature type
+    - **Success patterns**: max 5 from `successes.json`, filtered for similar file patterns
+    - **Recent decisions**: max 10 from `decisions.json`
+    - **Learned rules**: all active rules from `rules.json` applicable to this feature (max 5)
+    - **GitHub info**: owner/repo from A.1 cache
+    - **Loop history**: previous attempts for this specific feature (if resuming from failedFeatures or interrupted state)
+    - **Flag states**: `--team` (boolean), `--quick` (boolean), `--no-merge` (boolean)
+    - **Team config**: `agentTeams` section from config.json (if `--team`)
 
-#### A.4.2: Feature Creation (conditional)
-17. Skip if feature already exists with status `pending` or `in_progress`. Otherwise run Phase 2.
+18. **Format structured subagent prompt** (target: under 3,000 tokens):
 
-#### A.4.3: Planning
-18. Run Phase 3 unless `--quick`. Create task chain (6 tasks for autonomous: Research, Plan, Implement, Verify, Accept, Checkpoint). If TaskCreate fails, retry once then fall back to manual tracking.
+    ```
+    You are executing feature {feature-id}: {featureName} as part of an autonomous batch.
+    Run the full feature lifecycle (Phases 1-7) and return a structured result.
 
-#### A.4.4: Implementation
+    ## Feature
+    {feature JSON entry — id, name, description, acceptanceCriteria, relatedFiles}
 
-**Branch verification**: `git branch --show-current` — STOP if on main/master.
+    ## GitHub
+    Owner: {owner} | Repo: {repo}
+    Issue: #{issueNumber} | Branch: {branch}
 
-21. **Initialize loop state** — see canonical Loop-State Schema (Phase 4, step 17).
+    ## Verification Commands
+    build: {build} | tests: {tests} | lint: {lint} | typecheck: {typecheck} | acceptance: {acceptance}
 
-22. **Implement the feature** directly based on the plan from Phase 3. Follow test-driven practices where applicable: write/update tests, then implement, then verify.
+    ## Memory: Approaches to AVOID
+    {for each relevant failure: "- {approach} → {rootCause}"}
 
-23. **Run ALL verification commands** after implementation. On failure: record to failures.json, increment attempts, retry with escalation (>5: max effort, >10: max + procedural memory).
+    ## Memory: Success Patterns
+    {for each relevant success: "- {approach} ({feature})"}
 
-24. **Final Verification Gate**: Run ALL verification commands. Record success to successes.json. Update loop status to `"completed"`.
+    ## Memory: Learned Rules
+    {for each applicable rule: "- {title}: {description}"}
 
-25. **On escalation** (maxAttempts reached): add to `failedFeatures`, increment `consecutiveFailures`, record to procedural memory, proceed to A.5→A.6.
+    ## Recent Decisions
+    {for each decision: "- {decision} ({feature})"}
 
-#### A.4.5: Auto-Checkpoint
-26. Run Phase 5 (all sub-phases 5.1–5.6): update progress, capture working context, persist all memory layers (episodic, semantic, procedural, learned rules), auto-reflect on user corrections, persist orchestration memory, commit `feat({feature-id}): {description}`, push, create/update PR.
+    ## Previous Attempts (if any)
+    {loop history from previous attempts of this feature}
 
-#### A.4.6: Auto-Merge (unless --no-merge)
-27. Run Phase 6: check PR status, merge if ready (squash), close issue, delete branch, archive feature. If needs review: mark checkpointed, continue.
+    ## Instructions
+    1. Checkout the feature branch: git checkout {branch}
+    2. Plan the implementation {unless --quick: "(skip planning — --quick mode)"}
+    3. {if --team: "Create an Agent Team (tester, implementer, reviewer) and follow ATDD: acceptance tests first (RED), implement (GREEN), review. Execute Mandatory Team Shutdown Gate (22T) before checkpoint."}
+    4. {if NOT --team: "Implement the feature directly. Follow test-driven practices where applicable."}
+    5. Run ALL verification commands after implementation
+    6. On pass: commit as `feat({feature-id}): {description}`, push, create/update PR with `Closes #{issueNumber}`
+    7. On fail: retry with escalation (attempts 1-5: high effort, 6-10: max, 11-15: max + full memory). Max 15 attempts.
+    8. {if NOT --no-merge: "Merge PR (squash), close issue, delete branch, update feature status to 'passing'"}
+    9. {if --no-merge: "Stop at checkpoint. Do not merge."}
+
+    ## Return Format
+    End your response with this exact structured block:
+
+    RESULT:
+    status: completed | failed | escalated | needs_review
+    commitHash: {hash or null}
+    prNumber: {number or null}
+    attempts: {number}
+    featureStatus: passing | failed | needs_review | escalated
+    memoryUpdates:
+      decisions: [{decision, rationale, impact}]
+      failures: [{approach, errors, rootCause}]
+      successes: [{approach, files, patterns}]
+      patterns: [{pattern, source}]
+    summary: {one-line summary of what was done}
+    ```
 
 ---
 
-### Phase A.5: Post-Feature Cleanup
+### Phase A.4: Execute Feature Flow (Subagent Delegation)
 
-28. **Archive completed feature**: If status "passing", archive to archive.json and remove from active.json. Otherwise skip.
+19. **Delegate feature to isolated subagent** (effort: low — mechanical delegation):
+    - Use Task tool with `subagent_type="general-purpose"`
+    - Pass the compiled prompt from Phase A.4.0
+    - The subagent executes in its **own fresh context window** (complete isolation from orchestrator)
+    - The subagent runs the full standard flow (Phases 1-7) autonomously:
+      - Phase 1: Context compilation (using passed-in context, minimal I/O)
+      - Phase 2: Feature creation (if status is `pending`)
+      - Phase 3: Planning (unless `--quick`)
+      - Phase 3.7: Team roster + Phase 4 Team (if `--team`)
+      - Phase 4: Implementation with retry loop (up to 15 attempts)
+      - Phase 5: Checkpoint (commit, push, PR)
+      - Phase 6: Merge (unless `--no-merge`)
+    - Wait for subagent completion
+    - Parse the RESULT block from the subagent's return message
 
-29. **Update autonomous state**: Add to `completedFeatures`, reset `consecutiveFailures`.
+20. **Handle subagent return parsing**:
+    - Search for `RESULT:` prefix in the subagent's response
+    - Parse key-value pairs (status, commitHash, prNumber, attempts, featureStatus, memoryUpdates, summary)
+    - If RESULT block not found: treat as `needs_review`, check external state:
+      - `git log --oneline -1` on feature branch for commit evidence
+      - `gh pr list --head {branch}` for PR evidence
+      - Log warning: "Subagent did not return structured result — checking external state"
 
-30. Switch to main: `git checkout main && git pull origin main`
+---
 
-31. **Reset session state**: Clear loop-state, task references.
+### Phase A.5: Post-Feature Processing
 
-32. **Brief per-feature report**: feature ID, test counts, PR status, attempts, duration, progress.
+21. **Safety-net team cleanup check** (if `--team`):
+    - Read `.claude-harness/agents/context.json`
+    - If `teamState` is non-null: team cleanup failed inside subagent
+      - Attempt cleanup: send shutdown requests, wait, clean up team resources
+      - Check for orphaned tmux sessions: `tmux ls 2>/dev/null | grep "{teamName}"` — kill if found
+      - If cleanup still fails: mark feature as `needs_review` with reason "team-cleanup-failed", add to `skippedFeatures`, jump to A.6
+    - Set `teamState` to null, write updated file
+
+22. **Process subagent result** based on parsed status:
+
+    **If `completed`**:
+    - Update feature in active.json: set status to `"passing"`
+    - Archive feature to archive.json, remove from active.json
+    - Add feature ID to `completedFeatures` in autonomous-state
+    - Reset `consecutiveFailures` to 0
+
+    **If `failed` or `escalated`**:
+    - Add to `failedFeatures` with reason and attempt count
+    - Increment `consecutiveFailures`
+
+    **If `needs_review`**:
+    - Add to `skippedFeatures` with reason `"needs_review"`
+    - Do NOT increment `consecutiveFailures`
+
+23. **Persist memory updates from subagent** (critical for cross-feature learning):
+    - For each decision in `memoryUpdates.decisions`:
+      - Append to `${MEMORY_DIR}/episodic/decisions.json` with id, timestamp, feature
+      - Enforce maxEntries (50) — FIFO if exceeded
+    - For each failure in `memoryUpdates.failures`:
+      - Append to `${MEMORY_DIR}/procedural/failures.json`
+    - For each success in `memoryUpdates.successes`:
+      - Append to `${MEMORY_DIR}/procedural/successes.json`
+    - For each pattern in `memoryUpdates.patterns`:
+      - Merge into `${MEMORY_DIR}/procedural/patterns.json` (deduplicate)
+
+24. **Record feature result** in autonomous-state `featureResults` array:
+    ```json
+    {
+      "featureId": "{feature-id}",
+      "status": "{from RESULT}",
+      "attempts": "{from RESULT}",
+      "commitHash": "{from RESULT}",
+      "prNumber": "{from RESULT}",
+      "duration": "{elapsed time}",
+      "memoryUpdatesCount": "{total items persisted}"
+    }
+    ```
+
+25. **Update autonomous state**: write updated state file with incremented iteration, updated feature lists.
+
+26. Switch to main: `git checkout main && git pull origin main`
+
+27. **Reset session state**: Clear loop-state.json, clear task references, clear working-context.json (all session-scoped files).
+
+28. **Brief per-feature report**: feature ID, status, attempts, commit hash, PR number, duration, memory updates count, progress (N/M features complete).
 
 ---
 
 ### Phase A.6: Loop Continuation Check
 
-33. **Check termination conditions** (in order):
+29. **Check termination conditions** (in order):
     1. No eligible features remaining → Phase A.7
     2. `iteration` reached `maxIterations` (20) → Phase A.7
     3. `consecutiveFailures` reached `maxConsecutiveFailures` (3) → Phase A.7
     4. All remaining features skipped/failed → Phase A.7
 
-34. **If continuing**: write state, go back to A.2.
+30. **If continuing**: write state, go back to A.2.
 
 ---
 
 ### Phase A.7: Autonomous Completion Report
 
-35. **Generate final report**: duration, iterations, completed/skipped/failed features with details, memory updates (decisions/patterns/rules).
+31. **Generate final report**: duration, iterations, completed/skipped/failed features with details, per-feature results summary, total memory updates (decisions/patterns/rules persisted across all features).
 
-36. **Final cleanup**: ensure on main, clear autonomous state, clean up task references.
+32. **Final cleanup**: ensure on main, clear autonomous state, clean up task references.
 
 ---
 
@@ -242,11 +388,34 @@ Use cached GitHub owner/repo from Phase 1.
 
 8. **Generate feature ID**: Read active.json, find highest ID, generate next `feature-XXX`.
 
-9. **Create GitHub Issue**: `mcp__github__create_issue` with labels `["feature", "claude-harness", "flow"]`, body with Problem/Solution/Acceptance/Verification. STOP if fails.
+8.5. **Define acceptance criteria** (ATDD — if `atdd.requireAcceptanceCriteria` is true in config.json):
+   - If feature has existing `acceptanceCriteria` (from PRD breakdown): use those
+   - Otherwise: generate Gherkin acceptance criteria from the feature description
+   - Format each criterion as structured Gherkin:
+     ```json
+     {
+       "scenario": "Descriptive scenario name",
+       "given": "precondition (context setup)",
+       "when": "action performed",
+       "then": "expected outcome"
+     }
+     ```
+   - Aim for 2-5 scenarios covering: happy path, error cases, edge cases
+
+9. **Create GitHub Issue**: `mcp__github__create_issue` with labels `["feature", "claude-harness", "flow"]`, body with Problem/Solution/Acceptance Criteria (Gherkin)/Verification. Include acceptance criteria as a `## Acceptance Tests` section using Gherkin format:
+   ```
+   ## Acceptance Tests
+
+   **Scenario: {scenario}**
+   - Given {given}
+   - When {when}
+   - Then {then}
+   ```
+   STOP if fails.
 
 10. **Create and checkout branch**: `mcp__github__create_branch`, then `git fetch origin && git checkout feature/feature-XXX`. Verify branch.
 
-11. **Create feature entry** in active.json: id, name, status "in_progress", github refs, verificationCommands, maxAttempts 15.
+11. **Create feature entry** in active.json: id, name, status "in_progress", `acceptanceCriteria` array (from step 8.5), github refs, verificationCommands, maxAttempts 15.
 
 ---
 
@@ -273,6 +442,94 @@ Uses Claude Code's native Tasks for visual progress tracking.
 
 ---
 
+## Phase 3.7: Team Roster (if --team)
+
+15.8. **Prepare team structure** from config.json `agentTeams`:
+   - Team name: `"{projectName}-{feature-id}"`
+   - Roles from config (default: `["implementer", "reviewer", "tester"]`)
+   - Model override from config `teammateModel` (null = inherit lead's model)
+
+15.9. **Prepare ATDD spawn prompts** for each role:
+
+   **Tester** (spawns first — writes acceptance tests):
+   ```
+   You are the Tester for {feature-id}: {featureName}.
+
+   YOUR PRIMARY TASK: Write executable acceptance tests from these Gherkin criteria BEFORE any implementation exists.
+   This is the RED phase of ATDD — tests MUST fail initially (there's no implementation yet).
+
+   Acceptance Criteria:
+   {for each criterion in acceptanceCriteria}
+   Scenario: {scenario}
+     Given {given}
+     When {when}
+     Then {then}
+   {end}
+
+   Test framework: {from config.json verification.tests}
+   Acceptance test command: {from config.json verification.acceptance}
+   Project patterns: {from procedural memory test patterns}
+
+   Write tests that are:
+   - Executable with the project's test framework
+   - Focused on behavior (not implementation details)
+   - Independent of each other
+   - Clear about expected outcomes
+
+   After writing tests, run them to confirm they execute (failures expected in RED phase).
+   ```
+
+   **Implementer** (spawns in parallel — plans approach):
+   ```
+   You are the Implementer for {feature-id}: {featureName}.
+
+   YOUR PRIMARY TASK: Make all acceptance tests pass (GREEN phase of ATDD).
+
+   Wait for the Tester to complete writing acceptance tests (Task 1).
+   Then implement the feature to make every test pass.
+
+   Plan: {from Phase 3}
+   Acceptance Criteria: {acceptanceCriteria summary}
+   Related files: {relatedFiles}
+   Verification commands: {from config.json}
+
+   Past failures to AVOID: {from procedural memory, last 3}
+   Learned rules: {from learned rules}
+
+   Follow test-driven approach:
+   1. Read the acceptance tests the Tester wrote
+   2. Implement minimal code to make each test pass
+   3. Refactor while keeping tests green
+   4. Run ALL verification commands before marking complete
+   ```
+
+   **Reviewer** (spawns last — reviews after implementation):
+   ```
+   You are the Reviewer for {feature-id}: {featureName}.
+
+   YOUR PRIMARY TASK: Review the implementation for quality, security, and adherence to patterns.
+
+   Wait for the Implementer to complete (Task 3). Then review:
+
+   Code standards: {from semantic memory architecture.patterns}
+   Project patterns: {from procedural memory patterns}
+   Acceptance criteria: {acceptanceCriteria — verify all are covered}
+
+   Review checklist:
+   - [ ] All acceptance criteria covered by tests
+   - [ ] No security vulnerabilities (OWASP top 10)
+   - [ ] Follows existing code patterns and naming conventions
+   - [ ] Error handling for edge cases
+   - [ ] No unnecessary complexity or over-engineering
+   - [ ] Clean, readable code
+
+   Report findings with severity: CRITICAL (must fix), WARNING (should fix), INFO (suggestion).
+   ```
+
+15.10. Store roster in session context for checkpoint persistence.
+
+---
+
 ## Phase 3.8: Plan-Only Gate (if --plan-only)
 
 If `--plan-only`: display plan summary (feature ID, issue, branch) with resume command and **EXIT**.
@@ -283,24 +540,131 @@ If `--plan-only`: display plan summary (feature ID, issue, branch) with resume c
 
 16. **Branch verification**: `git branch --show-current` — STOP if on main/master.
 
-17. **Initialize loop state** (canonical Loop-State Schema v8):
+17. **Initialize loop state** (canonical Loop-State Schema v9):
     ```json
     {
-      "version": 8,
+      "version": 9,
       "feature": "feature-XXX", "featureName": "{description}",
       "type": "feature", "status": "in_progress",
       "attempt": 1, "maxAttempts": 15,
       "startedAt": "{ISO}", "history": [],
-      "tasks": { "enabled": true, "chain": ["{task-ids}"], "current": null, "completed": [] }
+      "tasks": { "enabled": true, "chain": ["{task-ids}"], "current": null, "completed": [] },
+      "team": null
+    }
+    ```
+    If `--team`: set `team` field:
+    ```json
+    "team": {
+      "enabled": true,
+      "teamName": "{projectName}-{feature-id}",
+      "leadMode": "delegate",
+      "teammates": [
+        { "role": "tester", "name": null, "status": "pending", "tasksCompleted": 0 },
+        { "role": "implementer", "name": null, "status": "pending", "tasksCompleted": 0 },
+        { "role": "reviewer", "name": null, "status": "pending", "tasksCompleted": 0 }
+      ]
     }
     ```
 
-17.5. Update task status: mark Implement task as in_progress.
+17.5. Update task status: mark Implement task as in_progress (standard) or mark first team task as in_progress (team mode).
+
+---
+
+### Phase 4 (Standard — no --team): Direct Implementation
 
 18. **Implement the feature** directly based on the plan from Phase 3:
-    - Follow test-driven practices where applicable (write/update tests, then implement)
+    - If `atdd.acceptanceTestFirst` is true: write acceptance tests first (RED), then implement to pass (GREEN)
+    - Otherwise: follow test-driven practices where applicable (write/update tests, then implement)
     - Run verification commands after implementation
     - On failure: record to failures.json, increment attempts, retry with escalation
+
+---
+
+### Phase 4 (Team — if --team): ATDD with Agent Teams
+
+18T. **Create the Agent Team**:
+   - Tell Claude to create an agent team named `"{teamName}"` with delegate mode
+   - Spawn 3 teammates using the prompts from Phase 3.7:
+     - Tester (with `requirePlanApproval: true` from config)
+     - Implementer (with `requirePlanApproval: true` from config)
+     - Reviewer (no plan approval needed)
+   - If `agentTeams.teammateModel` is set, specify model for each teammate
+   - Update loop-state `team.teammates[].name` with spawned teammate names
+   - Update `.claude-harness/agents/context.json` with `teamState`
+
+19T. **Create ATDD shared task chain** (6 tasks with dependencies):
+   ```
+   Task 1: "Write acceptance tests for {feature}" (tester)       ── no deps
+   Task 2: "Plan implementation for {feature}" (implementer)     ── no deps
+   Task 3: "Implement {feature}" (implementer)                    ── blocked by Task 1, Task 2
+   Task 4: "Code review {feature}" (reviewer)                     ── blocked by Task 3
+   Task 5: "Address review feedback for {feature}" (implementer)  ── blocked by Task 4
+   Task 6: "Final verification for {feature}" (tester)            ── blocked by Task 5
+   ```
+   Tasks 1 and 2 run in parallel. The implementer cannot start coding until acceptance tests exist.
+
+20T. **Monitor team progress**:
+   - The lead (this session) operates in delegate mode — coordination only
+   - `TeammateIdle` hook enforces: no uncommitted changes, verification passing
+   - `TaskCompleted` hook enforces ATDD gates:
+     - Task 1 (RED): acceptance tests exist and can be executed
+     - Task 3 (GREEN): acceptance tests pass
+     - Task 6 (VERIFY): ALL verification commands pass
+   - When teammates send messages, review and redirect if needed
+   - Periodically check task list progress
+
+21T. **Handle team completion or failure**:
+   - **Success**: All 6 tasks complete → shut down teammates → clean up team → proceed to Phase 4.1
+   - **Teammate failure**: If a teammate stops with errors:
+     - Spawn replacement teammate with same role and context
+     - Increment attempt count
+   - **Team failure** (max attempts exhausted):
+     - Shut down all teammates
+     - Clean up team resources
+     - Record failure to procedural memory
+     - Fall back to standard Phase 4 (direct implementation) as safety net
+
+22T. **Mandatory Team Shutdown Gate** (MUST complete before Phase 5):
+
+   This gate ensures ALL teammates are fully stopped before proceeding. Skipping this creates zombie agents that drain CPU/RAM.
+
+   **Step A — Request shutdown for each teammate** (in parallel):
+   - For each teammate in the team roster:
+     - Send shutdown request: "Please shut down now. Your work is complete."
+     - Record shutdown request time
+
+   **Step B — Verify shutdown with polling loop** (max 60 seconds):
+   ```
+   attempts = 0
+   max_poll_attempts = 12  (every 5 seconds for 60s total)
+   while attempts < max_poll_attempts:
+     Check each teammate status (via team list / Shift+Up/Down)
+     If ALL teammates stopped: BREAK → proceed to Step C
+     If any still running: wait 5 seconds, increment attempts
+   ```
+
+   **Step C — Handle stragglers** (if any teammate still running after 60s):
+   - For each still-running teammate:
+     - Send forceful message: "You must shut down immediately. Ignoring will result in forced cleanup."
+     - Wait 10 seconds
+     - If STILL running: proceed anyway — the team cleanup command will report which teammates couldn't be stopped
+   - **Log warning** to stderr and loop-state history: "Teammate {name} ({role}) did not shut down within timeout"
+
+   **Step D — Run team cleanup**:
+   - Execute team cleanup command (this removes shared team resources)
+   - If cleanup fails because teammates are still active:
+     - Log the failure
+     - **In autonomous mode**: this is CRITICAL — do NOT proceed to next feature. Mark current feature as "needs_review" and add to `skippedFeatures` with reason "team-cleanup-failed"
+     - **In standard mode**: warn user, suggest manual tmux session cleanup
+
+   **Step E — Verify and persist**:
+   - Confirm no orphaned tmux sessions remain for this team: `tmux ls 2>/dev/null | grep "{teamName}"` — if found, kill: `tmux kill-session -t "{teamName}"`
+   - Persist team results to `agents/context.json` `agentResults`
+   - Set `agents/context.json` `teamState` to null
+   - Update loop-state `team.teammates[].status` to "completed"
+   - Update loop-state `team.enabled` to false
+
+   **IMPORTANT**: The flow MUST NOT proceed to Phase 5 (Checkpoint) until Step E completes successfully. This is a hard gate, not a soft recommendation.
 
 ---
 
@@ -447,8 +811,11 @@ Only proceeds if PR approved and CI passes.
 | `/flow --autonomous` | Batch process all features |
 | `/flow --autonomous --no-merge` | Batch, stop at checkpoint |
 | `/flow --autonomous --quick` | Autonomous without planning |
+| `/flow --team "Add X"` | ATDD with Agent Team: tester + implementer + reviewer |
+| `/flow --team --no-merge "Add X"` | Team ATDD, stop at checkpoint |
+| `/flow --team --autonomous` | Teams for each feature in autonomous batch |
 
-**Flag combinations**: `--no-merge --plan-only` (plan before implementing), `--autonomous --no-merge --quick` (fast batch without merge)
+**Flag combinations**: `--no-merge --plan-only` (plan before implementing), `--autonomous --no-merge --quick` (fast batch without merge), `--team --autonomous --no-merge` (team ATDD batch without merge)
 
 ---
 
@@ -461,3 +828,5 @@ Only proceeds if PR approved and CI passes.
 | `--plan-only` | Complex features needing upfront design |
 | `--quick` | Simple fixes — skips planning |
 | `--autonomous` | Batch processing feature backlog unattended |
+| `--team` | Complex features benefiting from parallel review + ATDD |
+| `--team --autonomous` | High-quality batch processing with code review |

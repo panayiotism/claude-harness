@@ -42,7 +42,7 @@ cd your-project && claude
 /claude-harness:flow --no-merge "Add user authentication with JWT tokens"
 ```
 
-The **`/flow`** command handles the entire lifecycle automatically - from context compilation to PR merge. It enforces test-driven development practices with a RED-GREEN-REFACTOR cycle and acceptance testing. Use `--autonomous` to batch-process all active features. Use `--no-merge` for step-by-step control, `--quick` to skip planning for simple tasks.
+The **`/flow`** command handles the entire lifecycle automatically - from context compilation to PR merge. It enforces test-driven development practices with a RED-GREEN-REFACTOR cycle and acceptance testing. Use `--team` for ATDD with Agent Teams (tester + implementer + reviewer). Use `--autonomous` to batch-process all active features. Use `--no-merge` for step-by-step control, `--quick` to skip planning for simple tasks.
 
 ### Complete Workflow (5 Commands Total)
 
@@ -84,8 +84,10 @@ The **`/flow`** command handles the entire lifecycle automatically - from contex
                    6. Auto-checkpoints when all tests pass
                    7. Auto-merges when PR approved
                    Options: --no-merge, --quick, --autonomous,
-                            --plan-only, --fix
+                            --plan-only, --fix, --team
                    --autonomous: Batch loop through ALL features
+                                 (context-isolated: each feature runs
+                                  in a fresh subagent context window)
                    OPTIMIZATIONS: Parallel memory reads, cached GitHub parsing
 
 /checkpoint      → Manual commit + push + PR (when not using /flow)
@@ -342,8 +344,8 @@ Use `--quick` to skip planning, or `--plan-only` to stop after planning.
 | `/flow --plan-only "Big feature"` | Plan only, implement later |
 | `/flow --quick "Simple change"` | Skip planning phase |
 | `/flow --fix feature-001 "Bug"` | Complete lifecycle for a bug fix |
-| `/flow --autonomous` | **Batch loop**: process all active features, checkpoint, merge, repeat |
-| `/flow --autonomous --no-merge` | Batch loop but stop each feature at checkpoint (PRs created, not merged) |
+| `/flow --autonomous` | **Batch loop**: process all active features with context isolation, checkpoint, merge, repeat |
+| `/flow --autonomous --no-merge` | Batch loop with context isolation but stop each feature at checkpoint (PRs created, not merged) |
 
 **Key Features in /flow**:
 - **TDD enforcement**: RED→GREEN→REFACTOR cycle enforced by design
@@ -664,6 +666,27 @@ This updates the marketplace cache, downloads the latest plugin, and updates the
 **Note:** v8.1.0+ includes auto-update — the session-start hook automatically fixes stale caches on startup.
 
 ## Changelog
+
+### v9.1.0 (2026-02-22) - Autonomous Context Isolation
+
+- **Context isolation**: Autonomous mode (`--autonomous`) now delegates each feature to a fresh subagent via the Task tool. Each feature runs in its own context window — zero accumulated context between features.
+- **Subagent-per-feature**: The orchestrator loop stays lean (feature selection, conflict detection, result processing). All feature work (planning, implementation, verification, checkpoint, merge) runs in an isolated subagent.
+- **Memory continuity**: Subagents return structured memory updates (decisions, failures, successes, patterns) which the orchestrator persists between features. Feature B benefits from Feature A's learnings without context pollution.
+- **Team containment**: When `--team --autonomous` is used, Agent Team lifecycle is fully contained within each subagent — no zombie agents leak to the orchestrator.
+- **Schema update**: autonomous-state schema v3 to v4 (adds `contextIsolation` and `featureResults` fields)
+- Checkpoint Phase 9 now notes that autonomous mode handles context isolation automatically (no manual `/clear` needed)
+
+### v9.0.0 (2026-02-18) - Agent Teams with ATDD
+
+- **Agent Teams**: Re-introduces Agent Teams with opt-in `--team` flag (previously removed in v8.0.0). Teams are no longer mandatory — direct implementation remains the default.
+- **ATDD workflow**: Acceptance Test-Driven Development with Gherkin acceptance criteria (Given/When/Then). Tester writes acceptance tests FIRST (RED), implementer makes them pass (GREEN), reviewer validates.
+- **3 new hooks** (6 to 9 total): `TeammateIdle` (quality gate), `TaskCompleted` (ATDD verification gate), `SubagentStart` (context injection)
+- **Structured Gherkin**: `acceptanceCriteria` field on features uses `{ scenario, given, when, then }` objects — machine-readable for the tester teammate, human-readable in GitHub issues
+- **Team task chain**: 6-task ATDD dependency chain (write tests -> plan -> implement -> review -> feedback -> verify)
+- **Config sections**: `agentTeams` (enabled/roles/planApproval) and `atdd` (criteriaFormat/acceptanceTestFirst) in config.json
+- **Schema changes**: loop-state v8 to v9 (adds `team` field), new agents-context schema v2 (adds `teamState`)
+- **BREAKING**: Loop-state schema version 8 to 9. Existing loop-state files need version bump.
+- Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` env var (auto-injected by setup.sh when `agentTeams.enabled` is true)
 
 ### v8.4.0 (2026-02-17) - Schema standardization
 

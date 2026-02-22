@@ -12,8 +12,25 @@
 #
 # Usage (run in your terminal, NOT inside Claude Code):
 #   bash <(curl -sf https://raw.githubusercontent.com/panayiotism/claude-harness/main/fix-plugin-cache.sh)
+#   bash <(curl -sf https://raw.githubusercontent.com/panayiotism/claude-harness/main/fix-plugin-cache.sh) --branch development
 
 set -euo pipefail
+
+# --- Argument parsing ---
+BRANCH="main"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --branch|-b)
+            BRANCH="${2:?'--branch requires a branch name'}"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--branch <name>]"
+            exit 1
+            ;;
+    esac
+done
 
 REPO="panayiotism/claude-harness"
 PLUGIN_KEY="claude-harness@claude-harness"
@@ -22,6 +39,7 @@ CACHE_BASE="$HOME/.claude/plugins/cache/claude-harness/claude-harness"
 INSTALLED_PLUGINS="$HOME/.claude/plugins/installed_plugins.json"
 
 echo "=== Claude Harness: Fix Plugin Cache ==="
+[ "$BRANCH" != "main" ] && echo "  Branch: $BRANCH"
 echo ""
 
 # --- Prerequisites ---
@@ -38,7 +56,7 @@ fi
 # --- Step 1: Update marketplace git cache ---
 if [ -d "$MARKETPLACE_DIR/.git" ]; then
     echo "[1/4] Updating marketplace cache..."
-    (cd "$MARKETPLACE_DIR" && git fetch origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null) \
+    (cd "$MARKETPLACE_DIR" && git fetch origin "$BRANCH" 2>/dev/null && git reset --hard "origin/$BRANCH" 2>/dev/null) \
         && echo "  Marketplace updated." \
         || echo "  WARN: Could not update marketplace (non-critical, continuing...)"
 else
@@ -52,21 +70,21 @@ LATEST_VERSION=""
 LATEST_SHA=""
 
 if command -v gh &>/dev/null; then
-    LATEST_VERSION=$(gh api "repos/$REPO/contents/claude-harness/.claude-plugin/plugin.json" \
+    LATEST_VERSION=$(gh api "repos/$REPO/contents/claude-harness/.claude-plugin/plugin.json?ref=$BRANCH" \
         --jq '.content' 2>/dev/null | base64 -d 2>/dev/null | \
         python3 -c "import json,sys; print(json.load(sys.stdin)['version'])" 2>/dev/null || true)
-    LATEST_SHA=$(gh api "repos/$REPO/commits/main" --jq '.sha' 2>/dev/null || true)
+    LATEST_SHA=$(gh api "repos/$REPO/commits/$BRANCH" --jq '.sha' 2>/dev/null || true)
 fi
 
 if [ -z "$LATEST_VERSION" ]; then
     LATEST_VERSION=$(curl -sf --max-time 10 \
-        "https://raw.githubusercontent.com/$REPO/main/claude-harness/.claude-plugin/plugin.json" 2>/dev/null | \
+        "https://raw.githubusercontent.com/$REPO/$BRANCH/claude-harness/.claude-plugin/plugin.json" 2>/dev/null | \
         python3 -c "import json,sys; print(json.load(sys.stdin)['version'])" 2>/dev/null || true)
 fi
 
 if [ -z "$LATEST_SHA" ]; then
     LATEST_SHA=$(curl -sf --max-time 10 \
-        "https://api.github.com/repos/$REPO/commits/main" 2>/dev/null | \
+        "https://api.github.com/repos/$REPO/commits/$BRANCH" 2>/dev/null | \
         python3 -c "import json,sys; print(json.load(sys.stdin)['sha'])" 2>/dev/null || true)
 fi
 
@@ -87,10 +105,35 @@ print(p[0].get('version', 'unknown') if p else 'not-installed')
 echo "  Installed: v$CURRENT_VERSION"
 echo "  Latest:    v$LATEST_VERSION"
 
+# Patch marketplace plugin.json so Claude Code resolves to the correct version directory.
+# Claude Code reads the marketplace cache (not installed_plugins.json) to determine
+# which cache version to load. If the git update in Step 1 failed, the marketplace
+# still points to the old version and Claude Code ignores the new cache directory.
+MARKETPLACE_PLUGIN_JSON="$MARKETPLACE_DIR/claude-harness/.claude-plugin/plugin.json"
+if [ -f "$MARKETPLACE_PLUGIN_JSON" ]; then
+    MARKETPLACE_VERSION=$(python3 -c "import json; print(json.load(open('$MARKETPLACE_PLUGIN_JSON'))['version'])" 2>/dev/null || true)
+    if [ -n "$MARKETPLACE_VERSION" ] && [ "$MARKETPLACE_VERSION" != "$LATEST_VERSION" ]; then
+        python3 -c "
+import json
+with open('$MARKETPLACE_PLUGIN_JSON') as f:
+    data = json.load(f)
+data['version'] = '$LATEST_VERSION'
+with open('$MARKETPLACE_PLUGIN_JSON', 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+"
+        echo "  Marketplace version patched: v$MARKETPLACE_VERSION -> v$LATEST_VERSION"
+    fi
+fi
+
 if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
-    echo ""
-    echo "Already up to date! No action needed."
-    exit 0
+    # Verify cache directory exists for the installed version
+    if [ -d "$CACHE_BASE/$LATEST_VERSION" ]; then
+        echo ""
+        echo "Already up to date! No action needed."
+        exit 0
+    fi
+    echo "  Cache directory missing for v$LATEST_VERSION, re-downloading..."
 fi
 
 # --- Step 3: Download and extract ---
@@ -101,10 +144,10 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 DOWNLOAD_OK=false
 if command -v gh &>/dev/null; then
-    gh api "repos/$REPO/tarball/main" > "$TMPDIR/repo.tar.gz" 2>/dev/null && DOWNLOAD_OK=true
+    gh api "repos/$REPO/tarball/$BRANCH" > "$TMPDIR/repo.tar.gz" 2>/dev/null && DOWNLOAD_OK=true
 fi
 if [ "$DOWNLOAD_OK" = false ]; then
-    curl -sfL --max-time 60 "https://github.com/$REPO/archive/refs/heads/main.tar.gz" \
+    curl -sfL --max-time 60 "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz" \
         -o "$TMPDIR/repo.tar.gz" 2>/dev/null && DOWNLOAD_OK=true
 fi
 if [ "$DOWNLOAD_OK" = false ]; then
@@ -122,8 +165,14 @@ fi
 # --- Step 4: Install to cache and update registry ---
 echo "[4/4] Installing to cache..."
 
+# Remove ALL existing version cache directories so Claude Code can only find the new one
+for old_dir in "$CACHE_BASE"/*/; do
+    [ -d "$old_dir" ] || continue
+    rm -rf "$old_dir"
+    echo "  Removed stale cache: $(basename "$old_dir")/"
+done
+
 NEW_CACHE="$CACHE_BASE/$LATEST_VERSION"
-rm -rf "$NEW_CACHE" 2>/dev/null
 mkdir -p "$NEW_CACHE"
 cp -r "$PLUGIN_SRC/." "$NEW_CACHE/"
 chmod +x "$NEW_CACHE/hooks/"*.sh "$NEW_CACHE/setup.sh" 2>/dev/null || true
@@ -159,7 +208,10 @@ with open('$INSTALLED_PLUGINS', 'w') as f:
     f.write('\n')
 "
 
-# Clear stale version check
+# Persist branch preference so the session-start.sh auto-update pulls from the right branch
+echo "$BRANCH" > "$CACHE_BASE/.branch"
+
+# Clear stale version check (forces re-fetch on next session start)
 rm -f "$HOME/.claude/plugins/cache/claude-harness/.version-check" 2>/dev/null
 
 echo ""

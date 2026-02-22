@@ -6,6 +6,33 @@
 HARNESS_DIR="${CLAUDE_PROJECT_DIR:-.}/.claude-harness"
 SESSIONS_DIR="$HARNESS_DIR/sessions"
 RECOVERY_DIR="$SESSIONS_DIR/.recovery"
+AGENTS_CONTEXT="$HARNESS_DIR/agents/context.json"
+
+# --- Team State Cleanup ---
+# If an Agent Team was active when the session stops, mark it for cleanup.
+# Teammates are independent processes that survive the lead's session end.
+# Without this, zombie teammates drain CPU/RAM indefinitely.
+if [ -f "$AGENTS_CONTEXT" ]; then
+  team_name=$(grep -o '"teamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$AGENTS_CONTEXT" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+  if [ -n "$team_name" ]; then
+    # Write team orphan marker so next session can detect and clean up
+    mkdir -p "$RECOVERY_DIR"
+    cat > "$RECOVERY_DIR/orphaned-team.json" << TEAMEOF
+{
+  "version": 1,
+  "detectedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "teamName": "$team_name",
+  "reason": "session-ended-with-active-team",
+  "action": "Next session should check for orphaned tmux sessions and clean up team resources"
+}
+TEAMEOF
+
+    # Best-effort: try to kill the tmux session for this team (if tmux is available)
+    if command -v tmux >/dev/null 2>&1; then
+      tmux kill-session -t "$team_name" 2>/dev/null || true
+    fi
+  fi
+fi
 
 # Check all session directories for loop states
 for session_dir in "$SESSIONS_DIR"/*/; do

@@ -1,5 +1,321 @@
 {
   "version": 1,
-  "features": [],
+  "features": [
+    {
+      "id": "feature-001",
+      "name": "Add acceptanceCriteria to feature schema",
+      "description": "Add structured Gherkin acceptanceCriteria field to active-features.schema.json as a top-level property on feature entries",
+      "priority": 1,
+      "status": "pending",
+      "acceptanceCriteria": [
+        {
+          "scenario": "Schema includes acceptanceCriteria field",
+          "given": "the active-features.schema.json file",
+          "when": "a feature entry is validated against the schema",
+          "then": "the acceptanceCriteria field should accept an array of { scenario, given, when, then } objects"
+        },
+        {
+          "scenario": "Schema remains backward compatible",
+          "given": "an existing feature entry without acceptanceCriteria",
+          "when": "validated against the updated schema",
+          "then": "it should pass validation (field is optional)"
+        }
+      ],
+      "verification": {
+        "build": null,
+        "tests": null,
+        "lint": null,
+        "typecheck": null,
+        "acceptance": null
+      },
+      "relatedFiles": ["claude-harness/schemas/active-features.schema.json"],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-001"
+      },
+      "createdAt": "2026-02-18T12:00:00.000Z",
+      "updatedAt": "2026-02-18T12:00:00.000Z"
+    },
+    {
+      "id": "feature-002",
+      "name": "Add agentTeams and ATDD config sections",
+      "description": "Add agentTeams and atdd configuration sections to config.json via setup.sh. Include env var injection for CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS and migration for existing installs.",
+      "priority": 1,
+      "status": "pending",
+      "acceptanceCriteria": [
+        {
+          "scenario": "Fresh setup creates agentTeams config",
+          "given": "a project without .claude-harness/config.json",
+          "when": "setup.sh is run",
+          "then": "config.json should contain agentTeams section with enabled=false and atdd section with enabled=true"
+        },
+        {
+          "scenario": "Existing install gets migration",
+          "given": "a project with existing config.json lacking agentTeams",
+          "when": "setup.sh is run",
+          "then": "agentTeams and atdd sections are added without disturbing existing config"
+        },
+        {
+          "scenario": "Env var injected when enabled",
+          "given": "config.json with agentTeams.enabled=true",
+          "when": "setup.sh processes settings.local.json",
+          "then": "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is added to env section"
+        }
+      ],
+      "verification": {
+        "build": null,
+        "tests": "bash -n claude-harness/setup.sh",
+        "lint": null,
+        "typecheck": null,
+        "acceptance": null
+      },
+      "relatedFiles": ["claude-harness/setup.sh", ".claude-harness/config.json"],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-002"
+      },
+      "createdAt": "2026-02-18T12:00:00.000Z",
+      "updatedAt": "2026-02-18T12:00:00.000Z"
+    },
+    {
+      "id": "feature-003",
+      "name": "Create TeammateIdle quality gate hook",
+      "description": "Create teammate-idle.sh hook that checks uncommitted changes and runs verification commands when a teammate goes idle. Exit 2 keeps teammate working.",
+      "priority": 1,
+      "status": "pending",
+      "acceptanceCriteria": [
+        {
+          "scenario": "Teammate with uncommitted changes cannot idle",
+          "given": "a teammate with uncommitted changes in git",
+          "when": "the TeammateIdle hook runs",
+          "then": "it exits with code 2 and reports uncommitted files via stderr"
+        },
+        {
+          "scenario": "Teammate with failing tests cannot idle",
+          "given": "a teammate whose verification commands fail",
+          "when": "the TeammateIdle hook runs",
+          "then": "it exits with code 2 and reports failing commands via stderr"
+        },
+        {
+          "scenario": "Clean teammate can idle",
+          "given": "a teammate with no uncommitted changes and passing verification",
+          "when": "the TeammateIdle hook runs",
+          "then": "it exits with code 0"
+        },
+        {
+          "scenario": "Reviewer only checks lint",
+          "given": "a reviewer teammate",
+          "when": "the TeammateIdle hook runs",
+          "then": "only lint verification is checked, not the full test suite"
+        }
+      ],
+      "verification": {
+        "build": null,
+        "tests": "bash -n claude-harness/hooks/teammate-idle.sh",
+        "lint": null,
+        "typecheck": null,
+        "acceptance": null
+      },
+      "relatedFiles": ["claude-harness/hooks/teammate-idle.sh"],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-003"
+      },
+      "createdAt": "2026-02-18T12:00:00.000Z",
+      "updatedAt": "2026-02-18T12:00:00.000Z"
+    },
+    {
+      "id": "feature-004",
+      "name": "Create TaskCompleted verification gate hook",
+      "description": "Create task-completed.sh hook that enforces ATDD verification gates. For acceptance test tasks: verify tests exist. For implement tasks: acceptance tests must pass. For verify/accept tasks: all verification must pass.",
+      "priority": 1,
+      "status": "pending",
+      "acceptanceCriteria": [
+        {
+          "scenario": "Acceptance test task validates test files exist",
+          "given": "a task with 'acceptance test' in the subject",
+          "when": "the TaskCompleted hook runs",
+          "then": "it verifies test files were created and tests can run (may fail = RED phase)"
+        },
+        {
+          "scenario": "Implement task requires acceptance tests pass",
+          "given": "a task with 'Implement' in the subject",
+          "when": "the TaskCompleted hook runs",
+          "then": "it runs acceptance tests and exits 2 if they fail (GREEN phase gate)"
+        },
+        {
+          "scenario": "Verify task runs full verification",
+          "given": "a task with 'verification' in the subject",
+          "when": "the TaskCompleted hook runs",
+          "then": "it runs build, tests, lint, typecheck, and acceptance commands"
+        }
+      ],
+      "verification": {
+        "build": null,
+        "tests": "bash -n claude-harness/hooks/task-completed.sh",
+        "lint": null,
+        "typecheck": null,
+        "acceptance": null
+      },
+      "relatedFiles": ["claude-harness/hooks/task-completed.sh"],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-004"
+      },
+      "createdAt": "2026-02-18T12:00:00.000Z",
+      "updatedAt": "2026-02-18T12:00:00.000Z"
+    },
+    {
+      "id": "feature-005",
+      "name": "Create SubagentStart hook and register all 3 hooks",
+      "description": "Create subagent-start.sh hook for context injection. Update hooks.json to register TeammateIdle, TaskCompleted, and SubagentStart hooks.",
+      "priority": 2,
+      "status": "pending",
+      "dependencies": ["feature-003", "feature-004"],
+      "acceptanceCriteria": [
+        {
+          "scenario": "SubagentStart injects feature context",
+          "given": "a teammate being spawned with an active loop state",
+          "when": "the SubagentStart hook runs",
+          "then": "it returns additionalContext with verification commands, acceptance criteria, and past failures"
+        },
+        {
+          "scenario": "All 3 hooks registered in hooks.json",
+          "given": "the hooks.json file",
+          "when": "parsed for hook event keys",
+          "then": "it contains TeammateIdle, TaskCompleted, and SubagentStart entries alongside existing hooks"
+        }
+      ],
+      "verification": {
+        "build": null,
+        "tests": "bash -n claude-harness/hooks/subagent-start.sh && jq . claude-harness/hooks/hooks.json > /dev/null",
+        "lint": null,
+        "typecheck": null,
+        "acceptance": null
+      },
+      "relatedFiles": ["claude-harness/hooks/subagent-start.sh", "claude-harness/hooks/hooks.json"],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-005"
+      },
+      "createdAt": "2026-02-18T12:00:00.000Z",
+      "updatedAt": "2026-02-18T12:00:00.000Z"
+    },
+    {
+      "id": "feature-006",
+      "name": "Add --team flag with ATDD task chain to flow.md",
+      "description": "Core integration: add --team flag to flow.md with ATDD-ordered task chain (acceptance tests first, then implement, then review). Update loop-state schema v8->v9 with team field. Create agents-context schema.",
+      "priority": 3,
+      "status": "pending",
+      "dependencies": ["feature-001", "feature-002", "feature-005"],
+      "acceptanceCriteria": [
+        {
+          "scenario": "--team flag parsed and validated",
+          "given": "a user runs /flow --team 'Add login'",
+          "when": "Phase 0.1 argument parsing executes",
+          "then": "--team is recognized, validated as compatible with other flags, and team mode is activated"
+        },
+        {
+          "scenario": "ATDD task chain created with correct dependencies",
+          "given": "team mode is active with acceptance criteria defined",
+          "when": "Phase 3.7 creates the shared task chain",
+          "then": "6 tasks are created: acceptance tests (no deps) + plan (no deps) -> implement (blocked by both) -> review -> feedback -> final verify"
+        },
+        {
+          "scenario": "Team spawns 3 teammates in delegate mode",
+          "given": "team preflight passes",
+          "when": "Phase 4 team fork executes",
+          "then": "a team is created with implementer, tester, and reviewer teammates in delegate mode"
+        },
+        {
+          "scenario": "Loop-state schema includes team field",
+          "given": "the loop-state.schema.json file",
+          "when": "validated",
+          "then": "version is 9 and includes team object with enabled, teamName, leadMode, teammates fields"
+        }
+      ],
+      "verification": {
+        "build": null,
+        "tests": "jq . claude-harness/schemas/loop-state.schema.json > /dev/null && jq . claude-harness/schemas/agents-context.schema.json > /dev/null",
+        "lint": null,
+        "typecheck": null,
+        "acceptance": null
+      },
+      "relatedFiles": [
+        "claude-harness/commands/flow.md",
+        "claude-harness/schemas/loop-state.schema.json",
+        "claude-harness/schemas/agents-context.schema.json"
+      ],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-006"
+      },
+      "createdAt": "2026-02-18T12:00:00.000Z",
+      "updatedAt": "2026-02-18T12:00:00.000Z"
+    },
+    {
+      "id": "feature-007",
+      "name": "Update supporting commands, schemas, docs, version bump to 9.0.0",
+      "description": "Update checkpoint.md (team state cleanup), start.md (team state display), prd-breakdown.md (structured Gherkin output). Bump version to 9.0.0 in both plugin.json files. Update CLAUDE.md and README.md.",
+      "priority": 4,
+      "status": "pending",
+      "dependencies": ["feature-006"],
+      "acceptanceCriteria": [
+        {
+          "scenario": "checkpoint.md handles team state cleanup",
+          "given": "a team-mode session completing a checkpoint",
+          "when": "Phase 8 orchestration memory persistence runs",
+          "then": "teamState is cleared from agents/context.json and results persisted to procedural memory"
+        },
+        {
+          "scenario": "start.md displays active team state",
+          "given": "an active team in agents/context.json",
+          "when": "/start Phase 3 runs",
+          "then": "team name, teammate statuses, and resume command are displayed"
+        },
+        {
+          "scenario": "prd-breakdown generates structured Gherkin",
+          "given": "a PRD with requirements",
+          "when": "Phase 2 generates feature specs",
+          "then": "acceptanceCriteria uses { scenario, given, when, then } objects, not plain strings"
+        },
+        {
+          "scenario": "Version is 9.0.0 everywhere",
+          "given": "both plugin.json files",
+          "when": "version field is read",
+          "then": "both show 9.0.0"
+        }
+      ],
+      "verification": {
+        "build": null,
+        "tests": "jq -r .version claude-harness/.claude-plugin/plugin.json && jq -r .version .claude-plugin/plugin.json",
+        "lint": null,
+        "typecheck": null,
+        "acceptance": null
+      },
+      "relatedFiles": [
+        "claude-harness/commands/checkpoint.md",
+        "claude-harness/commands/start.md",
+        "claude-harness/commands/prd-breakdown.md",
+        "claude-harness/.claude-plugin/plugin.json",
+        ".claude-plugin/plugin.json",
+        "CLAUDE.md",
+        "README.md"
+      ],
+      "github": {
+        "issueNumber": null,
+        "prNumber": null,
+        "branch": "feature/feature-007"
+      },
+      "createdAt": "2026-02-18T12:00:00.000Z",
+      "updatedAt": "2026-02-18T12:00:00.000Z"
+    }
+  ],
   "fixes": []
 }

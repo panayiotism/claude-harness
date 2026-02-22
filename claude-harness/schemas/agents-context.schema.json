@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agents-context.schema.json",
+  "title": "Agents Context",
+  "description": "Orchestration and team tracking at .claude-harness/agents/context.json",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 2,
+      "description": "Schema version (data shape version, not plugin version)"
+    },
+    "lastUpdated": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "currentSession": {
+      "type": ["string", "null"],
+      "description": "Session ID of active orchestration"
+    },
+    "agentResults": {
+      "type": "array",
+      "description": "Results from completed agent/teammate work",
+      "items": {
+        "type": "object",
+        "properties": {
+          "agent": { "type": "string" },
+          "role": { "type": "string" },
+          "feature": { "type": "string" },
+          "status": { "type": "string", "enum": ["completed", "failed"] },
+          "summary": { "type": "string" },
+          "files": { "type": "array", "items": { "type": "string" } },
+          "errors": { "type": "array", "items": { "type": "string" } },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "teamState": {
+      "type": ["object", "null"],
+      "description": "Active Agent Team state (null when no team is active)",
+      "properties": {
+        "teamName": { "type": "string" },
+        "feature": { "type": "string", "description": "Feature ID being worked on" },
+        "leadMode": { "type": "string", "enum": ["delegate", "active"] },
+        "teammates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string", "enum": ["implementer", "reviewer", "tester"] },
+              "name": { "type": "string", "description": "Teammate display name" },
+              "status": { "type": "string", "enum": ["pending", "active", "idle", "completed", "failed"] },
+              "tasksCompleted": { "type": "integer", "default": 0 },
+              "errors": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["role", "status"]
+          }
+        },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "required": ["teamName", "feature", "teammates"]
+    },
+    "architecturalDecisions": {
+      "type": "array",
+      "description": "Decisions made during orchestration"
+    },
+    "sharedState": {
+      "type": "object",
+      "properties": {
+        "discoveredPatterns": { "type": "array" }
+      }
+    }
+  },
+  "required": ["version", "currentSession", "agentResults"]
+}

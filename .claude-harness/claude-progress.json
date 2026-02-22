@@ -1,27 +1,27 @@
 {
-  "lastUpdated": "2026-02-17T12:00:00Z",
+  "lastUpdated": "2026-02-22T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v8.4.0: Schema standardization. Added schemas/ directory with JSON Schema files for 5 key state files. Fixed loop-state version drift across commands. Removed hardcoded version comments from hooks. Added schema versioning convention to CLAUDE.md.",
+    "summary": "v9.1.0: Autonomous context isolation. Autonomous mode now delegates each feature to a fresh subagent via Task tool for complete context isolation between features. Orchestrator loop stays lean. Memory continuity preserved via structured result passing.",
     "completedTasks": [
-      "Created claude-harness/schemas/ with 5 JSON Schema files",
-      "Updated setup.md to reference schemas instead of inline examples",
-      "Fixed loop-state v4 reference in checkpoint.md to v8",
-      "Removed version comments from all 5 hook .sh files",
-      "Added schema versioning convention to CLAUDE.md",
-      "Updated procedural memory patterns for simplified version bumps"
+      "Restructured flow.md autonomous wrapper (A.1-A.7) with subagent-per-feature delegation",
+      "Added Phase A.4.0 (compile subagent prompt) and modified A.4 (delegation) and A.5 (result processing)",
+      "Updated autonomous-state.schema.json v3→v4 with contextIsolation and featureResults fields",
+      "Updated checkpoint.md Phase 9 with autonomous mode context isolation note",
+      "Bumped version to 9.1.0 in both plugin.json files",
+      "Updated README.md with changelog entry and autonomous mode description updates"
     ],
     "blockers": [],
     "nextSteps": []
   },
   "recentChanges": [
+    "v9.1.0: Autonomous context isolation — subagent-per-feature delegation, memory continuity, team containment",
+    "v9.0.0: Agent Teams with ATDD — opt-in --team flag, 3 new hooks, Gherkin acceptance criteria",
     "v8.4.0: Schema standardization — canonical schemas, version drift fixes, hook version cleanup",
     "v8.1.0: Auto-update stale plugin cache from session-start hook",
     "v8.0.0: Remove Agent Teams — direct implementation model",
     "v7.0.1: Add marketplace metadata description",
-    "v7.0.0: Restructure repo for marketplace compatibility",
-    "v6.0.6: Fix installation instructions",
-    "v6.0.5: Remove stale cache detection system"
+    "v7.0.0: Restructure repo for marketplace compatibility"
   ],
   "knownIssues": [],
   "environmentState": {
@@ -29,6 +29,6 @@
     "lastSuccessfulBuild": null,
     "lastTypeCheck": null
   },
-  "lastCompaction": "2026-01-25T17:14:10.000Z",
-  "compactionCount": 4
+  "lastCompaction": "2026-02-18T05:55:46.000Z",
+  "compactionCount": 5
 }

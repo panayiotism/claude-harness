@@ -38,6 +38,16 @@
         "verification": { "$ref": "#/$defs/verificationCommands" },
         "attempts": { "type": "integer", "minimum": 0 },
         "maxAttempts": { "type": "integer", "default": 15 },
+        "acceptanceCriteria": {
+          "type": "array",
+          "description": "Gherkin-format acceptance criteria for ATDD workflow",
+          "items": { "$ref": "#/$defs/gherkinScenario" }
+        },
+        "dependencies": {
+          "type": "array",
+          "description": "Feature IDs this feature depends on",
+          "items": { "type": "string" }
+        },
         "relatedFiles": { "type": "array", "items": { "type": "string" } },
         "github": { "$ref": "#/$defs/githubRefs" },
         "createdAt": { "type": "string", "format": "date-time" },
@@ -94,6 +104,17 @@
         "prNumber": { "type": ["integer", "null"] },
         "branch": { "type": ["string", "null"] }
       }
+    },
+    "gherkinScenario": {
+      "type": "object",
+      "description": "A single Gherkin-format acceptance test scenario (Given/When/Then)",
+      "properties": {
+        "scenario": { "type": "string", "description": "Scenario title" },
+        "given": { "type": "string", "description": "Precondition (Given...)" },
+        "when": { "type": "string", "description": "Action (When...)" },
+        "then": { "type": "string", "description": "Expected outcome (Then...)" }
+      },
+      "required": ["scenario", "given", "when", "then"]
     }
   }
 }
