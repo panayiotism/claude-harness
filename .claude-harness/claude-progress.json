@@ -1,20 +1,22 @@
 {
-  "lastUpdated": "2026-02-22T12:00:00Z",
+  "lastUpdated": "2026-02-23T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v9.1.0: Autonomous context isolation. Autonomous mode now delegates each feature to a fresh subagent via Task tool for complete context isolation between features. Orchestrator loop stays lean. Memory continuity preserved via structured result passing.",
+    "summary": "v9.2.0: Rich GitHub Issues from PRD. prd-breakdown now creates GitHub issues by default with rich bodies (description, Gherkin AC, implementation context, verification commands). Two-pass dependency linking for bidirectional cross-references. --no-issues replaces --create-issues.",
     "completedTasks": [
-      "Restructured flow.md autonomous wrapper (A.1-A.7) with subagent-per-feature delegation",
-      "Added Phase A.4.0 (compile subagent prompt) and modified A.4 (delegation) and A.5 (result processing)",
-      "Updated autonomous-state.schema.json v3→v4 with contextIsolation and featureResults fields",
-      "Updated checkpoint.md Phase 9 with autonomous mode context isolation note",
-      "Bumped version to 9.1.0 in both plugin.json files",
-      "Updated README.md with changelog entry and autonomous mode description updates"
+      "Rewrote prd-breakdown.md Phase 3.5 with rich issue body template and two-pass dependency linking",
+      "Updated Phase 4 summary with GitHub issue counts and cross-reference info",
+      "Replaced --create-issues flag with --no-issues (default-on issue creation)",
+      "Updated usage examples, syntax table, and error handling table",
+      "Enhanced labels: claude-harness, mvp, high-risk conditionals",
+      "Updated README.md with v9.2.0 changelog and revised prd-breakdown docs",
+      "Bumped version to 9.2.0 in both plugin.json files"
     ],
     "blockers": [],
     "nextSteps": []
   },
   "recentChanges": [
+    "v9.2.0: Rich GitHub Issues from PRD — default issue creation, rich bodies, two-pass dependency linking",
     "v9.1.0: Autonomous context isolation — subagent-per-feature delegation, memory continuity, team containment",
     "v9.0.0: Agent Teams with ATDD — opt-in --team flag, 3 new hooks, Gherkin acceptance criteria",
     "v8.4.0: Schema standardization — canonical schemas, version drift fixes, hook version cleanup",

@@ -365,15 +365,14 @@ REFACTOR → Validate quality, fix issues
 
 | Syntax | Behavior |
 |--------|----------|
-| `/prd-breakdown "Your PRD markdown..."` | Analyze inline PRD |
-| `/prd-breakdown @./docs/prd.md` | Read PRD from file (@ syntax - preferred) |
+| `/prd-breakdown "Your PRD markdown..."` | Analyze inline PRD, create features + GitHub issues |
+| `/prd-breakdown @./docs/prd.md` | Read PRD from file, create features + issues |
 | `/prd-breakdown --file ./docs/prd.md` | Read PRD from file (--flag syntax) |
 | `/prd-breakdown --url https://github.com/org/repo/issues/42` | Fetch PRD from GitHub issue |
 | `/prd-breakdown --analyze-only` | Run analysis without creating features |
-| `/prd-breakdown --auto` | No prompts, create all features |
+| `/prd-breakdown --auto` | No prompts, full automation (features + issues) |
 | `/prd-breakdown --max-features 10` | Limit to 10 highest-priority features |
-| `/prd-breakdown @./prd.md --create-issues` | Create GitHub issues for each feature |
-| `/prd-breakdown @./prd.md --create-issues --auto` | Full automation: analyze, create features AND GitHub issues |
+| `/prd-breakdown @./prd.md --no-issues` | Create features only, skip GitHub issues |
 
 **PRD Breakdown Workflow:**
 ```
@@ -382,33 +381,39 @@ Analyze       → Analyzes requirements from product, architecture, and QA persp
 Decompose     → Transform requirements into atomic features
   • Resolve dependencies (topological sort)
   • Assign priorities (MVP first)
-  • Generate acceptance criteria
+  • Generate Gherkin acceptance criteria
 Review        → Preview breakdown, select features to create
 Create        → Add features to active.json with PRD metadata
-Issues (opt)  → Create GitHub issues for tracking (--create-issues flag)
+Issues        → Create rich GitHub issues with cross-references (default)
 ```
 
-#### Auto-Creating GitHub Issues from PRD
+#### GitHub Issues from PRD (Default)
 
-When using the `--create-issues` flag, the `/prd-breakdown` command will automatically create one GitHub issue per generated feature:
+The `/prd-breakdown` command automatically creates one GitHub issue per feature with rich detail:
 
 ```bash
-/prd-breakdown @./prd.md --create-issues              # Manual review then create issues
-/prd-breakdown @./prd.md --create-issues --auto       # Fully automated
+/prd-breakdown @./prd.md                    # Manual review then create features + issues
+/prd-breakdown @./prd.md --auto             # Fully automated
+/prd-breakdown @./prd.md --no-issues        # Skip issue creation
 ```
 
-Each issue will:
-- Contain the feature description and acceptance criteria
-- Be labeled with `feature` and `prd-generated` tags
-- Be linked to the feature in `.claude-harness/features/active.json` (stored in `github.issueNumber`)
-- Be assigned the PRD breakdown ID for traceability across sessions
+Each issue includes:
+- Full description with PRD source section and requirement reference
+- Gherkin acceptance criteria (Given/When/Then) for ATDD compatibility
+- Implementation context (priority, complexity, risk level, MVP flag)
+- Related files and implementation hints from architecture analysis
+- Verification commands (build, tests, lint, typecheck, acceptance)
+- **Bidirectional dependency links**: "Depends on #X" and "Blocks #Y" with actual issue numbers
 
-This is useful when you want to:
-- Create a complete GitHub-tracked backlog from a PRD
-- Ensure every generated feature has an issue for team visibility
-- Maintain bidirectional links between PRD decomposition and issue tracking
+Issues are created in two passes:
+1. **Pass 1**: Create all issues in dependency order (dependencies first)
+2. **Pass 2**: Update issues with cross-references once all issue numbers are known
 
-**Note**: Requires GitHub MCP integration to be configured in Claude Code.
+Labels: `feature`, `prd-generated`, `claude-harness` + conditional `mvp` and `high-risk`.
+
+Use `--no-issues` to skip GitHub issue creation (features are still created in active.json).
+
+**Note**: Requires GitHub CLI (`gh`) or GitHub MCP integration to be configured.
 
 ## v3.0 Directory Structure
 
@@ -667,6 +672,14 @@ This updates the marketplace cache, downloads the latest plugin, and updates the
 
 ## Changelog
 
+### v9.2.0 (2026-02-23) - Rich GitHub Issues from PRD
+
+- **Default issue creation**: `/prd-breakdown` now creates GitHub issues alongside features by default (no flag needed). Use `--no-issues` to skip.
+- **Rich issue bodies**: Each issue includes full description, PRD source reference, Gherkin acceptance criteria, implementation context (priority/complexity/risk/MVP), related files, implementation hints, and verification commands.
+- **Bidirectional dependency linking**: Two-pass issue creation — Pass 1 creates all issues in dependency order, Pass 2 updates them with actual `#issueNumber` cross-references ("Depends on #X" / "Blocks #Y").
+- **Enhanced labels**: Issues labeled with `feature`, `prd-generated`, `claude-harness` + conditional `mvp` and `high-risk` labels.
+- **Removed `--create-issues` flag**: Replaced by default-on behavior. `--no-issues` is the new opt-out flag.
+
 ### v9.1.0 (2026-02-22) - Autonomous Context Isolation
 
 - **Context isolation**: Autonomous mode (`--autonomous`) now delegates each feature to a fresh subagent via the Task tool. Each feature runs in its own context window — zero accumulated context between features.
@@ -822,6 +835,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **9.2.0** | **Rich GitHub Issues from PRD**: `/prd-breakdown` now creates rich GitHub issues by default (no flag needed). Two-pass dependency linking with bidirectional cross-references. Enhanced labels (`claude-harness`, `mvp`, `high-risk`). `--no-issues` replaces `--create-issues`. |
 | **8.4.0** | **Schema Standardization**: Added `schemas/` directory with JSON Schema files for 5 key state files. Fixed loop-state version drift across commands. Removed hardcoded version comments from hooks. Added schema versioning convention to CLAUDE.md. |
 | **8.0.0** | **Remove Agent Teams**: Direct implementation model replaces 3-specialist team orchestration. Removed SubagentStart, TeammateIdle, TaskCompleted hooks. 9→6 hook registrations. No longer requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS. |
 | **7.0.0** | **Restructure repo for marketplace compatibility**: Moved plugin files into `claude-harness/` subdirectory. Fixes "not found in marketplace" install error and infinite recursion from self-referencing GitHub source. Marketplace source now `"./claude-harness"`. |
@@ -855,7 +869,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 | **4.2.2** | **Fix Session Cleanup on WSL**: Moved stale session cleanup from SessionEnd hook to SessionStart hook for reliability. SessionEnd may not trigger on `/clear` or crashes, so cleanup now happens proactively when a new session starts. Removed `jq` dependency from both hooks (uses grep/sed instead). Fixes fix-feature-013-001. |
 | **4.2.1** | **Removed Obsolete File References**: Cleaned up all references to legacy `feature-list.json` and `feature-archive.json` files. Fresh setups now only create `features/active.json` and `features/archive.json`. Updated migration instructions to properly move old files to new locations. |
 | **4.2.0** | **Simplified /merge Command**: Removed version tagging and GitHub release creation from `/merge` command since git tag operations are not directly supported by GitHub MCP. The command now focuses on merging PRs, closing issues, and cleaning up branches. Version tagging should be done manually using git commands or GitHub's release UI. |
-| **4.1.0** | **Auto-Create GitHub Issues from PRD**: New `--create-issues` flag on `/prd-breakdown` command automatically creates one GitHub issue per generated feature. Designed for explicit opt-in (not automatic) with full automation once flag is used. Issues include feature description, acceptance criteria, and priority metadata. Labeled with `feature` and `prd-generated` tags. Gracefully degrades if GitHub MCP unavailable. Enables teams to go from PRD → features → tracked backlog in one command. See [RELEASES/v4.1.0.md](./RELEASES/v4.1.0.md). |
+| **4.1.0** | **Auto-Create GitHub Issues from PRD**: Added `--create-issues` flag on `/prd-breakdown` (superseded by v9.2.0 — issues now created by default). See [RELEASES/v4.1.0.md](./RELEASES/v4.1.0.md). |
 | **4.0.0** | **PRD Analysis & Decomposition**: New `/claude-harness:prd-breakdown` command analyzes Product Requirements Documents using 3 parallel analysis perspectives (Product, Architecture, QA). Automatically decomposes PRDs into atomic features with dependencies, priorities, and acceptance criteria. Supports inline PRD, file-based, GitHub issues, or interactive input. Essential for bootstrapping feature lists in new projects. Version bumped across all files (setup.sh, plugin.json, hooks, README). See [RELEASES/v4.0.0.md](./RELEASES/v4.0.0.md). |
 | **3.9.6** | **Remote Branch Cleanup in Merge**: `/merge` command now explicitly deletes remote branches after PR merge using `git push origin --delete {branch}`. Phase 4 clarified to include both remote and local deletion, Phase 7 adds verification step, Phase 8 reports both local and remote deletions. |
 | **3.9.2** | **Fix Multi-Select in Interactive Menu**: Made `multiSelect: true` requirement more explicit in `/do` Phase 0 documentation. Added CRITICAL marker and "DO NOT use multiSelect: false" warning to ensure parallel feature selection works correctly. |
