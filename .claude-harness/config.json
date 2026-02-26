@@ -30,5 +30,22 @@
     "autoReflectOnCheckpoint": false,
     "autoApproveHighConfidence": true,
     "minConfidenceForAuto": "high"
+  },
+  "agentTeams": {
+    "enabled": false,
+    "defaultTeamSize": 3,
+    "roles": [
+      "implementer",
+      "reviewer",
+      "tester"
+    ],
+    "requirePlanApproval": true,
+    "teammateModel": null
+  },
+  "atdd": {
+    "enabled": true,
+    "criteriaFormat": "gherkin",
+    "requireAcceptanceCriteria": true,
+    "acceptanceTestFirst": true
   }
 }

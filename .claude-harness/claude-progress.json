@@ -1,21 +1,18 @@
 {
-  "lastUpdated": "2026-02-26T07:30:00Z",
+  "lastUpdated": "2026-02-26T08:10:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v10.0.0: Separate marketplace, native plugin updates, repo restructure, cross-platform hooks",
+    "summary": "Housekeeping: removed stale v8.x artifacts (.plugin-version, handoffs.json, worktrees/registry.json), config.json updated with agentTeams and atdd sections by setup.sh",
     "completedTasks": [
-      "Created separate marketplace repo (panayiotism/claude-harness-marketplace)",
-      "Restructured plugin repo (moved claude-harness/* to root)",
-      "Created run-hook.cmd polyglot wrapper, renamed hooks to extensionless",
-      "Removed all custom update infrastructure from session-start hook (~100 lines)",
-      "Removed .plugin-version stamp from setup.sh, replaced with artifact-based migrations",
-      "Deleted fix-plugin-cache.sh",
-      "Updated CLAUDE.md, README.md, setup.md, architecture.json"
+      "Ran /setup to verify harness state",
+      "Cleaned up stale files from pre-v10 versions (.plugin-version, agents/handoffs.json, worktrees/registry.json)",
+      "Config.json updated with agentTeams and atdd configuration sections"
     ],
     "blockers": [],
     "nextSteps": [
-      "Commit and push v10.0.0 changes",
-      "Address pending features in active.json (feature-001 through feature-007)"
+      "Address pending features in active.json (feature-001 through feature-007)",
+      "feature-001: Add acceptanceCriteria to feature schema",
+      "feature-002: Add agentTeams and ATDD config sections"
     ]
   },
   "recentChanges": [
