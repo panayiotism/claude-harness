@@ -215,13 +215,14 @@ Each feature is delegated to a `general-purpose` subagent via the Task tool. Thi
     ## Instructions
     1. Checkout the feature branch: git checkout {branch}
     2. Plan the implementation {unless --quick: "(skip planning — --quick mode)"}
-    3. {if --team: "Create an Agent Team (tester, implementer, reviewer) and follow ATDD: acceptance tests first (RED), implement (GREEN), review. Execute Mandatory Team Shutdown Gate (22T) before checkpoint."}
-    4. {if NOT --team: "Implement the feature directly. Follow test-driven practices where applicable."}
-    5. Run ALL verification commands after implementation
-    6. On pass: commit as `feat({feature-id}): {description}`, push, create/update PR with `Closes #{issueNumber}`
-    7. On fail: retry with escalation (attempts 1-5: high effort, 6-10: max, 11-15: max + full memory). Max 15 attempts.
-    8. {if NOT --no-merge: "Merge PR (squash), close issue, delete branch, update feature status to 'passing'"}
-    9. {if --no-merge: "Stop at checkpoint. Do not merge."}
+    3. Follow ATDD: write acceptance tests first from the Gherkin acceptance criteria (RED), then implement to pass all tests (GREEN), then refactor.
+    4. {if --team: "Create an Agent Team (tester, implementer, reviewer). Tester writes acceptance tests, implementer makes them pass, reviewer validates. Execute Mandatory Team Shutdown Gate (22T) before checkpoint."}
+    5. {if NOT --team: "Implement directly — but still follow ATDD order: acceptance tests first, then implementation."}
+    6. Run ALL verification commands after implementation
+    7. On pass: commit as `feat({feature-id}): {description}`, push, create/update PR with `Closes #{issueNumber}`
+    8. On fail: retry with escalation (attempts 1-5: high effort, 6-10: max, 11-15: max + full memory). Max 15 attempts.
+    9. {if NOT --no-merge: "Merge PR (squash), close issue, delete branch, update feature status to 'passing'"}
+    10. {if --no-merge: "Stop at checkpoint. Do not merge."}
 
     ## Return Format
     End your response with this exact structured block:
@@ -388,7 +389,7 @@ Use cached GitHub owner/repo from Phase 1.
 
 8. **Generate feature ID**: Read active.json, find highest ID, generate next `feature-XXX`.
 
-8.5. **Define acceptance criteria** (ATDD — if `atdd.requireAcceptanceCriteria` is true in config.json):
+8.5. **Define acceptance criteria** (ATDD — always on):
    - If feature has existing `acceptanceCriteria` (from PRD breakdown): use those
    - Otherwise: generate Gherkin acceptance criteria from the feature description
    - Format each criterion as structured Gherkin:
@@ -573,8 +574,7 @@ If `--plan-only`: display plan summary (feature ID, issue, branch) with resume c
 ### Phase 4 (Standard — no --team): Direct Implementation
 
 18. **Implement the feature** directly based on the plan from Phase 3:
-    - If `atdd.acceptanceTestFirst` is true: write acceptance tests first (RED), then implement to pass (GREEN)
-    - Otherwise: follow test-driven practices where applicable (write/update tests, then implement)
+    - Follow ATDD: write acceptance tests first from Gherkin acceptance criteria (RED), then implement to pass (GREEN), then refactor
     - Run verification commands after implementation
     - On failure: record to failures.json, increment attempts, retry with escalation
 

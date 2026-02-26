@@ -1,21 +1,20 @@
 {
-  "lastUpdated": "2026-02-23T12:00:00Z",
+  "lastUpdated": "2026-02-26T12:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "v9.2.0: Rich GitHub Issues from PRD. prd-breakdown now creates GitHub issues by default with rich bodies (description, Gherkin AC, implementation context, verification commands). Two-pass dependency linking for bidirectional cross-references. --no-issues replaces --create-issues.",
+    "summary": "Checkpoint: Committed and pushed v9.3.0 ATDD Always-On changes on feat/prd-breakdown-rich-issues branch. Updated PR with latest progress.",
     "completedTasks": [
-      "Rewrote prd-breakdown.md Phase 3.5 with rich issue body template and two-pass dependency linking",
-      "Updated Phase 4 summary with GitHub issue counts and cross-reference info",
-      "Replaced --create-issues flag with --no-issues (default-on issue creation)",
-      "Updated usage examples, syntax table, and error handling table",
-      "Enhanced labels: claude-harness, mvp, high-risk conditionals",
-      "Updated README.md with v9.2.0 changelog and revised prd-breakdown docs",
-      "Bumped version to 9.2.0 in both plugin.json files"
+      "Checkpointed v9.3.0 changes (ATDD Always-On)",
+      "Committed flow.md, README.md, both plugin.json, progress.json"
     ],
     "blockers": [],
-    "nextSteps": []
+    "nextSteps": [
+      "Merge feat/prd-breakdown-rich-issues PR to main",
+      "Address pending features in active.json (feature-001 through feature-007)"
+    ]
   },
   "recentChanges": [
+    "v9.3.0: ATDD Always-On — acceptance tests first in all modes, removed config gates",
     "v9.2.0: Rich GitHub Issues from PRD — default issue creation, rich bodies, two-pass dependency linking",
     "v9.1.0: Autonomous context isolation — subagent-per-feature delegation, memory continuity, team containment",
     "v9.0.0: Agent Teams with ATDD — opt-in --team flag, 3 new hooks, Gherkin acceptance criteria",

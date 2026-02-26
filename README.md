@@ -672,6 +672,12 @@ This updates the marketplace cache, downloads the latest plugin, and updates the
 
 ## Changelog
 
+### v9.3.0 (2026-02-23) - ATDD Always-On
+
+- **ATDD always-on**: Acceptance Test-Driven Development is now mandatory in all modes (standard, autonomous, team). Acceptance tests are always written first from Gherkin criteria (RED), then implementation makes them pass (GREEN), then refactor.
+- **Acceptance criteria always generated**: Gherkin acceptance criteria are now generated for every feature (removed `atdd.requireAcceptanceCriteria` config gate).
+- **`--team` scope narrowed**: The `--team` flag now only controls whether an Agent Team (tester/implementer/reviewer) is spawned — it no longer controls whether ATDD is followed. ATDD order is enforced regardless.
+
 ### v9.2.0 (2026-02-23) - Rich GitHub Issues from PRD
 
 - **Default issue creation**: `/prd-breakdown` now creates GitHub issues alongside features by default (no flag needed). Use `--no-issues` to skip.
@@ -835,6 +841,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **9.3.0** | **ATDD Always-On**: Acceptance Test-Driven Development is now mandatory in all modes. Acceptance tests written first from Gherkin criteria (RED→GREEN→REFACTOR). `--team` only controls Agent Team spawning, not ATDD workflow. Acceptance criteria generation unconditional. |
 | **9.2.0** | **Rich GitHub Issues from PRD**: `/prd-breakdown` now creates rich GitHub issues by default (no flag needed). Two-pass dependency linking with bidirectional cross-references. Enhanced labels (`claude-harness`, `mvp`, `high-risk`). `--no-issues` replaces `--create-issues`. |
 | **8.4.0** | **Schema Standardization**: Added `schemas/` directory with JSON Schema files for 5 key state files. Fixed loop-state version drift across commands. Removed hardcoded version comments from hooks. Added schema versioning convention to CLAUDE.md. |
 | **8.0.0** | **Remove Agent Teams**: Direct implementation model replaces 3-specialist team orchestration. Removed SubagentStart, TeammateIdle, TaskCompleted hooks. 9→6 hook registrations. No longer requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS. |
