@@ -13,17 +13,17 @@ Based on [Anthropic's engineering article](https://www.anthropic.com/engineering
 
 ```bash
 # Step 1: Add the marketplace (registers the catalog)
-/plugin marketplace add panayiotism/claude-harness
+/plugin marketplace add panayiotism/claude-harness-marketplace
 
 # Step 2: Install the plugin
-/plugin install claude-harness@panayiotism-claude-harness
+/plugin install claude-harness@claude-harness
 ```
 
 Or from the terminal:
 
 ```bash
-claude plugin marketplace add panayiotism/claude-harness
-claude plugin install claude-harness@panayiotism-claude-harness
+claude plugin marketplace add panayiotism/claude-harness-marketplace
+claude plugin install claude-harness@claude-harness
 ```
 
 ```bash
@@ -660,17 +660,27 @@ claude mcp add github -s user
 
 ### Stuck on Old Plugin Version
 
-`claude plugin update` has a known bug where it doesn't re-download plugin files. Run this one-liner to fix it:
+If updates are not being picked up:
 
 ```bash
-bash <(curl -sf https://raw.githubusercontent.com/panayiotism/claude-harness/main/fix-plugin-cache.sh)
+claude plugin uninstall claude-harness
+claude plugin install claude-harness@claude-harness
 ```
 
-This updates the marketplace cache, downloads the latest plugin, and updates the registry. Then restart Claude Code and run `/claude-harness:setup`.
+Then restart Claude Code and run `/claude-harness:setup`.
 
-**Note:** v8.1.0+ includes auto-update — the session-start hook automatically fixes stale caches on startup.
+**Note**: v10.0.0+ uses a separate marketplace repo with URL-based source, which enables Claude Code's native version-keyed caching. This eliminates the stale cache issues from earlier versions.
 
 ## Changelog
+
+### v10.0.0 (2026-02-26) - Separate Marketplace & Native Plugin Updates
+
+- **BREAKING**: Marketplace moved to separate repo (`panayiotism/claude-harness-marketplace`). Existing users must re-register: `claude plugin marketplace add panayiotism/claude-harness-marketplace`
+- **Repo restructured**: Plugin files moved from `claude-harness/` subdirectory to repo root. Single `.claude-plugin/plugin.json` (eliminated dual plugin.json)
+- **Native updates**: Removed all custom update infrastructure from session-start hook (~100 lines). Claude Code's native version-keyed caching now handles updates via URL-based marketplace source
+- **Cross-platform**: Added `run-hook.cmd` polyglot wrapper (works as both Windows `.cmd` and Unix shell). Hook scripts renamed to extensionless (e.g., `session-start` not `session-start.sh`) to avoid Claude Code's Windows `.sh` auto-detection
+- **Removed**: `fix-plugin-cache.sh` (no longer needed), `.plugin-version` stamp file (no longer needed), custom GitHub API version checking, auto-update tarball downloader
+- **Simplified migrations**: Artifact-based migration detection (checks if legacy files exist) replaces version-number-based detection
 
 ### v9.3.0 (2026-02-23) - ATDD Always-On
 

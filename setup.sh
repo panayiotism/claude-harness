@@ -35,19 +35,17 @@ PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/de
 echo "=== Claude Code Agent Harness Setup v${PLUGIN_VERSION} ==="
 echo ""
 
-# Auto-detect version upgrade: if installed version is older, force command updates
-INSTALLED_VERSION=$(cat .claude-harness/.plugin-version 2>/dev/null || echo "0.0.0")
-if [ "$INSTALLED_VERSION" != "$PLUGIN_VERSION" ] && [ "$INSTALLED_VERSION" != "0.0.0" ]; then
-    echo "Version upgrade detected: v${INSTALLED_VERSION} -> v${PLUGIN_VERSION}"
-    echo "Project files will be checked for migrations."
+# Artifact-based migration detection (no version stamps needed)
+V6_MIGRATE=false
+if [ -d ".claude-harness/worktrees" ] || [ -f ".claude-harness/agents/handoffs.json" ] || \
+   [ -f ".claude/commands/worktree.md" ] || [ -f ".claude/commands/do.md" ]; then
+    V6_MIGRATE=true
+    echo "Legacy artifacts detected - will run v6 cleanup."
     echo ""
-
-    # Run v6 migration if upgrading from v5.x or earlier
-    MAJOR_OLD=$(echo "$INSTALLED_VERSION" | cut -d. -f1)
-    if [ "$MAJOR_OLD" -lt 6 ] 2>/dev/null; then
-        V6_MIGRATE=true
-    fi
 fi
+
+# Clean up legacy .plugin-version file (no longer used - version managed by Claude Code plugin system)
+rm -f .claude-harness/.plugin-version 2>/dev/null
 
 # Detect project info
 detect_project_info() {
@@ -900,8 +898,7 @@ else
 fi
 
 echo ""
-DISPLAY_VERSION=$(cat .claude-harness/.plugin-version 2>/dev/null || echo "unknown")
-echo "=== Environment Ready (v${DISPLAY_VERSION}) ==="
+echo "=== Environment Ready ==="
 echo "Commands (5 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
@@ -1064,14 +1061,6 @@ update_gitignore() {
 }
 
 update_gitignore
-
-# ============================================================================
-# 17. Record plugin version for update detection
-# ============================================================================
-
-# PLUGIN_VERSION and SCRIPT_DIR already set at top of script
-echo "$PLUGIN_VERSION" > .claude-harness/.plugin-version
-echo "  [CREATE] .claude-harness/.plugin-version (v$PLUGIN_VERSION)"
 
 # ============================================================================
 # SETUP COMPLETE

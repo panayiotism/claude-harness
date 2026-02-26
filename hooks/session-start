@@ -33,88 +33,6 @@ if [ -n "$REMOTE_URL" ]; then
     GITHUB_REPO="${GITHUB_REPO%.git}"
 fi
 
-# --- Stale plugin cache detection & auto-update ---
-PLUGIN_REPO="panayiotism/claude-harness"
-CACHE_BASE="$HOME/.claude/plugins/cache/claude-harness/claude-harness"
-CACHE_CHECK="$HOME/.claude/plugins/cache/claude-harness/.version-check"
-INST_PLUGINS="$HOME/.claude/plugins/installed_plugins.json"
-MARKETPLACE_DIR="$HOME/.claude/plugins/marketplaces/claude-harness"
-PLUGIN_BRANCH="main"
-[ -f "$CACHE_BASE/.branch" ] && PLUGIN_BRANCH=$(cat "$CACHE_BASE/.branch" 2>/dev/null)
-LATEST_VERSION=""; CACHE_IS_STALE=false; CACHE_UPDATED=false
-
-check_latest_version() {
-    local now; now=$(date +%s)
-    if [ -f "$CACHE_CHECK" ]; then
-        local ct cv; ct=$(head -1 "$CACHE_CHECK" 2>/dev/null); cv=$(tail -1 "$CACHE_CHECK" 2>/dev/null)
-        if [ -n "$ct" ] && [ -n "$cv" ] && [ $((now - ct)) -lt 86400 ]; then
-            LATEST_VERSION="$cv"; return 0
-        fi
-    fi
-    local v=""
-    command -v gh &>/dev/null && v=$(gh api "repos/$PLUGIN_REPO/contents/claude-harness/.claude-plugin/plugin.json?ref=$PLUGIN_BRANCH" \
-        --jq '.content' 2>/dev/null | base64 -d 2>/dev/null | grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
-    [ -z "$v" ] && v=$(curl -sf --max-time 5 \
-        "https://raw.githubusercontent.com/$PLUGIN_REPO/$PLUGIN_BRANCH/claude-harness/.claude-plugin/plugin.json" \
-        2>/dev/null | grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
-    if [ -n "$v" ]; then
-        LATEST_VERSION="$v"
-        mkdir -p "$(dirname "$CACHE_CHECK")"
-        printf '%s\n%s\n' "$now" "$v" > "$CACHE_CHECK"
-    fi
-}
-
-auto_update_cache() {
-    # Step 1: Update marketplace git clone (Claude Code resolves plugins from here)
-    if [ -d "$MARKETPLACE_DIR/.git" ]; then
-        (cd "$MARKETPLACE_DIR" && git fetch origin "$PLUGIN_BRANCH" 2>/dev/null && git reset --hard "origin/$PLUGIN_BRANCH" 2>/dev/null) || true
-    fi
-
-    # Step 2: Download latest plugin tarball
-    local tmp; tmp=$(mktemp -d) || return 1
-    trap 'rm -rf "$tmp"' RETURN
-    local ok=false
-    command -v gh &>/dev/null && gh api "repos/$PLUGIN_REPO/tarball/$PLUGIN_BRANCH" > "$tmp/r.tar.gz" 2>/dev/null && ok=true
-    [ "$ok" = false ] && curl -sfL --max-time 30 "https://github.com/$PLUGIN_REPO/archive/refs/heads/$PLUGIN_BRANCH.tar.gz" -o "$tmp/r.tar.gz" 2>/dev/null && ok=true
-    [ "$ok" = false ] && return 1
-    tar -xzf "$tmp/r.tar.gz" -C "$tmp" 2>/dev/null || return 1
-    local ext; ext=$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -1)
-    local src="$ext/claude-harness"
-    [ ! -f "$src/.claude-plugin/plugin.json" ] && return 1
-    local sha=""
-    command -v gh &>/dev/null && sha=$(gh api "repos/$PLUGIN_REPO/commits/$PLUGIN_BRANCH" --jq '.sha' 2>/dev/null)
-    [ -z "$sha" ] && sha=$(curl -sf --max-time 5 "https://api.github.com/repos/$PLUGIN_REPO/commits/$PLUGIN_BRANCH" 2>/dev/null | grep '"sha"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-
-    # Step 3: Create new cache directory
-    local nc="$CACHE_BASE/$LATEST_VERSION"
-    rm -rf "$nc" 2>/dev/null; mkdir -p "$nc"
-    cp -r "$src/." "$nc/" || return 1
-    chmod +x "$nc/hooks/"*.sh "$nc/setup.sh" 2>/dev/null
-
-    # Step 4: Update installed_plugins.json registry
-    if [ -f "$INST_PLUGINS" ] && command -v python3 &>/dev/null; then
-        python3 -c "
-import json; from datetime import datetime, timezone
-with open('$INST_PLUGINS') as f: data = json.load(f)
-p = data.get('plugins',{}).get('claude-harness@claude-harness',[])
-if p:
-    p[0]['installPath']='$nc'; p[0]['version']='$LATEST_VERSION'
-    ${sha:+p[0][\"gitCommitSha\"]=\"$sha\"}
-    p[0]['lastUpdated']=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]+'Z'
-with open('$INST_PLUGINS','w') as f: json.dump(data,f,indent=2); f.write('\n')
-" 2>/dev/null || return 1
-    else return 1; fi
-    rm -f "$CACHE_CHECK" 2>/dev/null
-    CACHE_UPDATED=true
-}
-
-check_latest_version 2>/dev/null
-PLUGIN_VERSION_CACHED=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
-if [ -n "$LATEST_VERSION" ] && [ -n "$PLUGIN_VERSION_CACHED" ] && [ "$LATEST_VERSION" != "$PLUGIN_VERSION_CACHED" ]; then
-    CACHE_IS_STALE=true
-    auto_update_cache 2>/dev/null
-fi
-
 # --- Session management ---
 SESSION_ID=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "sess-$(date +%s%N | sha256sum | head -c 16)")
 SESSION_DIR="$HARNESS_DIR/sessions/$SESSION_ID"
@@ -154,11 +72,6 @@ fi
 
 # --- Version & memory status ---
 PLUGIN_VERSION=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
-PROJECT_VERSION=$(cat "$HARNESS_DIR/.plugin-version" 2>/dev/null)
-VERSION_MSG=""
-[ -z "$PROJECT_VERSION" ] && VERSION_MSG="Harness not initialized - run /claude-harness:setup"
-[ -n "$PROJECT_VERSION" ] && [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ] && \
-    VERSION_MSG="Plugin v$PLUGIN_VERSION (project at v$PROJECT_VERSION) - run /claude-harness:setup to migrate"
 
 EPISODIC_COUNT=0; FAILURES_COUNT=0; SUCCESSES_COUNT=0; RULES_COUNT=0; WORKING_COMPUTED=""; IS_V3=false
 if [ -d "$HARNESS_DIR/memory" ]; then
@@ -236,23 +149,9 @@ BOX_LINES+=("---" "/claude-harness:flow        Unified workflow (recommended)" "
 
 USER_MSG=$(build_box "${BOX_LINES[@]}")
 
-[ -n "$VERSION_MSG" ] && USER_MSG="$USER_MSG"$'\n'"     $VERSION_MSG"
-if [ "$CACHE_UPDATED" = true ]; then
-    USER_MSG="$USER_MSG"$'\n'"     Updated v$PLUGIN_VERSION_CACHED -> v$LATEST_VERSION. Restart Claude Code to load new version."
-elif [ "$CACHE_IS_STALE" = true ]; then
-    USER_MSG="$USER_MSG"$'\n'"     STALE CACHE: v$PLUGIN_VERSION_CACHED (v$LATEST_VERSION available)"
-    USER_MSG="$USER_MSG"$'\n'"     Fix: claude plugin uninstall claude-harness && claude plugin install claude-harness github:panayiotism/claude-harness"
-fi
-
 # --- Build Claude context ---
 CLAUDE_CONTEXT="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ==="
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nSession ID: $SESSION_ID\nSession Dir: .claude-harness/sessions/$SESSION_ID/\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
-
-if [ "$CACHE_UPDATED" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** PLUGIN AUTO-UPDATED v$PLUGIN_VERSION_CACHED -> v$LATEST_VERSION ***\nTell user to restart Claude Code, then run setup to sync."
-elif [ "$CACHE_IS_STALE" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** STALE PLUGIN CACHE (auto-update failed) ***\nInstalled: v$PLUGIN_VERSION_CACHED | Latest: v$LATEST_VERSION\nTell user: claude plugin uninstall claude-harness && claude plugin install claude-harness github:panayiotism/claude-harness"
-fi
 
 if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== GITHUB (CACHED) ===\nOwner: $GITHUB_OWNER\nRepo: $GITHUB_REPO\nIMPORTANT: Use these cached values for ALL GitHub API calls. Do NOT re-parse git remote."
@@ -267,7 +166,6 @@ if [ "$IS_V3" = true ]; then
         || CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Not compiled - run /start"
 fi
 
-[ -n "$VERSION_MSG" ] && CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nVersion: $VERSION_MSG"
 [ -n "$ACTIVE_FEATURE" ] && [ "$ACTIVE_FEATURE" != "null" ] && \
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nRESUMING WORK:\nFeature: $ACTIVE_FEATURE\nSummary: $FEATURE_SUMMARY"
 [ "$TOTAL_FEATURES" != "0" ] && \

@@ -110,8 +110,7 @@ else
 fi
 
 echo ""
-DISPLAY_VERSION=$(cat .claude-harness/.plugin-version 2>/dev/null || echo "unknown")
-echo "=== Environment Ready (v${DISPLAY_VERSION}) ==="
+echo "=== Environment Ready ==="
 echo "Commands (5 total):"
 echo "  /claude-harness:setup       - Initialize harness (one-time)"
 echo "  /claude-harness:start       - Compile context, show GitHub dashboard"

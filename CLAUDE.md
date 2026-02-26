@@ -17,17 +17,17 @@ On every session start:
 5. Check `.claude-harness/features/active.json` for current priorities
 
 ## Project Structure
-- `claude-harness/` - Plugin directory (what gets installed by users)
-  - `commands/` - Harness command definitions (markdown, served from plugin cache)
-  - `hooks/` - Session hooks (9 registrations: safety, quality gates, team coordination)
-  - `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
-  - `.claude-plugin/plugin.json` - Plugin manifest
-- `.claude-plugin/marketplace.json` - Marketplace catalog (points to `./claude-harness`)
+- `commands/` - Harness command definitions (markdown, served from plugin cache)
+- `hooks/` - Session hooks (9 registrations, extensionless scripts with `run-hook.cmd` polyglot wrapper)
+- `schemas/` - Canonical JSON Schema files for state file validation
+- `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
+- `.claude-plugin/plugin.json` - Plugin manifest (single version source of truth)
+- Marketplace lives in separate repo: `panayiotism/claude-harness-marketplace`
 
 ## Development Rules
 - Work on ONE feature at a time
 - Always update `.claude-harness/claude-progress.json` after completing work
-- Update version in both `.claude-plugin/plugin.json` and `claude-harness/.claude-plugin/plugin.json` for every change (these are the only version sources — `.plugin-version` is derived by setup.sh)
+- Update version in `.claude-plugin/plugin.json` for every change (single version source of truth)
 - Update changelog in `README.md`
 - Do NOT add version numbers to hook `.sh` file comments — version lives only in plugin.json
 - Commit with descriptive messages
@@ -45,7 +45,7 @@ On every session start:
 ## Schema Versioning Convention
 - The `"version"` field in JSON state files refers to the **data schema version**, not the plugin version
 - Increment schema version only when the shape of the data changes in a breaking way
-- Canonical schemas live in `claude-harness/schemas/*.schema.json` — reference these, don't embed inline examples
+- Canonical schemas live in `schemas/*.schema.json` — reference these, don't embed inline examples
 
 ## Progress Tracking
 See: `.claude-harness/claude-progress.json` and `.claude-harness/features/active.json`

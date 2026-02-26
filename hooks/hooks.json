@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' session-start",
             "timeout": 30
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-compact.sh",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' pre-compact",
             "timeout": 30
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' stop",
             "timeout": 5
           }
         ]
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.sh",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' pre-tool-use",
             "timeout": 5
           }
         ]
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.sh",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' pre-tool-use",
             "timeout": 5
           }
         ]
@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/permission-request.sh",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' permission-request",
             "timeout": 5
           }
         ]
@@ -72,7 +72,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-start.sh",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' subagent-start",
             "timeout": 5
           }
         ]
@@ -83,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/teammate-idle.sh",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' teammate-idle",
             "timeout": 30
           }
         ]
@@ -94,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/task-completed.sh",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' task-completed",
             "timeout": 60
           }
         ]

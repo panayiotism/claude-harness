@@ -63,6 +63,18 @@
     {
       "pattern": "Plugin hooks must ONLY be registered in hooks/hooks.json (plugin system) — never duplicate in .claude/settings.json or settings.local.json, which lack access to $CLAUDE_PLUGIN_ROOT",
       "source": "v5.2.1"
+    },
+    {
+      "pattern": "Use separate marketplace repo with URL-based source for proper version-keyed caching. Relative paths ('source': './subdir') cause stale cache issues because marketplace and plugin share the same git clone",
+      "source": "v10.0.0"
+    },
+    {
+      "pattern": "Hook scripts should be extensionless (e.g., 'session-start' not 'session-start.sh') with a polyglot run-hook.cmd wrapper for cross-platform support. Claude Code's Windows auto-detection prepends 'bash' to .sh files which interferes",
+      "source": "v10.0.0"
+    },
+    {
+      "pattern": "Delegate plugin updates entirely to Claude Code's native infrastructure — no custom version checking, no GitHub API calls, no cache manipulation in hooks. Single plugin.json is the version source of truth",
+      "source": "v10.0.0"
     }
   ]
 }

@@ -2,8 +2,8 @@
 # Session-start.sh Trim Tests for feature-021
 # Expected: ALL tests FAIL (RED phase)
 
-HOOKS_DIR="$(cd "$(dirname "$0")/../claude-harness/hooks" && pwd)"
-FILE="$HOOKS_DIR/session-start.sh"
+HOOKS_DIR="$(cd "$(dirname "$0")/../hooks" && pwd)"
+FILE="$HOOKS_DIR/session-start"
 PASS=0
 FAIL=0
 
@@ -19,7 +19,7 @@ echo ""
 LINE_COUNT=$(wc -l < "$FILE")
 
 # Test 1: Under 400 lines (currently 633)
-test_it "session-start.sh under 400 lines (currently $LINE_COUNT)" \
+test_it "session-start under 400 lines (currently $LINE_COUNT)" \
   '[ "$LINE_COUNT" -lt 400 ]'
 
 # Test 2: No "Opus 4.6" capabilities text (redundant - Claude knows itself)

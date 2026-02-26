@@ -25,9 +25,8 @@ This command automatically detects what needs to be done:
    - **Cleanup**: Removes stale command copies from `.claude/commands/` and legacy hooks
    - Existing project files are **NEVER overwritten** (skipped automatically)
    - `.gitignore` patterns are added if missing
-   - `.plugin-version` is written from `plugin.json`
 3. Report what was created vs what was skipped
-4. **Skip Phase 3 and Phase 4** — `setup.sh` handles both
+4. **Skip Phase 3** — `setup.sh` handles it
 
 **Fallback**: If the plugin root path is not available in the session context, fall through to Phase 1 → Phase 4 (manual setup).
 
@@ -59,17 +58,6 @@ This command automatically detects what needs to be done:
 5. Report: "✓ Updated .gitignore with harness ephemeral patterns"
 
 **DO NOT SKIP THIS PHASE** - it is required for proper harness operation.
-
-## Phase 4: Verify Plugin Version (FALLBACK — only if setup.sh unavailable)
-
-**CRITICAL**: The SessionStart hook has ALREADY written the correct plugin version to `.claude-harness/.plugin-version`. Do NOT overwrite this file with any hardcoded version.
-
-**Steps:**
-1. Read `.claude-harness/.plugin-version`
-2. If the file exists and is non-empty: Report the version. **Do NOT modify it.**
-3. If the file does NOT exist (fresh install only): Leave it — the next session start will write it automatically.
-
-**WARNING**: This command definition may be cached by Claude Code. The `.plugin-version` file is always written by the SessionStart hook directly from the plugin's `plugin.json`, so it is the authoritative source. NEVER overwrite it with a version number from these instructions.
 
 ## File Schemas
 

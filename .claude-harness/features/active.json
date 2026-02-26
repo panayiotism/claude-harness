@@ -28,7 +28,7 @@
         "typecheck": null,
         "acceptance": null
       },
-      "relatedFiles": ["claude-harness/schemas/active-features.schema.json"],
+      "relatedFiles": ["schemas/active-features.schema.json"],
       "github": {
         "issueNumber": null,
         "prNumber": null,
@@ -46,7 +46,7 @@
       "acceptanceCriteria": [
         {
           "scenario": "Fresh setup creates agentTeams config",
-          "given": "a project without .claude-harness/config.json",
+          "given": "a project without .config.json",
           "when": "setup.sh is run",
           "then": "config.json should contain agentTeams section with enabled=false and atdd section with enabled=true"
         },
@@ -65,12 +65,12 @@
       ],
       "verification": {
         "build": null,
-        "tests": "bash -n claude-harness/setup.sh",
+        "tests": "bash -n setup.sh",
         "lint": null,
         "typecheck": null,
         "acceptance": null
       },
-      "relatedFiles": ["claude-harness/setup.sh", ".claude-harness/config.json"],
+      "relatedFiles": ["setup.sh", ".config.json"],
       "github": {
         "issueNumber": null,
         "prNumber": null,
@@ -113,12 +113,12 @@
       ],
       "verification": {
         "build": null,
-        "tests": "bash -n claude-harness/hooks/teammate-idle.sh",
+        "tests": "bash -n hooks/teammate-idle",
         "lint": null,
         "typecheck": null,
         "acceptance": null
       },
-      "relatedFiles": ["claude-harness/hooks/teammate-idle.sh"],
+      "relatedFiles": ["hooks/teammate-idle"],
       "github": {
         "issueNumber": null,
         "prNumber": null,
@@ -155,12 +155,12 @@
       ],
       "verification": {
         "build": null,
-        "tests": "bash -n claude-harness/hooks/task-completed.sh",
+        "tests": "bash -n hooks/task-completed",
         "lint": null,
         "typecheck": null,
         "acceptance": null
       },
-      "relatedFiles": ["claude-harness/hooks/task-completed.sh"],
+      "relatedFiles": ["hooks/task-completed"],
       "github": {
         "issueNumber": null,
         "prNumber": null,
@@ -192,12 +192,12 @@
       ],
       "verification": {
         "build": null,
-        "tests": "bash -n claude-harness/hooks/subagent-start.sh && jq . claude-harness/hooks/hooks.json > /dev/null",
+        "tests": "bash -n hooks/subagent-start && jq . hooks/hooks.json > /dev/null",
         "lint": null,
         "typecheck": null,
         "acceptance": null
       },
-      "relatedFiles": ["claude-harness/hooks/subagent-start.sh", "claude-harness/hooks/hooks.json"],
+      "relatedFiles": ["hooks/subagent-start", "hooks/hooks.json"],
       "github": {
         "issueNumber": null,
         "prNumber": null,
@@ -241,15 +241,15 @@
       ],
       "verification": {
         "build": null,
-        "tests": "jq . claude-harness/schemas/loop-state.schema.json > /dev/null && jq . claude-harness/schemas/agents-context.schema.json > /dev/null",
+        "tests": "jq . schemas/loop-state.schema.json > /dev/null && jq . schemas/agents-context.schema.json > /dev/null",
         "lint": null,
         "typecheck": null,
         "acceptance": null
       },
       "relatedFiles": [
-        "claude-harness/commands/flow.md",
-        "claude-harness/schemas/loop-state.schema.json",
-        "claude-harness/schemas/agents-context.schema.json"
+        "commands/flow.md",
+        "schemas/loop-state.schema.json",
+        "schemas/agents-context.schema.json"
       ],
       "github": {
         "issueNumber": null,
@@ -262,7 +262,7 @@
     {
       "id": "feature-007",
       "name": "Update supporting commands, schemas, docs, version bump to 9.0.0",
-      "description": "Update checkpoint.md (team state cleanup), start.md (team state display), prd-breakdown.md (structured Gherkin output). Bump version to 9.0.0 in both plugin.json files. Update CLAUDE.md and README.md.",
+      "description": "Update checkpoint.md (team state cleanup), start.md (team state display), prd-breakdown.md (structured Gherkin output). Bump version in plugin.json. Update CLAUDE.md and README.md.",
       "priority": 4,
       "status": "pending",
       "dependencies": ["feature-006"],
@@ -294,16 +294,15 @@
       ],
       "verification": {
         "build": null,
-        "tests": "jq -r .version claude-harness/.claude-plugin/plugin.json && jq -r .version .claude-plugin/plugin.json",
+        "tests": "jq -r .version .claude-plugin/plugin.json",
         "lint": null,
         "typecheck": null,
         "acceptance": null
       },
       "relatedFiles": [
-        "claude-harness/commands/checkpoint.md",
-        "claude-harness/commands/start.md",
-        "claude-harness/commands/prd-breakdown.md",
-        "claude-harness/.claude-plugin/plugin.json",
+        "commands/checkpoint.md",
+        "commands/start.md",
+        "commands/prd-breakdown.md",
         ".claude-plugin/plugin.json",
         "CLAUDE.md",
         "README.md"
