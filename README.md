@@ -673,6 +673,13 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### v10.1.0 (2026-02-27) - Reduce plugin footprint and improve update reliability
+
+- **Reduced plugin footprint by 50%**: Removed 31 project-specific state files from git tracking (`.claude-harness/memory/`, `features/`, `plans/`, `impact/`, `agents/`, `prd/`, `tests/`, `RELEASES/`). Plugin now ships 31 tracked files, down from 62. Reduces git clone size and avoids ENAMETOOLONG edge cases during `claude plugin update`.
+- **Stale cache detection**: Session-start hook now checks GitHub for the latest version (cached 24h, 3s timeout). Displays update banner and instructions when the plugin is outdated, including ENAMETOOLONG workaround.
+- **Git cleanup**: Pruned 8 stale remote branches and 20 old tags (v1.x-v3.x) to reduce clone object count.
+- **Updated .gitignore**: Added comprehensive exclusion patterns for project-specific state files that should never be part of the plugin package.
+
 ### v10.0.4 (2026-02-27) - Harden hook JSON parsing and error handling
 
 - **Fix: PreToolUse:Bash hook errors**: Replaced fragile `grep -o "[^"]*"` JSON parsing with `jq` in `pre-tool-use`, `permission-request`, and `pre-compact` hooks. The grep patterns broke on commands containing escaped quotes (e.g., `git commit -m "feat: something"`), causing hook errors in Claude Code.
