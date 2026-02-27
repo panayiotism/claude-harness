@@ -675,10 +675,13 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ### v10.2.0 (2026-02-27) - Seamless native plugin updates
 
-- **Seamless updates**: Removed `.claude-harness/config.json` and `.claude-harness/init.sh` from git tracking. These runtime files (created by `setup.sh`) were the last non-plugin files in the repo, eliminating the `.claude-harness/` directory from the plugin cache. `claude plugin update claude-harness` now works without manual cache cleanup.
-- **Removed obsolete ENAMETOOLONG workaround**: The recursion cleanup in session-start hook was a workaround for a Claude Code bug fixed in v2.0.44. Removed since all supported Claude Code versions include the fix.
-- **Simplified update messaging**: Removed `rm -rf` fallback from update notification. Updates now direct users to the native `/plugin update claude-harness` command.
-- **Cleaned up .gitignore**: Replaced 12 individual `.claude-harness/` subdirectory exclusions with a single blanket `.claude-harness/` ignore.
+- **Monorepo marketplace**: Switched from git-URL-based plugin source to embedded local plugin in the marketplace repo. Claude Code now copies plugin files flat instead of git-cloning, eliminating the ENAMETOOLONG recursive cache nesting bug ([#19742](https://github.com/anthropics/claude-code/issues/19742)).
+- **Automated marketplace sync**: Added GitHub Action (`.github/workflows/sync-marketplace.yml`) that automatically syncs plugin files to the marketplace repo on every version bump. No more manual marketplace updates.
+- **Removed tracked runtime files**: Untracked `.claude-harness/config.json` and `.claude-harness/init.sh` from git (created by `setup.sh` at runtime). Plugin cache no longer contains `.claude-harness/` directory.
+- **Removed ENAMETOOLONG workaround**: The session-start recursion cleanup is no longer needed with the monorepo approach.
+- **Simplified update messaging**: Updates now direct users to the native `/plugin update claude-harness` command.
+- **Cleaned up .gitignore**: Replaced 12 individual exclusions with a single blanket `.claude-harness/` ignore.
+- **Transition note**: Existing users with corrupted caches need a one-time `rm -rf ~/.claude/plugins/cache/claude-harness/ && claude plugin install claude-harness@claude-harness`. All future updates work seamlessly.
 
 ### v10.1.0 (2026-02-27) - Reduce plugin footprint and improve update reliability
 

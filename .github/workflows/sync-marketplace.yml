@@ -1,0 +1,53 @@
+name: Sync to Marketplace
+
+on:
+  push:
+    branches: [main]
+    paths: ['.claude-plugin/plugin.json']
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+
+      - name: Checkout marketplace repo
+        uses: actions/checkout@v4
+        with:
+          repository: panayiotism/claude-harness-marketplace
+          path: marketplace
+          token: ${{ secrets.MARKETPLACE_PAT }}
+
+      - name: Extract version
+        id: version
+        run: echo "version=$(jq -r .version .claude-plugin/plugin.json)" >> $GITHUB_OUTPUT
+
+      - name: Sync plugin files
+        run: |
+          rm -rf marketplace/plugins/claude-harness
+          mkdir -p marketplace/plugins/claude-harness
+          rsync -av \
+            --exclude='.git' \
+            --exclude='tests/' \
+            --exclude='RELEASES/' \
+            --exclude='.claude-harness/' \
+            --exclude='.github/' \
+            ./ marketplace/plugins/claude-harness/
+
+      - name: Update marketplace.json version
+        run: |
+          cd marketplace
+          jq --arg v "${{ steps.version.outputs.version }}" \
+            '.plugins[0].version = $v' .claude-plugin/marketplace.json > tmp.json
+          mv tmp.json .claude-plugin/marketplace.json
+
+      - name: Commit and push
+        run: |
+          cd marketplace
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || \
+            git commit -m "sync: claude-harness v${{ steps.version.outputs.version }}"
+          git push
