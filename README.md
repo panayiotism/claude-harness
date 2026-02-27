@@ -659,33 +659,27 @@ claude mcp add github -s user
 ## Updating
 
 ```bash
-# Refresh the marketplace cache, then update the plugin
-claude plugin marketplace update claude-harness
 claude plugin update claude-harness@claude-harness
 ```
-
-Both steps are required — `plugin update` checks a local cache that doesn't auto-refresh.
-
-> **Important**: The full `claude-harness@claude-harness` identifier is required. `claude plugin update claude-harness` (without `@marketplace`) will fail with "not found".
 
 Or from inside a Claude Code session:
 
 ```
-/plugin marketplace update claude-harness
 /plugin update claude-harness@claude-harness
 ```
+
+> **Note**: The full `claude-harness@claude-harness` identifier is required. `claude plugin update claude-harness` (without `@claude-harness`) will fail with "not found".
+
+Updates are tracked by git commit SHA (same mechanism as official Anthropic plugins), so any change pushed to the marketplace repo is automatically detectable.
 
 ## Troubleshooting
 
 ### Plugin Update Not Detected
 
-Claude Code caches marketplace data locally and doesn't always refresh it before checking for updates. If `plugin update` says "already at latest" but you know a newer version exists:
+Force-refresh the marketplace cache, then update:
 
 ```bash
-# Step 1: Force-refresh the marketplace cache
 claude plugin marketplace update claude-harness
-
-# Step 2: Now update the plugin (uses refreshed cache)
 claude plugin update claude-harness@claude-harness
 ```
 
@@ -702,6 +696,12 @@ claude plugin install claude-harness@claude-harness
 Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
+
+### 2026-02-27 - SHA-based update detection
+
+- **Dropped semver from plugin.json and marketplace.json**: Updates are now tracked by git commit SHA, matching the pattern used by official Anthropic plugins. This eliminates stale-cache version detection issues — any push to the marketplace repo is automatically detectable by `claude plugin update`.
+- **Broadened GitHub Actions sync trigger**: Workflow now triggers on changes to any plugin file (commands, hooks, schemas, setup.sh, etc.), not just plugin.json version bumps.
+- **Simplified update flow**: Users now only need `claude plugin update claude-harness@claude-harness` — no separate marketplace refresh step required.
 
 ### v10.2.0 (2026-02-27) - Seamless native plugin updates
 

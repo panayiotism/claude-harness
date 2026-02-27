@@ -1,7 +1,6 @@
 {
   "name": "claude-harness",
   "description": "Long-running agent harness with 5-layer memory architecture, GitHub integration, autonomous batch processing, Agent Teams with ATDD, 9 hooks (safety, quality gates, team coordination), and 6 commands",
-  "version": "10.2.2",
   "author": {
     "name": "panayiotis"
   }

@@ -21,16 +21,14 @@ On every session start:
 - `hooks/` - Session hooks (9 registrations, extensionless scripts with `run-hook.cmd` polyglot wrapper)
 - `schemas/` - Canonical JSON Schema files for state file validation
 - `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
-- `.claude-plugin/plugin.json` - Plugin manifest (single version source of truth)
+- `.claude-plugin/plugin.json` - Plugin manifest
 - Marketplace lives in separate repo: `panayiotism/claude-harness-marketplace`
+- Updates tracked by git commit SHA (no semver in plugin.json) — GitHub Actions syncs to marketplace on every push
 
 ## Development Rules
 - Work on ONE feature at a time
 - Always update `.claude-harness/claude-progress.json` after completing work
-- Update version in `.claude-plugin/plugin.json` for every change (single version source of truth)
-- **MANDATORY**: Also bump the version in the marketplace repo (`panayiotism/claude-harness-marketplace`) — the marketplace `plugin.json` must always match this repo's version. Without this, users won't see the update.
 - Update changelog in `README.md`
-- Do NOT add version numbers to hook `.sh` file comments — version lives only in plugin.json
 - Commit with descriptive messages
 - Leave codebase in clean, working state
 
@@ -50,7 +48,5 @@ On every session start:
 
 ## Progress Tracking
 See: `.claude-harness/claude-progress.json` and `.claude-harness/features/active.json`
-
-ALWAYS bump the version in all occurances after code change according to significanse following the semver
 
 https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
