@@ -15,6 +15,12 @@ if [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -d "$CLAUDE_PLUGIN_ROOT" ]; then
     fi
 fi
 
+# --- Auto-run setup.sh for migrations and updates ---
+# Only runs when harness is already initialized (guard on line 5 ensures this).
+# setup.sh is idempotent: create_file skips existing files, migrations are no-op if done.
+# Output suppressed — hook status box will reflect the updated state.
+bash "$CLAUDE_PLUGIN_ROOT/setup.sh" >/dev/null 2>&1 || true
+
 # --- Reusable box formatting ---
 build_box() {
     local TOP="┌─────────────────────────────────────────────────────────────────┐"

@@ -673,6 +673,10 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### v10.0.3 (2026-02-27) - Auto-run setup on session start
+
+- **Auto-migrations on session start**: `setup.sh` now runs automatically from the SessionStart hook when `.claude-harness/` already exists. This applies migrations, creates missing state files, and cleans up legacy artifacts transparently — no need to re-run `/claude-harness:setup` after plugin updates. First-time setup still requires explicit `/claude-harness:setup`.
+
 ### v10.0.2 (2026-02-27) - Plugin Cache Recursion Workaround
 
 - **Fix: ENAMETOOLONG on plugin update**: Added self-healing cleanup to session-start hook that detects and removes recursive directory nesting in Claude Code's plugin cache. Works around [anthropics/claude-code#19742](https://github.com/anthropics/claude-code/issues/19742) where the cache system infinitely nests the plugin inside its own cache directory until the filesystem path limit is exceeded.
