@@ -2,22 +2,9 @@
 *.log
 .DS_Store
 
-# Claude Harness - Project-specific state (not part of plugin)
-# Only .claude-harness/init.sh and .claude-harness/config.json are tracked
-.claude-harness/memory/
-.claude-harness/features/
-.claude-harness/plans/
-.claude-harness/impact/
-.claude-harness/agents/
-.claude-harness/prd/
-.claude-harness/sessions/
-.claude-harness/claude-progress.json
-.claude-harness/working-context.json
-.claude-harness/agent-context.json
-.claude-harness/agent-memory.json
+# Claude Harness - Project-specific state (created by setup.sh at runtime, not part of plugin)
+.claude-harness/
 
 # Dev-only files (not part of plugin)
 tests/
 RELEASES/
-
-# Claude Code - Local settings

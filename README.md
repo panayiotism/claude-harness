@@ -673,10 +673,20 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### v10.2.0 (2026-02-27) - Seamless native plugin updates
+
+- **Monorepo marketplace**: Switched from git-URL-based plugin source to embedded local plugin in the marketplace repo. Claude Code now copies plugin files flat instead of git-cloning, eliminating the ENAMETOOLONG recursive cache nesting bug ([#19742](https://github.com/anthropics/claude-code/issues/19742)).
+- **Automated marketplace sync**: Added GitHub Action (`.github/workflows/sync-marketplace.yml`) that automatically syncs plugin files to the marketplace repo on every version bump. No more manual marketplace updates.
+- **Removed tracked runtime files**: Untracked `.claude-harness/config.json` and `.claude-harness/init.sh` from git (created by `setup.sh` at runtime). Plugin cache no longer contains `.claude-harness/` directory.
+- **Removed ENAMETOOLONG workaround**: The session-start recursion cleanup is no longer needed with the monorepo approach.
+- **Simplified update messaging**: Updates now direct users to the native `/plugin update claude-harness` command.
+- **Cleaned up .gitignore**: Replaced 12 individual exclusions with a single blanket `.claude-harness/` ignore.
+- **Transition note**: Existing users with corrupted caches need a one-time `rm -rf ~/.claude/plugins/cache/claude-harness/ && claude plugin install claude-harness@claude-harness`. All future updates work seamlessly.
+
 ### v10.1.0 (2026-02-27) - Reduce plugin footprint and improve update reliability
 
 - **Reduced plugin footprint by 50%**: Removed 31 project-specific state files from git tracking (`.claude-harness/memory/`, `features/`, `plans/`, `impact/`, `agents/`, `prd/`, `tests/`, `RELEASES/`). Plugin now ships 31 tracked files, down from 62. Reduces git clone size and avoids ENAMETOOLONG edge cases during `claude plugin update`.
-- **Stale cache detection**: Session-start hook now checks GitHub for the latest version (cached 24h, 3s timeout). Displays update banner and instructions when the plugin is outdated, including ENAMETOOLONG workaround.
+- **Stale cache detection**: Session-start hook now checks GitHub for the latest version (cached 24h, 3s timeout). Displays update banner when the plugin is outdated.
 - **Git cleanup**: Pruned 8 stale remote branches and 20 old tags (v1.x-v3.x) to reduce clone object count.
 - **Updated .gitignore**: Added comprehensive exclusion patterns for project-specific state files that should never be part of the plugin package.
 
