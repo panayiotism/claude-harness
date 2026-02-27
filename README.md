@@ -673,6 +673,10 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### v10.0.2 (2026-02-27) - Plugin Cache Recursion Workaround
+
+- **Fix: ENAMETOOLONG on plugin update**: Added self-healing cleanup to session-start hook that detects and removes recursive directory nesting in Claude Code's plugin cache. Works around [anthropics/claude-code#19742](https://github.com/anthropics/claude-code/issues/19742) where the cache system infinitely nests the plugin inside its own cache directory until the filesystem path limit is exceeded.
+
 ### v10.0.1 (2026-02-27) - Autonomous Archival & Branch Cleanup Fix
 
 - **Fix: Features not archived in autonomous mode**: Added `ARCHIVE_FILE` path variable to autonomous wrapper (Phase A.1), explicit archival instructions to the subagent prompt (Phase A.4.0 step 9), and detailed step-by-step archival procedure with verification in the orchestrator (Phase A.5 step 22)

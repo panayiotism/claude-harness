@@ -4,6 +4,17 @@
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 [ ! -d "$HARNESS_DIR" ] && exit 0
 
+# --- Plugin cache recursion cleanup (Claude Code cache bug workaround) ---
+# Claude Code's plugin caching can recursively nest the plugin inside its own
+# cache directory, creating infinite depth until ENAMETOOLONG. Clean up on each
+# session start to prevent disk bloat. See: github.com/anthropics/claude-code/issues/19742
+if [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -d "$CLAUDE_PLUGIN_ROOT" ]; then
+    PLUGIN_NAME=$(basename "$(dirname "$CLAUDE_PLUGIN_ROOT")")
+    if [ -d "$CLAUDE_PLUGIN_ROOT/$PLUGIN_NAME" ]; then
+        rm -rf "$CLAUDE_PLUGIN_ROOT/$PLUGIN_NAME" 2>/dev/null
+    fi
+fi
+
 # --- Reusable box formatting ---
 build_box() {
     local TOP="┌─────────────────────────────────────────────────────────────────┐"
