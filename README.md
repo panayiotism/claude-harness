@@ -656,20 +656,50 @@ claude mcp add github -s user
 }
 ```
 
-## Troubleshooting
-
-### Stuck on Old Plugin Version
-
-If updates are not being picked up:
+## Updating
 
 ```bash
-claude plugin uninstall claude-harness
+# Refresh the marketplace cache, then update the plugin
+claude plugin marketplace update claude-harness
+claude plugin update claude-harness@claude-harness
+```
+
+Both steps are required — `plugin update` checks a local cache that doesn't auto-refresh.
+
+> **Important**: The full `claude-harness@claude-harness` identifier is required. `claude plugin update claude-harness` (without `@marketplace`) will fail with "not found".
+
+Or from inside a Claude Code session:
+
+```
+/plugin marketplace update claude-harness
+/plugin update claude-harness@claude-harness
+```
+
+## Troubleshooting
+
+### Plugin Update Not Detected
+
+Claude Code caches marketplace data locally and doesn't always refresh it before checking for updates. If `plugin update` says "already at latest" but you know a newer version exists:
+
+```bash
+# Step 1: Force-refresh the marketplace cache
+claude plugin marketplace update claude-harness
+
+# Step 2: Now update the plugin (uses refreshed cache)
+claude plugin update claude-harness@claude-harness
+```
+
+### Clean Reinstall
+
+If the plugin is in a broken state:
+
+```bash
+claude plugin uninstall claude-harness@claude-harness
+claude plugin marketplace update claude-harness
 claude plugin install claude-harness@claude-harness
 ```
 
 Then restart Claude Code and run `/claude-harness:setup`.
-
-**Note**: v10.0.0+ uses a separate marketplace repo with URL-based source, which enables Claude Code's native version-keyed caching. This eliminates the stale cache issues from earlier versions.
 
 ## Changelog
 
