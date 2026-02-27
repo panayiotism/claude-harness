@@ -673,10 +673,17 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### v10.2.0 (2026-02-27) - Seamless native plugin updates
+
+- **Seamless updates**: Removed `.claude-harness/config.json` and `.claude-harness/init.sh` from git tracking. These runtime files (created by `setup.sh`) were the last non-plugin files in the repo, eliminating the `.claude-harness/` directory from the plugin cache. `claude plugin update claude-harness` now works without manual cache cleanup.
+- **Removed obsolete ENAMETOOLONG workaround**: The recursion cleanup in session-start hook was a workaround for a Claude Code bug fixed in v2.0.44. Removed since all supported Claude Code versions include the fix.
+- **Simplified update messaging**: Removed `rm -rf` fallback from update notification. Updates now direct users to the native `/plugin update claude-harness` command.
+- **Cleaned up .gitignore**: Replaced 12 individual `.claude-harness/` subdirectory exclusions with a single blanket `.claude-harness/` ignore.
+
 ### v10.1.0 (2026-02-27) - Reduce plugin footprint and improve update reliability
 
 - **Reduced plugin footprint by 50%**: Removed 31 project-specific state files from git tracking (`.claude-harness/memory/`, `features/`, `plans/`, `impact/`, `agents/`, `prd/`, `tests/`, `RELEASES/`). Plugin now ships 31 tracked files, down from 62. Reduces git clone size and avoids ENAMETOOLONG edge cases during `claude plugin update`.
-- **Stale cache detection**: Session-start hook now checks GitHub for the latest version (cached 24h, 3s timeout). Displays update banner and instructions when the plugin is outdated, including ENAMETOOLONG workaround.
+- **Stale cache detection**: Session-start hook now checks GitHub for the latest version (cached 24h, 3s timeout). Displays update banner when the plugin is outdated.
 - **Git cleanup**: Pruned 8 stale remote branches and 20 old tags (v1.x-v3.x) to reduce clone object count.
 - **Updated .gitignore**: Added comprehensive exclusion patterns for project-specific state files that should never be part of the plugin package.
 
