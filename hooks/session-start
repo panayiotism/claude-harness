@@ -2,10 +2,21 @@
 # Claude Harness SessionStart Hook
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
-[ ! -d "$HARNESS_DIR" ] && exit 0
+
+# --- First-time detection: suggest setup if harness not initialized ---
+if [ ! -d "$HARNESS_DIR" ]; then
+    USER_MSG="Claude Harness is not initialized in this project. Run /claude-harness:setup to get started."
+    USER_MSG_ESCAPED=$(echo "$USER_MSG" | sed 's/"/\\"/g')
+    cat << EOF
+{
+  "continue": true,
+  "systemMessage": "$USER_MSG_ESCAPED"
+}
+EOF
+    exit 0
+fi
 
 # --- Auto-run setup.sh for migrations and updates ---
-# Only runs when harness is already initialized (guard on line 5 ensures this).
 # setup.sh is idempotent: create_file skips existing files, migrations are no-op if done.
 # Output suppressed — hook status box will reflect the updated state.
 bash "$CLAUDE_PLUGIN_ROOT/setup.sh" >/dev/null 2>&1 || true
