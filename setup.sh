@@ -28,9 +28,9 @@ case "$1" in
         ;;
 esac
 
-# Extract plugin version from plugin.json (single source of truth)
+# Extract plugin identity from git SHA (version field removed in favor of SHA-based tracking)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_VERSION=$(grep '"version"' "$SCRIPT_DIR/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/' || echo "4.2.0")
+PLUGIN_VERSION=$(cd "$SCRIPT_DIR" && git rev-parse --short HEAD 2>/dev/null || basename "$SCRIPT_DIR" | cut -c1-12)
 
 echo "=== Claude Code Agent Harness Setup v${PLUGIN_VERSION} ==="
 echo ""

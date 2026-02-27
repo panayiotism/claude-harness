@@ -76,37 +76,11 @@ INTEOF
     done
 fi
 
-# --- Version & update check ---
-PLUGIN_VERSION=$(grep '"version"' "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/')
+# --- Version (SHA-based) ---
+PLUGIN_VERSION=$(cd "$CLAUDE_PLUGIN_ROOT" && git rev-parse --short HEAD 2>/dev/null || basename "$CLAUDE_PLUGIN_ROOT" | cut -c1-12)
 
-# Lightweight GitHub version check (cached 24h, non-blocking)
-UPDATE_AVAILABLE=""
-UPDATE_VERSION=""
-VERSION_CACHE="$HARNESS_DIR/sessions/.version-cache"
-CACHE_MAX_AGE=86400  # 24 hours
-if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
-    CACHE_VALID=false
-    if [ -f "$VERSION_CACHE" ]; then
-        CACHE_AGE=$(( $(date +%s) - $(stat -c %Y "$VERSION_CACHE" 2>/dev/null || echo 0) ))
-        [ "$CACHE_AGE" -lt "$CACHE_MAX_AGE" ] && CACHE_VALID=true
-    fi
-    if [ "$CACHE_VALID" = true ]; then
-        LATEST_VERSION=$(cat "$VERSION_CACHE" 2>/dev/null)
-    else
-        # Quick API check with 3s timeout - fail silently on network error
-        LATEST_VERSION=$(curl -sf --max-time 3 \
-            "https://raw.githubusercontent.com/$GITHUB_OWNER/$GITHUB_REPO/main/.claude-plugin/plugin.json" 2>/dev/null \
-            | grep '"version"' | sed 's/.*: *"\([^"]*\)".*/\1/')
-        if [ -n "$LATEST_VERSION" ]; then
-            mkdir -p "$(dirname "$VERSION_CACHE")"
-            echo "$LATEST_VERSION" > "$VERSION_CACHE"
-        fi
-    fi
-    if [ -n "$LATEST_VERSION" ] && [ "$LATEST_VERSION" != "$PLUGIN_VERSION" ]; then
-        UPDATE_AVAILABLE="true"
-        UPDATE_VERSION="$LATEST_VERSION"
-    fi
-fi
+# Update detection is handled natively by Claude Code via SHA comparison.
+# No custom version check needed — `claude plugin update` handles it.
 
 # --- Memory status ---
 
@@ -182,9 +156,6 @@ if [ -n "$LOOP_LINE" ]; then
 fi
 BOX_LINES+=("---" "$STATUS_LINE")
 [ "$IS_V3" = true ] && BOX_LINES+=("Memory: $EPISODIC_COUNT decisions | $FAILURES_COUNT failures | $RULES_COUNT rules")
-if [ "$UPDATE_AVAILABLE" = "true" ]; then
-    BOX_LINES+=("---" "UPDATE: v$UPDATE_VERSION available (current: v$PLUGIN_VERSION)" "Run: claude plugin update claude-harness")
-fi
 BOX_LINES+=("---" "/claude-harness:flow        Unified workflow (recommended)" "Flags: --no-merge --plan-only --autonomous --quick --fix")
 
 USER_MSG=$(build_box "${BOX_LINES[@]}")
@@ -222,11 +193,6 @@ fi
 [ -n "$ORCH_FEATURE" ] && [ "$ORCH_FEATURE" != "null" ] && [ "$ORCH_PHASE" != "completed" ] && \
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTIVE ORCHESTRATION:\nFeature: $ORCH_FEATURE\nPhase: $ORCH_PHASE"
 [ -n "$LAST_SUMMARY" ] && CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nLast session: $LAST_SUMMARY"
-if [ "$UPDATE_AVAILABLE" = "true" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** PLUGIN UPDATE AVAILABLE ***"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nInstalled: v$PLUGIN_VERSION | Latest: v$UPDATE_VERSION"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nUpdate: /plugin update claude-harness"
-fi
 CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
 
 # --- Output JSON ---
