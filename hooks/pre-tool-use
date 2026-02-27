@@ -5,6 +5,9 @@
 # Exit 0 with permissionDecision: "deny" = block the tool call
 # Exit 0 with no decision = allow
 
+# Safety net: ensure hook NEVER exits non-zero (which causes "hook error" in Claude Code)
+trap 'exit 0' ERR
+
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
 # Skip if not a harness project
@@ -15,20 +18,29 @@ fi
 # Read stdin JSON
 INPUT=$(cat)
 
-TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+# Parse JSON with jq (reliable) or grep fallback
+if command -v jq >/dev/null 2>&1; then
+    TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null) || TOOL_NAME=""
+else
+    TOOL_NAME=$(printf '%s' "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || TOOL_NAME=""
+fi
 
 # ============================================================================
 # BASH TOOL — Block dangerous git commands and state destruction
 # ============================================================================
 
 if [ "$TOOL_NAME" = "Bash" ]; then
-    COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    if command -v jq >/dev/null 2>&1; then
+        COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null) || COMMAND=""
+    else
+        COMMAND=$(printf '%s' "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || COMMAND=""
+    fi
 
     DENY_REASON=""
 
     # Block checkout to main/master ONLY if an active loop is in progress
     # (autonomous flow legitimately checks out main between features)
-    if echo "$COMMAND" | grep -qE 'git\s+checkout\s+(main|master)\b'; then
+    if printf '%s' "$COMMAND" | grep -qE 'git\s+checkout\s+(main|master)\b'; then
         SESSIONS_DIR="$HARNESS_DIR/sessions"
         if [ -d "$SESSIONS_DIR" ]; then
             for sd in "$SESSIONS_DIR"/*/; do
@@ -36,8 +48,12 @@ if [ "$TOOL_NAME" = "Bash" ]; then
                 [ "$(basename "$sd")" = ".recovery" ] && continue
                 lf="$sd/loop-state.json"
                 [ -f "$lf" ] || continue
-                ls=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-                if [ "$ls" = "in_progress" ]; then
+                if command -v jq >/dev/null 2>&1; then
+                    ls_val=$(jq -r '.status // empty' "$lf" 2>/dev/null) || ls_val=""
+                else
+                    ls_val=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || ls_val=""
+                fi
+                if [ "$ls_val" = "in_progress" ]; then
                     DENY_REASON="BLOCKED: git checkout main/master while a feature loop is in progress. Stay on your feature branch."
                     break
                 fi
@@ -46,45 +62,58 @@ if [ "$TOOL_NAME" = "Bash" ]; then
     fi
 
     # Block force push
-    if echo "$COMMAND" | grep -qE 'git\s+push\s+.*--force'; then
+    if printf '%s' "$COMMAND" | grep -qE 'git\s+push\s+.*--force'; then
         DENY_REASON="BLOCKED: git push --force is destructive. Use normal push or ask the user."
     fi
 
     # Block reset --hard
-    if echo "$COMMAND" | grep -qE 'git\s+reset\s+--hard'; then
+    if printf '%s' "$COMMAND" | grep -qE 'git\s+reset\s+--hard'; then
         DENY_REASON="BLOCKED: git reset --hard discards changes. Use git stash or ask the user."
     fi
 
     # Block clean -f
-    if echo "$COMMAND" | grep -qE 'git\s+clean\s+-[a-zA-Z]*f'; then
+    if printf '%s' "$COMMAND" | grep -qE 'git\s+clean\s+-[a-zA-Z]*f'; then
         DENY_REASON="BLOCKED: git clean -f deletes untracked files permanently. Ask the user."
     fi
 
     # Block direct push to main
-    if echo "$COMMAND" | grep -qE 'git\s+push\s+origin\s+(main|master)\b'; then
+    if printf '%s' "$COMMAND" | grep -qE 'git\s+push\s+origin\s+(main|master)\b'; then
         DENY_REASON="BLOCKED: Direct push to main/master. Use a PR workflow instead."
     fi
 
     # Block rm -rf of harness state
-    if echo "$COMMAND" | grep -qE 'rm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+.*\.claude-harness'; then
+    if printf '%s' "$COMMAND" | grep -qE 'rm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+.*\.claude-harness'; then
         DENY_REASON="BLOCKED: Deleting .claude-harness would destroy all session state and memory."
     fi
 
     # Block branch -D (force delete)
-    if echo "$COMMAND" | grep -qE 'git\s+branch\s+-D\b'; then
+    if printf '%s' "$COMMAND" | grep -qE 'git\s+branch\s+-D\b'; then
         DENY_REASON="BLOCKED: git branch -D force-deletes a branch. Use -d for safe delete or ask the user."
     fi
 
     if [ -n "$DENY_REASON" ]; then
-        cat << EOF
+        # Use jq for safe JSON output if available
+        if command -v jq >/dev/null 2>&1; then
+            jq -n --arg reason "$DENY_REASON" '{
+                hookSpecificOutput: {
+                    hookEventName: "PreToolUse",
+                    permissionDecision: "deny",
+                    permissionDecisionReason: $reason
+                }
+            }'
+        else
+            # Escape quotes in deny reason for JSON safety
+            SAFE_REASON=$(printf '%s' "$DENY_REASON" | sed 's/"/\\"/g')
+            cat << EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
-    "permissionDecisionReason": "$DENY_REASON"
+    "permissionDecisionReason": "$SAFE_REASON"
   }
 }
 EOF
+        fi
         exit 0
     fi
 fi
@@ -94,7 +123,11 @@ fi
 # ============================================================================
 
 if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ]; then
-    FILE_PATH=$(echo "$INPUT" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    if command -v jq >/dev/null 2>&1; then
+        FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null) || FILE_PATH=""
+    else
+        FILE_PATH=$(printf '%s' "$INPUT" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || FILE_PATH=""
+    fi
 
     DENY_REASON=""
 
@@ -102,20 +135,31 @@ if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ]; then
     # Note: loop-state.json and active.json are NOT blocked here because /flow
     # legitimately writes these files using Write/Edit tools. The hook cannot
     # distinguish between /flow state management and accidental writes.
-    if echo "$FILE_PATH" | grep -qE 'hooks/(hooks\.json|run-hook\.cmd|session-start|pre-compact|stop|pre-tool-use|permission-request|subagent-start|teammate-idle|task-completed)$'; then
+    if printf '%s' "$FILE_PATH" | grep -qE 'hooks/(hooks\.json|run-hook\.cmd|session-start|pre-compact|stop|pre-tool-use|permission-request|subagent-start|teammate-idle|task-completed)$'; then
         DENY_REASON="BLOCKED: Hook files are managed by the harness plugin. Do not self-modify."
     fi
 
     if [ -n "$DENY_REASON" ]; then
-        cat << EOF
+        if command -v jq >/dev/null 2>&1; then
+            jq -n --arg reason "$DENY_REASON" '{
+                hookSpecificOutput: {
+                    hookEventName: "PreToolUse",
+                    permissionDecision: "deny",
+                    permissionDecisionReason: $reason
+                }
+            }'
+        else
+            SAFE_REASON=$(printf '%s' "$DENY_REASON" | sed 's/"/\\"/g')
+            cat << EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
-    "permissionDecisionReason": "$DENY_REASON"
+    "permissionDecisionReason": "$SAFE_REASON"
   }
 }
 EOF
+        fi
         exit 0
     fi
 fi

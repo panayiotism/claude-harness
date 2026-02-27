@@ -673,6 +673,13 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### v10.0.4 (2026-02-27) - Harden hook JSON parsing and error handling
+
+- **Fix: PreToolUse:Bash hook errors**: Replaced fragile `grep -o "[^"]*"` JSON parsing with `jq` in `pre-tool-use`, `permission-request`, and `pre-compact` hooks. The grep patterns broke on commands containing escaped quotes (e.g., `git commit -m "feat: something"`), causing hook errors in Claude Code.
+- **Fix: Pre-compact invalid JSON**: The `pre-compact` hook generated invalid JSON (`"loopState": ,`) when state variables were empty. Now defaults to `null` and uses `jq` for safe JSON construction.
+- **Safety net**: Added `trap 'exit 0' ERR` to all three hooks, ensuring they never exit non-zero (which triggers "hook error" in Claude Code). Hooks should always allow tool calls on unexpected errors rather than blocking.
+- **Consistency**: Replaced all `echo "$VAR"` with `printf '%s' "$VAR"` to avoid escape sequence interpretation issues.
+
 ### v10.0.3 (2026-02-27) - Auto-run setup on session start
 
 - **Auto-migrations on session start**: `setup.sh` now runs automatically from the SessionStart hook when `.claude-harness/` already exists. This applies migrations, creates missing state files, and cleans up legacy artifacts transparently — no need to re-run `/claude-harness:setup` after plugin updates. First-time setup still requires explicit `/claude-harness:setup`.

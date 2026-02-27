@@ -3,6 +3,9 @@
 # Saves critical state before context compaction to prevent data loss
 # This is a safety net - ideally users run /claude-harness:checkpoint then /clear
 
+# Safety net: ensure hook NEVER exits non-zero
+trap 'exit 0' ERR
+
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
 # Skip if not a harness project
@@ -24,42 +27,75 @@ mkdir -p "$BACKUP_DIR"
 # Generate backup filename with timestamp
 BACKUP_FILE="$BACKUP_DIR/pre-compact-$(date +%Y%m%d-%H%M%S).json"
 
-# Gather current state
-LOOP_STATE=""
+# Gather current state (default to null for valid JSON)
+LOOP_STATE="null"
 if [ -f "$HARNESS_DIR/loops/state.json" ]; then
-    LOOP_STATE=$(cat "$HARNESS_DIR/loops/state.json" 2>/dev/null)
+    # Validate JSON before embedding; fall back to null
+    if command -v jq >/dev/null 2>&1; then
+        LOOP_STATE=$(jq '.' "$HARNESS_DIR/loops/state.json" 2>/dev/null) || LOOP_STATE="null"
+    else
+        LOOP_STATE=$(cat "$HARNESS_DIR/loops/state.json" 2>/dev/null) || LOOP_STATE="null"
+    fi
 fi
 
-WORKING_CONTEXT=""
+WORKING_CONTEXT="null"
 if [ -f "$HARNESS_DIR/memory/working/context.json" ]; then
-    WORKING_CONTEXT=$(cat "$HARNESS_DIR/memory/working/context.json" 2>/dev/null)
+    if command -v jq >/dev/null 2>&1; then
+        WORKING_CONTEXT=$(jq '.' "$HARNESS_DIR/memory/working/context.json" 2>/dev/null) || WORKING_CONTEXT="null"
+    else
+        WORKING_CONTEXT=$(cat "$HARNESS_DIR/memory/working/context.json" 2>/dev/null) || WORKING_CONTEXT="null"
+    fi
 fi
 
-PROGRESS=""
+PROGRESS="null"
 if [ -f "$HARNESS_DIR/claude-progress.json" ]; then
-    PROGRESS=$(cat "$HARNESS_DIR/claude-progress.json" 2>/dev/null)
+    if command -v jq >/dev/null 2>&1; then
+        PROGRESS=$(jq '.' "$HARNESS_DIR/claude-progress.json" 2>/dev/null) || PROGRESS="null"
+    else
+        PROGRESS=$(cat "$HARNESS_DIR/claude-progress.json" 2>/dev/null) || PROGRESS="null"
+    fi
 fi
 
 # Get git status for context
 GIT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 GIT_STATUS=$(git status --porcelain 2>/dev/null | head -20)
 GIT_LAST_COMMIT=$(git log -1 --format="%h %s" 2>/dev/null || echo "unknown")
+UNCOMMITTED_COUNT=$(printf '%s' "$GIT_STATUS" | grep -c '.' 2>/dev/null || echo "0")
 
-# Create backup JSON
-cat > "$BACKUP_FILE" << BACKUP_EOF
+# Create backup JSON using jq if available for safety
+if command -v jq >/dev/null 2>&1; then
+    jq -n \
+        --arg ts "$TIMESTAMP" \
+        --arg branch "$GIT_BRANCH" \
+        --arg commit "$GIT_LAST_COMMIT" \
+        --argjson files "$UNCOMMITTED_COUNT" \
+        --argjson loop "$LOOP_STATE" \
+        --argjson working "$WORKING_CONTEXT" \
+        --argjson progress "$PROGRESS" \
+        '{
+            timestamp: $ts,
+            reason: "pre-compaction-safety-backup",
+            git: { branch: $branch, lastCommit: $commit, uncommittedFiles: $files },
+            loopState: $loop,
+            workingContext: $working,
+            progress: $progress
+        }' > "$BACKUP_FILE" 2>/dev/null
+else
+    cat > "$BACKUP_FILE" << BACKUP_EOF
 {
   "timestamp": "$TIMESTAMP",
   "reason": "pre-compaction-safety-backup",
   "git": {
     "branch": "$GIT_BRANCH",
     "lastCommit": "$GIT_LAST_COMMIT",
-    "uncommittedFiles": $(echo "$GIT_STATUS" | wc -l)
+    "uncommittedFiles": $UNCOMMITTED_COUNT
   },
   "loopState": $LOOP_STATE,
   "workingContext": $WORKING_CONTEXT,
   "progress": $PROGRESS
 }
 BACKUP_EOF
+fi
 
 # Keep only last 5 backups to avoid bloat
 ls -t "$BACKUP_DIR"/pre-compact-*.json 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null
@@ -70,12 +106,13 @@ ls -t "$BACKUP_DIR"/pre-compact-*.json 2>/dev/null | tail -n +6 | xargs rm -f 2>
 
 # Add compaction event to progress if file exists
 if [ -f "$HARNESS_DIR/claude-progress.json" ]; then
-    # Use a simple approach - just note that compaction happened
     TEMP_FILE=$(mktemp)
-    if command -v jq &> /dev/null; then
+    if command -v jq >/dev/null 2>&1; then
         jq --arg ts "$TIMESTAMP" '.lastCompaction = $ts | .compactionCount = ((.compactionCount // 0) + 1)' \
             "$HARNESS_DIR/claude-progress.json" > "$TEMP_FILE" 2>/dev/null && \
             mv "$TEMP_FILE" "$HARNESS_DIR/claude-progress.json"
+    else
+        rm -f "$TEMP_FILE"
     fi
 fi
 
@@ -102,12 +139,24 @@ After compaction, run /claude-harness:start only if context feels incomplete.
 TIP: Opus 4.6 compaction is smarter than manual /clear - it preserves task-relevant
 context automatically. Only run /checkpoint + /clear if you want a full reset."
 
-# Escape for JSON
-USER_MSG_ESCAPED=$(echo "$USER_MSG" | sed 's/"/\\"/g')
-CLAUDE_CONTEXT_ESCAPED=$(echo "$CLAUDE_CONTEXT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-
-# Output JSON response
-cat << EOF
+# Build output JSON using jq for safety
+if command -v jq >/dev/null 2>&1; then
+    jq -n \
+        --arg msg "$USER_MSG" \
+        --arg ctx "$CLAUDE_CONTEXT" \
+        '{
+            continue: true,
+            systemMessage: $msg,
+            hookSpecificOutput: {
+                hookEventName: "PreCompact",
+                additionalContext: $ctx
+            }
+        }'
+else
+    # Escape for JSON manually
+    USER_MSG_ESCAPED=$(printf '%s' "$USER_MSG" | sed 's/"/\\"/g')
+    CLAUDE_CONTEXT_ESCAPED=$(printf '%s' "$CLAUDE_CONTEXT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+    cat << EOF
 {
   "continue": true,
   "systemMessage": "$USER_MSG_ESCAPED",
@@ -117,3 +166,4 @@ cat << EOF
   }
 }
 EOF
+fi

@@ -4,6 +4,9 @@
 # No matcher — fires for all permission requests
 # No-op when not in autonomous mode
 
+# Safety net: ensure hook NEVER exits non-zero
+trap 'exit 0' ERR
+
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
 # Skip if not a harness project
@@ -38,8 +41,63 @@ fi
 
 INPUT=$(cat)
 
-TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+# Parse JSON with jq (reliable) or grep fallback
+if command -v jq >/dev/null 2>&1; then
+    TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null) || TOOL_NAME=""
+    COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null) || COMMAND=""
+else
+    TOOL_NAME=$(printf '%s' "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || TOOL_NAME=""
+    COMMAND=$(printf '%s' "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || COMMAND=""
+fi
+
+# Helper: output permission decision JSON
+emit_decision() {
+    local BEHAVIOR="$1"
+    local MESSAGE="${2:-}"
+    if command -v jq >/dev/null 2>&1; then
+        if [ -n "$MESSAGE" ]; then
+            jq -n --arg b "$BEHAVIOR" --arg m "$MESSAGE" '{
+                hookSpecificOutput: {
+                    hookEventName: "PermissionRequest",
+                    decision: { behavior: $b, message: $m }
+                }
+            }'
+        else
+            jq -n --arg b "$BEHAVIOR" '{
+                hookSpecificOutput: {
+                    hookEventName: "PermissionRequest",
+                    decision: { behavior: $b }
+                }
+            }'
+        fi
+    else
+        if [ -n "$MESSAGE" ]; then
+            SAFE_MSG=$(printf '%s' "$MESSAGE" | sed 's/"/\\"/g')
+            cat << EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionRequest",
+    "decision": {
+      "behavior": "$BEHAVIOR",
+      "message": "$SAFE_MSG"
+    }
+  }
+}
+EOF
+        else
+            cat << EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionRequest",
+    "decision": {
+      "behavior": "$BEHAVIOR"
+    }
+  }
+}
+EOF
+        fi
+    fi
+}
 
 # ============================================================================
 # DENY LIST — block even in autonomous mode
@@ -47,50 +105,20 @@ COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | 
 
 if [ "$TOOL_NAME" = "Bash" ] && [ -n "$COMMAND" ]; then
     # Force push
-    if echo "$COMMAND" | grep -qE 'git\s+push\s+.*--force'; then
-        cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": {
-      "behavior": "deny",
-      "message": "AUTONOMOUS DENY: git push --force is destructive even in autonomous mode."
-    }
-  }
-}
-EOF
+    if printf '%s' "$COMMAND" | grep -qE 'git\s+push\s+.*--force'; then
+        emit_decision "deny" "AUTONOMOUS DENY: git push --force is destructive even in autonomous mode."
         exit 0
     fi
 
     # Reset hard
-    if echo "$COMMAND" | grep -qE 'git\s+reset\s+--hard'; then
-        cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": {
-      "behavior": "deny",
-      "message": "AUTONOMOUS DENY: git reset --hard discards changes."
-    }
-  }
-}
-EOF
+    if printf '%s' "$COMMAND" | grep -qE 'git\s+reset\s+--hard'; then
+        emit_decision "deny" "AUTONOMOUS DENY: git reset --hard discards changes."
         exit 0
     fi
 
     # Broad rm -rf
-    if echo "$COMMAND" | grep -qE 'rm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+(/|~|\.\.)'; then
-        cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": {
-      "behavior": "deny",
-      "message": "AUTONOMOUS DENY: Broad rm -rf is too destructive."
-    }
-  }
-}
-EOF
+    if printf '%s' "$COMMAND" | grep -qE 'rm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+(/|~|\.\.)'; then
+        emit_decision "deny" "AUTONOMOUS DENY: Broad rm -rf is too destructive."
         exit 0
     fi
 fi
@@ -103,85 +131,65 @@ if [ "$TOOL_NAME" = "Bash" ] && [ -n "$COMMAND" ]; then
     ALLOW=false
 
     # Read-only git operations
-    if echo "$COMMAND" | grep -qE '^git\s+(status|log|diff|branch|show|rev-parse|describe|remote|fetch)\b'; then
+    if printf '%s' "$COMMAND" | grep -qE '^git\s+(status|log|diff|branch|show|rev-parse|describe|remote|fetch)\b'; then
         ALLOW=true
     fi
 
     # Safe git operations on feature branches
-    if echo "$COMMAND" | grep -qE '^git\s+(add|commit|stash)\b'; then
+    if printf '%s' "$COMMAND" | grep -qE '^git\s+(add|commit|stash)\b'; then
         ALLOW=true
     fi
 
     # Non-force, non-main push
-    if echo "$COMMAND" | grep -qE '^git\s+push\b' && \
-       ! echo "$COMMAND" | grep -qE '(--force|origin\s+(main|master)\b)'; then
+    if printf '%s' "$COMMAND" | grep -qE '^git\s+push\b' && \
+       ! printf '%s' "$COMMAND" | grep -qE '(--force|origin\s+(main|master)\b)'; then
         ALLOW=true
     fi
 
     # Test/build/lint commands from config
     CONFIG_FILE="$HARNESS_DIR/config.json"
     if [ -f "$CONFIG_FILE" ]; then
-        TEST_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('tests',''))" 2>/dev/null)
-        BUILD_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('build',''))" 2>/dev/null)
-        LINT_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('lint',''))" 2>/dev/null)
-        TC_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('typecheck',''))" 2>/dev/null)
+        if command -v jq >/dev/null 2>&1; then
+            TEST_CMD=$(jq -r '.verification.tests // empty' "$CONFIG_FILE" 2>/dev/null) || TEST_CMD=""
+            BUILD_CMD=$(jq -r '.verification.build // empty' "$CONFIG_FILE" 2>/dev/null) || BUILD_CMD=""
+            LINT_CMD=$(jq -r '.verification.lint // empty' "$CONFIG_FILE" 2>/dev/null) || LINT_CMD=""
+            TC_CMD=$(jq -r '.verification.typecheck // empty' "$CONFIG_FILE" 2>/dev/null) || TC_CMD=""
+        elif command -v python3 >/dev/null 2>&1; then
+            TEST_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('tests',''))" 2>/dev/null) || TEST_CMD=""
+            BUILD_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('build',''))" 2>/dev/null) || BUILD_CMD=""
+            LINT_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('lint',''))" 2>/dev/null) || LINT_CMD=""
+            TC_CMD=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('verification',{}).get('typecheck',''))" 2>/dev/null) || TC_CMD=""
+        fi
 
-        [ -n "$TEST_CMD" ] && echo "$COMMAND" | grep -qF "$TEST_CMD" && ALLOW=true
-        [ -n "$BUILD_CMD" ] && echo "$COMMAND" | grep -qF "$BUILD_CMD" && ALLOW=true
-        [ -n "$LINT_CMD" ] && echo "$COMMAND" | grep -qF "$LINT_CMD" && ALLOW=true
-        [ -n "$TC_CMD" ] && echo "$COMMAND" | grep -qF "$TC_CMD" && ALLOW=true
+        [ -n "$TEST_CMD" ] && printf '%s' "$COMMAND" | grep -qF "$TEST_CMD" && ALLOW=true
+        [ -n "$BUILD_CMD" ] && printf '%s' "$COMMAND" | grep -qF "$BUILD_CMD" && ALLOW=true
+        [ -n "$LINT_CMD" ] && printf '%s' "$COMMAND" | grep -qF "$LINT_CMD" && ALLOW=true
+        [ -n "$TC_CMD" ] && printf '%s' "$COMMAND" | grep -qF "$TC_CMD" && ALLOW=true
     fi
 
     # Package managers (install only)
-    if echo "$COMMAND" | grep -qE '^(npm|yarn|pnpm)\s+install\b'; then
+    if printf '%s' "$COMMAND" | grep -qE '^(npm|yarn|pnpm)\s+install\b'; then
         ALLOW=true
     fi
-    if echo "$COMMAND" | grep -qE '^pip\s+install\b'; then
+    if printf '%s' "$COMMAND" | grep -qE '^pip\s+install\b'; then
         ALLOW=true
     fi
 
     if [ "$ALLOW" = true ]; then
-        cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": {
-      "behavior": "allow"
-    }
-  }
-}
-EOF
+        emit_decision "allow"
         exit 0
     fi
 fi
 
 # For Edit/Write tools — auto-approve in autonomous mode (PreToolUse handles safety)
 if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ]; then
-    cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": {
-      "behavior": "allow"
-    }
-  }
-}
-EOF
+    emit_decision "allow"
     exit 0
 fi
 
 # For Read/Glob/Grep — auto-approve (read-only)
 if [ "$TOOL_NAME" = "Read" ] || [ "$TOOL_NAME" = "Glob" ] || [ "$TOOL_NAME" = "Grep" ]; then
-    cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": {
-      "behavior": "allow"
-    }
-  }
-}
-EOF
+    emit_decision "allow"
     exit 0
 fi
 
