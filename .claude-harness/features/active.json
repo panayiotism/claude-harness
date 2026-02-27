@@ -315,6 +315,55 @@
       "createdAt": "2026-02-18T12:00:00.000Z",
       "updatedAt": "2026-02-18T12:00:00.000Z"
     }
+    ,
+    {
+      "id": "feature-008",
+      "name": "Harden hook JSON parsing and error handling",
+      "description": "Fix PreToolUse:Bash hook errors by switching from fragile grep-based JSON parsing to jq, adding error traps, and fixing pre-compact invalid JSON generation.",
+      "priority": 0,
+      "status": "in_progress",
+      "acceptanceCriteria": [
+        {
+          "scenario": "Hook handles commands with escaped quotes",
+          "given": "a Bash tool call with command containing escaped double quotes",
+          "when": "the PreToolUse hook processes the input",
+          "then": "it correctly extracts the command and evaluates safety rules"
+        },
+        {
+          "scenario": "Hook handles commands with embedded JSON",
+          "given": "a Bash tool call with a curl command containing JSON body",
+          "when": "the PreToolUse hook processes the input",
+          "then": "it correctly parses tool_name and command without error"
+        },
+        {
+          "scenario": "Hook always exits 0 on unexpected errors",
+          "given": "an unexpected condition (missing env var, malformed input)",
+          "when": "the PreToolUse hook runs",
+          "then": "it exits 0 (allowing the tool call) rather than erroring"
+        },
+        {
+          "scenario": "Pre-compact generates valid JSON with empty state",
+          "given": "no active loop state or working context",
+          "when": "the PreCompact hook creates a backup",
+          "then": "the backup JSON file is valid (parseable by jq)"
+        }
+      ],
+      "verification": {
+        "build": null,
+        "tests": "bash -n hooks/pre-tool-use && bash -n hooks/permission-request && bash -n hooks/pre-compact",
+        "lint": null,
+        "typecheck": null,
+        "acceptance": null
+      },
+      "relatedFiles": ["hooks/pre-tool-use", "hooks/permission-request", "hooks/pre-compact"],
+      "github": {
+        "issueNumber": 52,
+        "prNumber": null,
+        "branch": "feature/feature-008"
+      },
+      "createdAt": "2026-02-27T12:30:00.000Z",
+      "updatedAt": "2026-02-27T12:30:00.000Z"
+    }
   ],
   "fixes": []
 }
