@@ -28,6 +28,7 @@ On every session start:
 - Work on ONE feature at a time
 - Always update `.claude-harness/claude-progress.json` after completing work
 - Update version in `.claude-plugin/plugin.json` for every change (single version source of truth)
+- **MANDATORY**: Also bump the version in the marketplace repo (`panayiotism/claude-harness-marketplace`) — the marketplace `plugin.json` must always match this repo's version. Without this, users won't see the update.
 - Update changelog in `README.md`
 - Do NOT add version numbers to hook `.sh` file comments — version lives only in plugin.json
 - Commit with descriptive messages

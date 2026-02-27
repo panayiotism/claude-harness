@@ -673,6 +673,11 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### v10.0.1 (2026-02-27) - Autonomous Archival & Branch Cleanup Fix
+
+- **Fix: Features not archived in autonomous mode**: Added `ARCHIVE_FILE` path variable to autonomous wrapper (Phase A.1), explicit archival instructions to the subagent prompt (Phase A.4.0 step 9), and detailed step-by-step archival procedure with verification in the orchestrator (Phase A.5 step 22)
+- **Fix: Stale local branches after merge**: Added explicit `git branch -d {branch}` to Phase 6 (Auto-Merge) and to the autonomous orchestrator's post-merge cleanup (Phase A.5). Local feature branches are now deleted after successful squash merge.
+
 ### v10.0.0 (2026-02-26) - Separate Marketplace & Native Plugin Updates
 
 - **BREAKING**: Marketplace moved to separate repo (`panayiotism/claude-harness-marketplace`). Existing users must re-register: `claude plugin marketplace add panayiotism/claude-harness-marketplace`

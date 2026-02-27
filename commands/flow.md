@@ -101,7 +101,7 @@ Each feature is delegated to a `general-purpose` subagent via the Task tool. Thi
 ### Phase A.1: Initialize Autonomous State
 
 4. **Read feature backlog**:
-   - Set paths: `FEATURES_FILE=".claude-harness/features/active.json"`, `MEMORY_DIR=".claude-harness/memory/"`
+   - Set paths: `FEATURES_FILE=".claude-harness/features/active.json"`, `ARCHIVE_FILE=".claude-harness/features/archive.json"`, `MEMORY_DIR=".claude-harness/memory/"`
    - Read and filter features where status is NOT `"passing"`
    - If none eligible: display "No pending features" and **EXIT**
 
@@ -221,7 +221,7 @@ Each feature is delegated to a `general-purpose` subagent via the Task tool. Thi
     6. Run ALL verification commands after implementation
     7. On pass: commit as `feat({feature-id}): {description}`, push, create/update PR with `Closes #{issueNumber}`
     8. On fail: retry with escalation (attempts 1-5: high effort, 6-10: max, 11-15: max + full memory). Max 15 attempts.
-    9. {if NOT --no-merge: "Merge PR (squash), close issue, delete branch, update feature status to 'passing'"}
+    9. {if NOT --no-merge: "Merge PR (squash), close issue, delete branch, update feature status to 'passing', then archive: read .claude-harness/features/archive.json (create with {\"version\":3,\"archived\":[],\"archivedFixes\":[]} if missing), append the feature entry with archivedAt timestamp to archived[], remove feature from active.json features[], write both files"}
     10. {if --no-merge: "Stop at checkpoint. Do not merge."}
 
     ## Return Format
@@ -283,8 +283,15 @@ Each feature is delegated to a `general-purpose` subagent via the Task tool. Thi
 22. **Process subagent result** based on parsed status:
 
     **If `completed`**:
-    - Update feature in active.json: set status to `"passing"`
-    - Archive feature to archive.json, remove from active.json
+    - **Archive feature** (CRITICAL — this is the step that was previously missed):
+      1. Read `${FEATURES_FILE}` (`.claude-harness/features/active.json`)
+      2. Find the completed feature entry by ID (`currentFeature`)
+      3. Read `${ARCHIVE_FILE}` (`.claude-harness/features/archive.json`). If file is missing, create with `{"version":3,"archived":[],"archivedFixes":[]}`
+      4. Add `"archivedAt": "{ISO timestamp}"` and set `"status": "passing"` on the feature entry
+      5. Append the feature entry to the `archived[]` array in archive.json
+      6. Remove the feature from the `features[]` array in active.json
+      7. Write BOTH files (`${ARCHIVE_FILE}` first, then `${FEATURES_FILE}`)
+      8. **Verify**: Re-read `${FEATURES_FILE}` and confirm the feature ID is no longer in the `features[]` array. If still present, retry the removal once.
     - Add feature ID to `completedFeatures` in autonomous-state
     - Reset `consecutiveFailures` to 0
 
@@ -322,7 +329,10 @@ Each feature is delegated to a `general-purpose` subagent via the Task tool. Thi
 
 25. **Update autonomous state**: write updated state file with incremented iteration, updated feature lists.
 
-26. Switch to main: `git checkout main && git pull origin main`
+26. **Switch to main and clean up branches**:
+    - `git checkout main && git pull origin main`
+    - If feature status is `completed` (merged): delete local branch: `git branch -d feature/{feature-id}` (safe delete — only works if fully merged)
+    - Prune stale remote tracking refs: `git fetch --prune`
 
 27. **Reset session state**: Clear loop-state.json, clear task references, clear working-context.json (all session-scoped files).
 
@@ -756,9 +766,13 @@ Triggers when verification passes. This phase mirrors `/claude-harness:checkpoin
 Only proceeds if PR approved and CI passes.
 
 26. Check PR status via `mcp__github__get_pull_request_status`
-27. If ready: merge (squash), close issue, delete branch, update status to "passing", archive feature
+27. If ready: merge (squash), close issue, delete remote branch (via GitHub API), update status to "passing", archive feature
 28. If needs review: display PR URL with resume/merge commands
-29. Final cleanup: switch to main, pull latest, clear loop state
+29. **Final cleanup**:
+    - Switch to main: `git checkout main && git pull origin main`
+    - **Delete local feature branch**: `git branch -d feature/{feature-id}` (use `-d` not `-D` — safe delete only works if branch is fully merged)
+    - Prune stale remote tracking refs: `git fetch --prune`
+    - Clear loop state
 
 ---
 

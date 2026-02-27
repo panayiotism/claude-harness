@@ -315,6 +315,33 @@
       "rationale": "$CLAUDE_PLUGIN_ROOT env var is only available inside the plugin system (hooks/hooks.json context). Project settings files (.claude/settings.json, .claude/settings.local.json) do not have access to plugin env vars, causing the hook command to resolve to '/hooks/session-end.sh' (not found).",
       "alternatives": ["Fix env var resolution in settings files", "Use $CLAUDE_PROJECT_DIR instead of $CLAUDE_PLUGIN_ROOT", "Hardcode absolute path"],
       "impact": ".claude/settings.json, setup.sh, .claude/settings.local.json"
+    },
+    {
+      "id": "dec-20260227-001",
+      "timestamp": "2026-02-27T10:15:00Z",
+      "feature": "v10.0.1",
+      "decision": "Archival in autonomous mode must be explicit in BOTH the subagent prompt AND the orchestrator post-processing",
+      "rationale": "The subagent prompt is the sole source of instructions for delegated features — implicit 'run Phases 1-7' is insufficient. The orchestrator's Phase A.5 serves as a safety net with verification (re-read active.json to confirm removal).",
+      "alternatives": ["Only archive in subagent", "Only archive in orchestrator"],
+      "impact": "commands/flow.md (Phase A.4.0 step 9, Phase A.5 step 22)"
+    },
+    {
+      "id": "dec-20260227-002",
+      "timestamp": "2026-02-27T10:15:00Z",
+      "feature": "v10.0.1",
+      "decision": "Local branch cleanup must use git branch -d (safe delete) not -D, paired with git fetch --prune",
+      "rationale": "-d only works if the branch is fully merged, preventing accidental deletion of unmerged work. --prune removes stale remote tracking refs. merge.md already had this but flow.md Phase 6 and autonomous wrapper did not.",
+      "alternatives": ["Use -D (force delete)", "Only prune remote refs"],
+      "impact": "commands/flow.md (Phase 6 step 29, Phase A.5 step 26)"
+    },
+    {
+      "id": "dec-20260227-003",
+      "timestamp": "2026-02-27T10:15:00Z",
+      "feature": "v10.0.1",
+      "decision": "Marketplace version bump is mandatory for every release — added to CLAUDE.md development rules",
+      "rationale": "Without bumping the marketplace repo version, Claude Code's version-keyed caching means users won't see the update even though the plugin repo has changed.",
+      "alternatives": ["Automate via hook", "Document as optional"],
+      "impact": "CLAUDE.md, panayiotism/claude-harness-marketplace"
     }
   ]
 }

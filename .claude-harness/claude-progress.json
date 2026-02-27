@@ -1,12 +1,12 @@
 {
-  "lastUpdated": "2026-02-26T08:10:00Z",
+  "lastUpdated": "2026-02-27T10:00:00Z",
   "currentProject": "claude-harness",
   "lastSession": {
-    "summary": "Housekeeping: removed stale v8.x artifacts (.plugin-version, handoffs.json, worktrees/registry.json), config.json updated with agentTeams and atdd sections by setup.sh",
+    "summary": "Fixed two bugs in autonomous mode: completed features not archived (missing ARCHIVE_FILE path, terse subagent/orchestrator archival instructions), stale local branches remaining after merge (no git branch -d in Phase 6 or autonomous post-merge cleanup)",
     "completedTasks": [
-      "Ran /setup to verify harness state",
-      "Cleaned up stale files from pre-v10 versions (.plugin-version, agents/handoffs.json, worktrees/registry.json)",
-      "Config.json updated with agentTeams and atdd configuration sections"
+      "Fixed autonomous archival: added ARCHIVE_FILE to Phase A.1, explicit archival in subagent prompt, detailed archival procedure with verification in Phase A.5",
+      "Fixed local branch cleanup: added git branch -d + git fetch --prune to Phase 6 step 29 and Phase A.5 step 26",
+      "Bumped version to 10.0.1, updated README changelog"
     ],
     "blockers": [],
     "nextSteps": [
@@ -16,6 +16,7 @@
     ]
   },
   "recentChanges": [
+    "v10.0.1: Fix autonomous archival (features not archived) and local branch cleanup (stale branches after merge)",
     "v10.0.0: Separate marketplace, native plugin updates, cross-platform hooks, repo restructure",
     "v9.3.0: ATDD Always-On — acceptance tests first in all modes, removed config gates",
     "v9.2.0: Rich GitHub Issues from PRD — default issue creation, rich bodies, two-pass dependency linking",

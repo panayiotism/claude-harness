@@ -75,6 +75,18 @@
     {
       "pattern": "Delegate plugin updates entirely to Claude Code's native infrastructure — no custom version checking, no GitHub API calls, no cache manipulation in hooks. Single plugin.json is the version source of truth",
       "source": "v10.0.0"
+    },
+    {
+      "pattern": "Version bump requires updating BOTH plugin.json AND marketplace repo (panayiotism/claude-harness-marketplace) — without marketplace bump, users won't see the update due to version-keyed caching",
+      "source": "v10.0.1"
+    },
+    {
+      "pattern": "Subagent prompts in autonomous mode must be explicit about EVERY operation (archival, branch cleanup, etc.) — implicit 'run Phases 1-7' is unreliable since subagents don't have flow.md",
+      "source": "v10.0.1"
+    },
+    {
+      "pattern": "Autonomous orchestrator post-processing (Phase A.5) should include verification steps — e.g., re-read active.json after archival to confirm feature was actually removed",
+      "source": "v10.0.1"
     }
   ]
 }
