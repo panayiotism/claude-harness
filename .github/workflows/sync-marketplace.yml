@@ -36,6 +36,7 @@ jobs:
             --exclude='RELEASES/' \
             --exclude='.claude-harness/' \
             --exclude='.github/' \
+            --exclude='marketplace/' \
             ./ marketplace/plugins/claude-harness/
 
       - name: Commit and push
