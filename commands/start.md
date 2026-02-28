@@ -210,6 +210,39 @@ Before anything else, check if legacy root-level harness files need migration:
 
    - If no learned rules exist yet, skip this section (no output)
 
+## Phase 1.7: Refresh Session Briefing
+
+6.7. **Regenerate persistent session briefing** at `.claude-harness/session-briefing.md`:
+   - This ensures the briefing stays fresh when `/start` is run manually
+   - Compile from current compiled context — features, decisions, failures, rules, status:
+
+   ```markdown
+   # Session Briefing
+   Last updated: {ISO timestamp}
+
+   ## Active Features
+   - {id}: {name} [{status}]
+     {one-line description}
+     Acceptance: {N} scenarios | Files: {relatedFiles summary}
+
+   ## Recent Decisions (last 5)
+   - {decision} ({feature}, {date})
+
+   ## Approaches to AVOID
+   - {approach} -> {rootCause} ({feature})
+
+   ## Learned Rules
+   - {title}: {description}
+
+   ## Current Status
+   Branch: {current branch}
+   Next steps: {recommended action}
+   ```
+
+   - Keep under 120 lines (~1500 tokens)
+   - This file is read by the SessionStart hook and injected into Claude's context on every new session
+   - Report: "Session briefing refreshed (auto-injected on next session start)"
+
 ## Phase 2: Local Status
 
 7. **Load working context** (if exists):

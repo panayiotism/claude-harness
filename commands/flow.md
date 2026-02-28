@@ -20,9 +20,11 @@ Arguments: $ARGUMENTS
 /claude-harness:flow --team "Add user login"           # ATDD with Agent Team (3 teammates)
 ```
 
-**Lifecycle**: Context → Creation → Planning → Implementation → Verification → Checkpoint → Merge
+**Lifecycle**: Context → Creation → **[Subagent Delegation]** → Planning → Implementation → Verification → Checkpoint → Merge → **[Result Processing]**
 
-**ATDD Team Lifecycle** (with `--team`): Context → Creation (with Gherkin criteria) → Planning → **Team Spawn** → Acceptance Tests (RED) → Implementation (GREEN) → Review → Verify → Checkpoint → Merge
+**Context Isolation**: In standard mode, Phases 3-6 run inside an isolated subagent (via Task tool). The main context stays clean after feature completion — no `/clear` needed between features.
+
+**ATDD Team Lifecycle** (with `--team`): Context → Creation (with Gherkin criteria) → **[Subagent Delegation]** → Planning → **Team Spawn** → Acceptance Tests (RED) → Implementation (GREEN) → Review → Verify → Checkpoint → Merge
 
 ---
 
@@ -86,15 +88,19 @@ When `--autonomous` is set, the flow operates as a **lean orchestrator loop** th
 
 See **Effort Controls** table above for per-phase effort levels. Progressive escalation on retries per feature applies within each subagent.
 
-### Context Isolation (Autonomous Mode)
+### Context Isolation (All Modes)
 
-Each feature is delegated to a `general-purpose` subagent via the Task tool. This provides:
+Both standard and autonomous modes delegate feature implementation to a `general-purpose` subagent via the Task tool. This provides:
 
 - **Fresh context window**: Each feature starts with zero accumulated context from previous features
 - **Clean token budget**: No context waste from irrelevant details of previous features
 - **Contained failures**: A failing feature's debugging context does not pollute the next feature
 - **Memory continuity**: The orchestrator persists memory updates between features, so learnings from Feature A are available to Feature B through procedural/episodic memory (not through raw context accumulation)
 - **Team containment**: When `--team` is used, the Agent Team lifecycle is fully contained within the subagent — no zombie agents leak to the orchestrator
+- **No manual /clear needed**: After feature completion, the main context is clean and ready for the next task
+
+**Standard mode** (Phase 2.5): Single feature delegated after creation. Orchestrator handles Phases 0-2 (user interaction) and result processing.
+**Autonomous mode** (Phase A.4): Multiple features delegated in a loop. Orchestrator handles feature selection, conflict detection, and cross-feature memory.
 
 ---
 
@@ -430,7 +436,149 @@ Use cached GitHub owner/repo from Phase 1.
 
 ---
 
+## Phase 2.5: Context Isolation (Standard Mode)
+
+**Skip this phase** if `--plan-only` or `--autonomous`. Autonomous mode has its own delegation loop (Phase A.4). Plan-only mode needs inline execution for interactive plan review.
+
+After feature creation completes (feature entry exists in active.json with GitHub issue, branch, and acceptance criteria), delegate the remaining lifecycle to an isolated subagent for clean context. This ensures the main conversation is not polluted with implementation details, leaving it clean for the next feature or user interaction.
+
+### 2.5.1: Compile Subagent Prompt
+
+12. **Assemble all context the subagent needs** (effort: low — mechanical data assembly):
+
+    Read and compile from Phase 1 context (already loaded):
+    - **Feature entry**: full object from active.json (id, name, description, acceptanceCriteria, relatedFiles, verification, github refs)
+    - **Verification commands**: from `.claude-harness/config.json` verification section
+    - **Relevant failures**: max 5 from `failures.json`, filtered by feature's relatedFiles overlap or similar feature type
+    - **Success patterns**: max 5 from `successes.json`, filtered for similar file patterns
+    - **Recent decisions**: max 10 from `decisions.json`
+    - **Learned rules**: max 5 active rules from `rules.json` applicable to this feature
+    - **GitHub info**: owner/repo from Phase 1 cache
+    - **Flag states**: `--team` (boolean), `--quick` (boolean), `--no-merge` (boolean)
+    - **Team config**: `agentTeams` section from config.json (if `--team`)
+
+13. **Format structured subagent prompt** (target: under 3,000 tokens):
+
+    ```
+    You are implementing feature {feature-id}: {featureName}.
+    Execute the full feature lifecycle and return a structured result.
+
+    ## Feature
+    {feature JSON entry — id, name, description, acceptanceCriteria, relatedFiles}
+
+    ## GitHub
+    Owner: {owner} | Repo: {repo}
+    Issue: #{issueNumber} | Branch: {branch}
+
+    ## Verification Commands
+    build: {build} | tests: {tests} | lint: {lint} | typecheck: {typecheck} | acceptance: {acceptance}
+
+    ## Memory: Approaches to AVOID
+    {for each relevant failure: "- {approach} → {rootCause}"}
+
+    ## Memory: Success Patterns
+    {for each relevant success: "- {approach} ({feature})"}
+
+    ## Memory: Learned Rules
+    {for each applicable rule: "- {title}: {description}"}
+
+    ## Recent Decisions
+    {for each decision: "- {decision} ({feature})"}
+
+    ## Instructions
+    1. Checkout the feature branch: git checkout {branch}
+    2. Plan the implementation {unless --quick: "(skip planning — --quick mode)"}
+    3. Follow ATDD: write acceptance tests first from the Gherkin acceptance criteria (RED), then implement to pass all tests (GREEN), then refactor.
+    4. {if --team: "Create an Agent Team (tester, implementer, reviewer). Execute Mandatory Team Shutdown Gate before checkpoint."}
+    5. {if NOT --team: "Implement directly — but still follow ATDD order: acceptance tests first, then implementation."}
+    6. Run ALL verification commands after implementation
+    7. On pass: commit as `feat({feature-id}): {description}`, push, create/update PR with `Closes #{issueNumber}`
+    8. On fail: retry with escalation (attempts 1-5: high effort, 6-10: max, 11-15: max + full memory). Max 15 attempts.
+    9. {if NOT --no-merge: "Merge PR (squash), close issue, delete branch, update feature status to 'passing', then archive: read archive.json (create if missing), append feature with archivedAt timestamp, remove from active.json, write both files"}
+    10. {if --no-merge: "Stop at checkpoint. Do not merge."}
+    11. Compile session briefing: write `.claude-harness/session-briefing.md` with condensed context (features, decisions, failures, rules, status). Keep under 120 lines.
+
+    ## Return Format
+    End your response with this exact structured block:
+
+    RESULT:
+    status: completed | failed | escalated | needs_review
+    commitHash: {hash or null}
+    prNumber: {number or null}
+    attempts: {number}
+    featureStatus: passing | failed | needs_review | escalated
+    memoryUpdates:
+      decisions: [{decision, rationale, impact}]
+      failures: [{approach, errors, rootCause}]
+      successes: [{approach, files, patterns}]
+    summary: {one-line summary of what was done}
+    ```
+
+### 2.5.2: Delegate to Subagent
+
+14. **Delegate feature to isolated subagent** (effort: low — mechanical delegation):
+    - Use Task tool with `subagent_type="general-purpose"`
+    - Pass the compiled prompt from 2.5.1
+    - The subagent executes in its **own fresh context window** (complete isolation from orchestrator)
+    - The subagent runs Phases 3-6 autonomously:
+      - Phase 3: Planning (unless `--quick`)
+      - Phase 3.7: Team roster (if `--team`)
+      - Phase 4: Implementation with retry loop (up to 15 attempts)
+      - Phase 5: Checkpoint (commit, push, PR)
+      - Phase 6: Merge (unless `--no-merge`)
+    - Wait for subagent completion
+
+### 2.5.3: Process Subagent Result
+
+15. **Parse the RESULT block** from the subagent's response:
+    - Search for `RESULT:` prefix in the subagent's return message
+    - Parse key-value pairs (status, commitHash, prNumber, attempts, featureStatus, memoryUpdates, summary)
+    - If RESULT block not found: treat as `needs_review`, check external state:
+      - `git log --oneline -1` on feature branch for commit evidence
+      - `gh pr list --head {branch}` for PR evidence
+      - Log warning: "Subagent did not return structured result — checking external state"
+
+16. **Process result based on status**:
+
+    **If `completed`**:
+    - **Persist memory updates** from subagent:
+      - For each decision: append to `${MEMORY_DIR}/episodic/decisions.json` (enforce maxEntries 50, FIFO)
+      - For each failure: append to `${MEMORY_DIR}/procedural/failures.json`
+      - For each success: append to `${MEMORY_DIR}/procedural/successes.json`
+    - **Archive feature**:
+      1. Read `${FEATURES_FILE}` and `${ARCHIVE_FILE}` (create archive if missing)
+      2. Add `"archivedAt"` timestamp, set `"status": "passing"` on the feature
+      3. Append to `archived[]` in archive.json, remove from `features[]` in active.json
+      4. Write BOTH files (archive first, then active)
+      5. Verify: re-read active.json and confirm feature ID removed
+    - **Switch to main and clean up**:
+      - `git checkout main && git pull origin main`
+      - `git branch -d feature/{feature-id}` (safe delete — only if fully merged)
+      - `git fetch --prune`
+    - **Clear session state**: clear loop-state.json, working-context.json
+    - **Regenerate session briefing**: write `.claude-harness/session-briefing.md` if subagent didn't
+
+    **If `failed` or `escalated`**:
+    - Persist memory updates (failures)
+    - Display failure summary with attempt count, last approach, last error
+    - Suggest: retry with `/claude-harness:flow {feature-id}`, increase maxAttempts, or get help
+    - Do NOT archive, do NOT switch to main
+
+    **If `needs_review`**:
+    - Display PR URL and status
+    - Suggest: review PR then run `/claude-harness:merge`
+    - Do NOT archive
+
+### 2.5.4: Proceed to Phase 7
+
+17. After result processing, **skip directly to Phase 7** (Completion Report).
+    Phases 3-6 were executed inside the subagent — they do not run inline in standard mode.
+
+---
+
 ## Phase 3: Planning (unless --quick)
+
+**Note**: In standard mode, this phase runs inside the delegated subagent (Phase 2.5). It only runs inline when `--plan-only` is set (to allow interactive plan review).
 
 13. **Query procedural memory** (effort: max): Check past failures/successes. Warn if planned approach matches past failure.
 
@@ -704,6 +852,41 @@ Triggers when verification passes. This phase mirrors `/claude-harness:checkpoin
    - Set `nextSteps` to immediate actionable items
    - Keep concise (~25-40 lines)
 
+### 5.2.5: Compile Session Briefing
+
+21.6. **Write persistent session briefing** to `.claude-harness/session-briefing.md`:
+   - This file is automatically injected into Claude's context at every SessionStart (via the hook)
+   - It ensures Claude is immediately aware of project state on new sessions without manual `/start`
+   - Compile from current state — read features, decisions, failures, rules, and status:
+
+   ```markdown
+   # Session Briefing
+   Last updated: {ISO timestamp}
+
+   ## Active Features
+   - {id}: {name} [{status}]
+     {one-line description}
+     Acceptance: {N} scenarios | Files: {relatedFiles summary}
+
+   ## Recent Decisions (last 5)
+   - {decision} ({feature}, {date})
+
+   ## Approaches to AVOID
+   - {approach} -> {rootCause} ({feature})
+
+   ## Learned Rules
+   - {title}: {description}
+
+   ## Current Status
+   Last checkpoint: {commit message summary}
+   Branch: {current branch}
+   Next steps: {from working-context nextSteps}
+   ```
+
+   - Keep under 120 lines (~1500 tokens) to avoid context bloat
+   - Source data: `${FEATURES_FILE}`, `${MEMORY_DIR}/episodic/decisions.json`, `${MEMORY_DIR}/procedural/failures.json`, `${MEMORY_DIR}/learned/rules.json`
+   - This file is git-tracked and persists across sessions, `/clear`, and machine reboots
+
 ### 5.3: Persist to Memory Layers
 
 22. **Persist session decisions to episodic memory**:
@@ -816,7 +999,7 @@ Only proceeds if PR approved and CI passes.
 
 | Command | Behavior |
 |---------|----------|
-| `/flow "Add X"` | Full lifecycle: implement → verify → checkpoint → merge |
+| `/flow "Add X"` | Full lifecycle with context isolation: implement → verify → checkpoint → merge |
 | `/flow feature-XXX` | Resume existing feature from current phase |
 | `/flow --no-merge "Add X"` | Stop at checkpoint |
 | `/flow --quick "Simple fix"` | Skip planning, implement directly |
@@ -837,7 +1020,7 @@ Only proceeds if PR approved and CI passes.
 
 | Mode | Use Case |
 |------|----------|
-| Default (`/flow "desc"`) | Standard feature development |
+| Default (`/flow "desc"`) | Standard feature development (context-isolated via subagent) |
 | `--no-merge` | Review PR before merging |
 | `--plan-only` | Complex features needing upfront design |
 | `--quick` | Simple fixes — skips planning |
