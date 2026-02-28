@@ -40,10 +40,11 @@ jobs:
 
       - name: Commit and push
         run: |
+          SOURCE_SHA=$(git rev-parse --short HEAD)
           cd marketplace
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --staged --quiet || \
-            git commit -m "sync: claude-harness $(git rev-parse --short HEAD)"
+            git commit -m "sync: claude-harness ${SOURCE_SHA}"
           git push
