@@ -491,10 +491,9 @@ $SCRIPTS
 
 ## Session Startup Protocol
 On every session start:
-1. Run \`pwd\` to confirm working directory
-2. Run \`/claude-harness:start\` to compile working context
-3. Read \`.claude-harness/sessions/{session-id}/context.json\` for computed context
-4. Check \`.claude-harness/features/active.json\` for current priorities
+1. Working context is auto-injected at session start (features, decisions, failures, rules)
+2. Run \`/claude-harness:start\` for full context refresh with GitHub sync (optional)
+3. Check \`.claude-harness/features/active.json\` for current priorities
 
 ## Development Rules
 - Work on ONE feature at a time

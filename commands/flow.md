@@ -704,6 +704,41 @@ Triggers when verification passes. This phase mirrors `/claude-harness:checkpoin
    - Set `nextSteps` to immediate actionable items
    - Keep concise (~25-40 lines)
 
+### 5.2.5: Compile Session Briefing
+
+21.6. **Write persistent session briefing** to `.claude-harness/session-briefing.md`:
+   - This file is automatically injected into Claude's context at every SessionStart (via the hook)
+   - It ensures Claude is immediately aware of project state on new sessions without manual `/start`
+   - Compile from current state — read features, decisions, failures, rules, and status:
+
+   ```markdown
+   # Session Briefing
+   Last updated: {ISO timestamp}
+
+   ## Active Features
+   - {id}: {name} [{status}]
+     {one-line description}
+     Acceptance: {N} scenarios | Files: {relatedFiles summary}
+
+   ## Recent Decisions (last 5)
+   - {decision} ({feature}, {date})
+
+   ## Approaches to AVOID
+   - {approach} -> {rootCause} ({feature})
+
+   ## Learned Rules
+   - {title}: {description}
+
+   ## Current Status
+   Last checkpoint: {commit message summary}
+   Branch: {current branch}
+   Next steps: {from working-context nextSteps}
+   ```
+
+   - Keep under 120 lines (~1500 tokens) to avoid context bloat
+   - Source data: `${FEATURES_FILE}`, `${MEMORY_DIR}/episodic/decisions.json`, `${MEMORY_DIR}/procedural/failures.json`, `${MEMORY_DIR}/learned/rules.json`
+   - This file is git-tracked and persists across sessions, `/clear`, and machine reboots
+
 ### 5.3: Persist to Memory Layers
 
 22. **Persist session decisions to episodic memory**:

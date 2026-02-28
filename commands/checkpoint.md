@@ -113,6 +113,41 @@ Create a checkpoint of the current session:
    - Write updated file
    - Report: "Updated procedural patterns"
 
+## Phase 1.9.5: Compile Session Briefing
+
+1.9.5. **Write persistent session briefing** to `.claude-harness/session-briefing.md`:
+   - This file is automatically injected into Claude's context at every SessionStart (via the hook)
+   - It ensures Claude is immediately aware of project state on new sessions without manual `/start`
+   - Compile from current state — read features, decisions, failures, rules, and status:
+
+   ```markdown
+   # Session Briefing
+   Last updated: {ISO timestamp}
+
+   ## Active Features
+   - {id}: {name} [{status}]
+     {one-line description}
+     Acceptance: {N} scenarios | Files: {relatedFiles summary}
+
+   ## Recent Decisions (last 5)
+   - {decision} ({feature}, {date})
+
+   ## Approaches to AVOID
+   - {approach} -> {rootCause} ({feature})
+
+   ## Learned Rules
+   - {title}: {description}
+
+   ## Current Status
+   Last checkpoint: {commit message summary}
+   Branch: {current branch}
+   Next steps: {from working-context nextSteps}
+   ```
+
+   - Keep under 120 lines (~1500 tokens) to avoid context bloat
+   - Source data: `${FEATURES_FILE}`, `${MEMORY_DIR}/episodic/decisions.json`, `${MEMORY_DIR}/procedural/failures.json`, `${MEMORY_DIR}/learned/rules.json`
+   - This file is git-tracked and persists across sessions, `/clear`, and machine reboots
+
 ## Phase 1.10: Auto-Reflect on User Corrections
 
 1.10. **Auto-reflect is now always enabled** (part of UX simplification):
@@ -357,8 +392,10 @@ Create a checkpoint of the current session:
    │     • memory/procedural/ (successes & failures)                 │
    │     • memory/learned/rules.json (learned rules)                 │
    │                                                                 │
+   │     • session-briefing.md (auto-injected at next start)          │
+   │                                                                 │
    │     Fresh context = better performance on next task.            │
-   │     Run /claude-harness:start after /clear to reload context.   │
+   │     Context auto-loads on next session (no /start needed).      │
    └─────────────────────────────────────────────────────────────────┘
    ```
 

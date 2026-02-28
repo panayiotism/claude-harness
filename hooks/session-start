@@ -99,10 +99,118 @@ EPISODIC_COUNT=0; FAILURES_COUNT=0; SUCCESSES_COUNT=0; RULES_COUNT=0; WORKING_CO
 if [ -d "$HARNESS_DIR/memory" ]; then
     IS_V3=true
     [ -f "$HARNESS_DIR/memory/working/context.json" ] && WORKING_COMPUTED=$(grep -o '"computedAt"[[:space:]]*:[[:space:]]*"[^"]*"' "$HARNESS_DIR/memory/working/context.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-    [ -f "$HARNESS_DIR/memory/episodic/decisions.json" ] && EPISODIC_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/episodic/decisions.json" 2>/dev/null || echo "0")
-    [ -f "$HARNESS_DIR/memory/procedural/failures.json" ] && FAILURES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/procedural/failures.json" 2>/dev/null || echo "0")
-    [ -f "$HARNESS_DIR/memory/procedural/successes.json" ] && SUCCESSES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/procedural/successes.json" 2>/dev/null || echo "0")
-    [ -f "$HARNESS_DIR/memory/learned/rules.json" ] && RULES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/learned/rules.json" 2>/dev/null || echo "0")
+    [ -f "$HARNESS_DIR/memory/episodic/decisions.json" ] && EPISODIC_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/episodic/decisions.json" 2>/dev/null; true)
+    [ -f "$HARNESS_DIR/memory/procedural/failures.json" ] && FAILURES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/procedural/failures.json" 2>/dev/null; true)
+    [ -f "$HARNESS_DIR/memory/procedural/successes.json" ] && SUCCESSES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/procedural/successes.json" 2>/dev/null; true)
+    [ -f "$HARNESS_DIR/memory/learned/rules.json" ] && RULES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/learned/rules.json" 2>/dev/null; true)
+fi
+
+# --- Auto-context injection: compile session briefing ---
+# Two layers: 1) Read persistent briefing (from last checkpoint), 2) Cold-start extraction
+# This ensures Claude is immediately aware of project context on every new session.
+BRIEFING_FILE="$HARNESS_DIR/session-briefing.md"
+BRIEFING_CONTENT=""
+
+if [ -f "$BRIEFING_FILE" ]; then
+    # Layer 1: Persistent briefing compiled at last checkpoint (fast — just read file)
+    BRIEFING_CONTENT=$(head -120 "$BRIEFING_FILE" 2>/dev/null || true)
+elif command -v python3 >/dev/null 2>&1; then
+    # Layer 2: Cold-start — extract live from memory files using python3
+    # Adapts the proven pattern from subagent-start hook
+    BRIEFING_CONTENT=$(python3 -c "
+import json, os
+
+harness = '$HARNESS_DIR'
+parts = []
+
+# 1. Features from active.json (id, name, status, description)
+af = os.path.join(harness, 'features', 'active.json')
+if os.path.isfile(af):
+    try:
+        with open(af) as f:
+            data = json.load(f)
+        feats = data.get('features', [])
+        if feats:
+            parts.append('## Active Features')
+            for feat in feats[:10]:
+                fid = feat.get('id', '?')
+                name = feat.get('name', '?')
+                status = feat.get('status', '?')
+                desc = feat.get('description', '')
+                line = '- ' + fid + ': ' + name + ' [' + status + ']'
+                if desc:
+                    line += '\n  ' + desc[:100]
+                ac = feat.get('acceptanceCriteria', [])
+                if ac:
+                    line += '\n  Acceptance: ' + str(len(ac)) + ' scenarios'
+                parts.append(line)
+    except Exception:
+        pass
+
+# 2. Recent decisions from episodic memory (last 5)
+df = os.path.join(harness, 'memory', 'episodic', 'decisions.json')
+if os.path.isfile(df):
+    try:
+        with open(df) as f:
+            data = json.load(f)
+        entries = data.get('entries', [])[-5:]
+        if entries:
+            parts.append('## Recent Decisions')
+            for e in reversed(entries):
+                dec = e.get('decision', '?')[:80]
+                feat = e.get('feature', '')
+                parts.append('- ' + dec + (' (' + feat + ')' if feat else ''))
+    except Exception:
+        pass
+
+# 3. Failures to avoid (last 3)
+ff = os.path.join(harness, 'memory', 'procedural', 'failures.json')
+if os.path.isfile(ff):
+    try:
+        with open(ff) as f:
+            data = json.load(f)
+        entries = data.get('entries', [])[-3:]
+        if entries:
+            parts.append('## Approaches to AVOID')
+            for e in reversed(entries):
+                approach = e.get('approach', '?')[:60]
+                cause = e.get('rootCause', '?')[:60]
+                parts.append('- ' + approach + ' -> ' + cause)
+    except Exception:
+        pass
+
+# 4. Learned rules (active, up to 5)
+rf = os.path.join(harness, 'memory', 'learned', 'rules.json')
+if os.path.isfile(rf):
+    try:
+        with open(rf) as f:
+            data = json.load(f)
+        rules = [r for r in data.get('rules', []) if r.get('active', True)][:5]
+        if rules:
+            parts.append('## Learned Rules')
+            for r in rules:
+                title = r.get('title', '?')
+                desc = r.get('description', '')[:60]
+                parts.append('- ' + title + (': ' + desc if desc else ''))
+    except Exception:
+        pass
+
+# 5. Last session summary from claude-progress.json
+pf = os.path.join(harness, 'claude-progress.json')
+if os.path.isfile(pf):
+    try:
+        with open(pf) as f:
+            data = json.load(f)
+        summary = data.get('summary', '')
+        if summary:
+            parts.append('## Last Session\n' + summary[:200])
+    except Exception:
+        pass
+
+output = '\n'.join(parts)
+lines = output.split('\n')[:120]
+print('\n'.join(lines))
+" 2>/dev/null || true)
 fi
 
 FEATURES_FILE="$HARNESS_DIR/features/active.json"; AGENT_FILE="$HARNESS_DIR/agents/context.json"
@@ -185,7 +293,13 @@ if [ "$IS_V3" = true ]; then
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nProcedural Memory: $FAILURES_COUNT failures, $SUCCESSES_COUNT successes"
     CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nLearned Rules: $RULES_COUNT rules from user corrections"
     [ -n "$WORKING_COMPUTED" ] && CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Last compiled $WORKING_COMPUTED" \
-        || CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Not compiled - run /start"
+        || CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Auto-injected (run /start for full refresh)"
+fi
+
+# --- Inject session briefing into Claude context ---
+if [ -n "$BRIEFING_CONTENT" ]; then
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== SESSION BRIEFING (auto-compiled) ==="
+    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n$BRIEFING_CONTENT"
 fi
 
 [ -n "$ACTIVE_FEATURE" ] && [ "$ACTIVE_FEATURE" != "null" ] && \
