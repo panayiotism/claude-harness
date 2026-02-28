@@ -697,6 +697,16 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### 2026-02-28 - Auto-inject session briefing + context isolation
+
+- **Auto-inject working context at session start**: The SessionStart hook now automatically injects project context (active features, recent decisions, failures to avoid, learned rules) without requiring a manual `/claude-harness:start` call. Uses a two-layer approach: (1) reads persistent `session-briefing.md` compiled at checkpoint time, (2) falls back to cold-start python3 extraction from memory files when no briefing exists. Inspired by patterns from claude-mem, OpenClaw, memsearch, and ContextStream plugins.
+- **Context isolation for standard flow**: `/flow` now delegates Phases 3-7 (planning through merge) to an isolated `general-purpose` subagent via the Task tool. After feature creation, the orchestrator compiles a structured prompt with all necessary context and spawns a fresh subagent. The main context window stays clean for subsequent features or user interaction. Exceptions: `--plan-only` (needs interactive review) and `--autonomous` (already has its own delegation loop).
+- **Session briefing generation at checkpoint**: New Phase 5.2.5 in `/flow` and Phase 1.9.5 in `/checkpoint` compile `session-briefing.md` with current feature status, recent decisions, patterns, and next steps. This briefing is auto-loaded by the SessionStart hook on the next session.
+- **Fix: grep -c double output**: Fixed `grep -c ... || echo "0"` producing `0\n0` in the SessionStart hook. `grep -c` outputs "0" with exit code 1 on zero matches, triggering the `||` branch to also output "0". Replaced with `grep -c ...; true`.
+- **Fix: Marketplace sync wrong SHA**: The GitHub Actions workflow ran `git rev-parse --short HEAD` inside the marketplace directory, embedding the marketplace's own SHA in commit messages instead of the source repo's SHA. Fixed by capturing `SOURCE_SHA` before `cd marketplace`.
+- **Fix: Marketplace rsync nesting**: The rsync step copied from `./` which included the `marketplace/` checkout directory, causing recursive nesting in synced plugin files. Added `--exclude='marketplace/'` to the rsync command.
+- **Known issue documented**: `claude plugin update` has known bugs with third-party marketplaces — fetch without merge (#29071), cache never refreshed (#17361), `lastUpdated` never updated (#26744). Workaround: manual `git pull` in `~/.claude/plugins/marketplaces/claude-harness/` followed by cache rebuild.
+
 ### 2026-02-27 - SHA-based update detection
 
 - **Dropped semver from plugin.json and marketplace.json**: Updates are now tracked by git commit SHA, matching the pattern used by official Anthropic plugins. This eliminates stale-cache version detection issues — any push to the marketplace repo is automatically detectable by `claude plugin update`.
@@ -918,6 +928,7 @@ This is a critical hotfix. Users experiencing agent hangs should upgrade immedia
 
 | Version | Changes |
 |---------|---------|
+| **2026-02-28** | **Auto-inject session briefing + context isolation**: SessionStart hook auto-injects project context (features, decisions, failures, rules) without manual `/start`. Two-layer approach: persistent `session-briefing.md` + cold-start python3 fallback. Standard `/flow` now delegates to isolated subagent for clean context between features. Fixed grep -c double output, marketplace sync SHA, and rsync nesting bugs. |
 | **9.3.0** | **ATDD Always-On**: Acceptance Test-Driven Development is now mandatory in all modes. Acceptance tests written first from Gherkin criteria (RED→GREEN→REFACTOR). `--team` only controls Agent Team spawning, not ATDD workflow. Acceptance criteria generation unconditional. |
 | **9.2.0** | **Rich GitHub Issues from PRD**: `/prd-breakdown` now creates rich GitHub issues by default (no flag needed). Two-pass dependency linking with bidirectional cross-references. Enhanced labels (`claude-harness`, `mvp`, `high-risk`). `--no-issues` replaces `--create-issues`. |
 | **8.4.0** | **Schema Standardization**: Added `schemas/` directory with JSON Schema files for 5 key state files. Fixed loop-state version drift across commands. Removed hardcoded version comments from hooks. Added schema versioning convention to CLAUDE.md. |
