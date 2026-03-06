@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.claude-plugin/**'
-      - 'commands/**'
+      - 'skills/**'
       - 'hooks/**'
       - 'schemas/**'
       - 'setup.sh'
