@@ -5,7 +5,7 @@ Claude Code plugin for automated, context-preserving coding sessions with 5-laye
 
 ## Tech Stack
 - Shell/Bash (setup.sh, hooks/)
-- Markdown (commands)
+- Markdown (skills)
 - JSON (configuration, state files)
 
 ## Session Startup Protocol
@@ -17,7 +17,7 @@ On every session start:
 5. Check `.claude-harness/features/active.json` for current priorities
 
 ## Project Structure
-- `commands/` - Harness command definitions (markdown, served from plugin cache)
+- `skills/` - Agent Skills (SKILL.md with YAML frontmatter, auto-discovered by Claude Code)
 - `hooks/` - Session hooks (9 registrations, extensionless scripts with `run-hook.cmd` polyglot wrapper)
 - `schemas/` - Canonical JSON Schema files for state file validation
 - `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
@@ -32,7 +32,7 @@ On every session start:
 - Commit with descriptive messages
 - Leave codebase in clean, working state
 
-## Available Commands (6 total)
+## Available Skills (6 total)
 - `/claude-harness:setup` - Initialize harness in project
 - `/claude-harness:start` - Start session, compile context
 - `/claude-harness:flow` - **Unified workflow** (recommended)
