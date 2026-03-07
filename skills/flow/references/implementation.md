@@ -58,7 +58,7 @@ build: {build} | tests: {tests} | lint: {lint} | typecheck: {typecheck} | accept
 4. {if --team: "Create an Agent Team (tester, implementer, reviewer). Execute Mandatory Team Shutdown Gate before checkpoint."}
 5. {if NOT --team: "Implement directly -- but still follow ATDD order: acceptance tests first, then implementation."}
 6. Run ALL verification commands after implementation
-7. On pass: commit as `feat({feature-id}): {description}`, push, create/update PR with `Closes #{issueNumber}`
+7. On pass: stage ALL modified files including `.claude-harness/` state files (`git add .claude-harness/ && git add -A`), then commit as `feat({feature-id}): {description}`, push, create/update PR with `Closes #{issueNumber}`
 8. On fail: retry with escalation (attempts 1-5: high effort, 6-10: max, 11-15: max + full memory). Max 15 attempts.
 9. {if NOT --no-merge: "Merge PR (squash), close issue, delete branch, update feature status to 'passing', then archive: read archive.json (create if missing), append feature with archivedAt timestamp, remove from active.json, write both files"}
 10. {if --no-merge: "Stop at checkpoint. Do not merge."}
@@ -117,15 +117,21 @@ summary: {one-line summary of what was done}
   - `git fetch --prune`
 - **Clear session state**: clear loop-state.json, working-context.json
 - **Regenerate session briefing**: write `.claude-harness/session-briefing.md` if subagent didn't
+- **Commit harness state updates to main** (CRITICAL — orchestrator changes must be persisted):
+  - `git add .claude-harness/ && git status --porcelain .claude-harness/`
+  - If there are staged changes: `git commit -m "chore: update harness state (memory, features, briefing)" && git push origin main`
+  - This captures: archived features, memory persistence, session briefing, progress updates
 
 **If `failed` or `escalated`**:
 - Persist memory updates (failures)
+- **Commit harness state updates**: `git add .claude-harness/ && git commit -m "chore: persist harness state after {feature-id} failure" && git push` (on current branch)
 - Display failure summary with attempt count, last approach, last error
 - Suggest: retry with `/claude-harness:flow {feature-id}`, increase maxAttempts, or get help
 - Do NOT archive, do NOT switch to main
 
 **If `needs_review`**:
 - Display PR URL and status
+- **Commit harness state updates** (if any): `git add .claude-harness/ && git commit -m "chore: persist harness state" && git push` (on current branch)
 - Suggest: review PR then run `/claude-harness:merge`
 - Do NOT archive
 

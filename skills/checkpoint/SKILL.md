@@ -191,7 +191,8 @@ Arguments: $ARGUMENTS
 ## Phase 3: Commit & Push
 
 3. ALWAYS commit changes:
-   - Stage all modified files (except secrets/env files)
+   - **Stage harness state files first**: `git add .claude-harness/` (sessions/ and working/ are gitignored, so only persistent state is staged)
+   - Stage all other modified files: `git add -A` (except secrets/env files)
    - Check loop state to determine commit prefix:
      - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
      - If session file doesn't exist, check legacy: `.claude-harness/loops/state.json`

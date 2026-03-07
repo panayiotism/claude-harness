@@ -96,7 +96,9 @@ Next steps: {from working-context nextSteps}
 
 ## Phase 5.6: Commit, Push, PR
 
-1. Commit `feat(feature-XXX): {description}`, push to remote
-2. Create/update PR via `mcp__github__create_pull_request`: title, body with `Closes #{issue}`
-3. Mark Checkpoint task completed
-4. Display checkpoint summary: commit hash, PR number, task status
+1. **Stage harness state files**: `git add .claude-harness/` (sessions/ and working/ are gitignored, so only persistent state is staged — memory layers, features, progress, session-briefing, agents, config)
+2. Stage all other modified files: `git add -A`
+3. Commit `feat(feature-XXX): {description}`, push to remote
+4. Create/update PR via `mcp__github__create_pull_request`: title, body with `Closes #{issue}`
+5. Mark Checkpoint task completed
+6. Display checkpoint summary: commit hash, PR number, task status
