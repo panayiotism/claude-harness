@@ -3,8 +3,11 @@
 # Enforces quality gates when tasks are marked complete.
 # Exit 2 = prevent task completion (with feedback via stderr)
 # Exit 0 = allow task completion
+#
+# Results are cached per working-tree content hash, so repeated gates on
+# an unchanged tree skip the (expensive) verification commands.
 
-set -euo pipefail
+trap 'exit 0' ERR
 
 # Read hook input from stdin
 INPUT=$(cat)
@@ -19,14 +22,16 @@ print(f'{subject}|||{teammate}')
 " 2>/dev/null || echo "|||")
 
 TASK_SUBJECT="${TASK_INFO%%|||*}"
-TEAMMATE_NAME="${TASK_INFO##*|||}"
 
 # Find project root
-PROJECT_ROOT="$(pwd)"
-while [ "$PROJECT_ROOT" != "/" ]; do
-    [ -d "$PROJECT_ROOT/.claude-harness" ] && break
-    PROJECT_ROOT="$(dirname "$PROJECT_ROOT")"
-done
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+if [ ! -d "$PROJECT_ROOT/.claude-harness" ]; then
+    PROJECT_ROOT="$(pwd)"
+    while [ "$PROJECT_ROOT" != "/" ]; do
+        [ -d "$PROJECT_ROOT/.claude-harness" ] && break
+        PROJECT_ROOT="$(dirname "$PROJECT_ROOT")"
+    done
+fi
 
 if [ ! -d "$PROJECT_ROOT/.claude-harness" ]; then
     exit 0
@@ -36,14 +41,38 @@ CONFIG_FILE="$PROJECT_ROOT/.claude-harness/config.json"
 SUBJECT_LOWER=$(echo "$TASK_SUBJECT" | tr '[:upper:]' '[:lower:]')
 ISSUES=()
 
-# Determine which verification gate to apply based on task subject
+# --- Verification cache (keyed by working-tree content) ---
+CACHE_FILE="$PROJECT_ROOT/.claude-harness/.verify-cache"
+TREE_KEY=$( (git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null; \
+             git -C "$PROJECT_ROOT" diff HEAD 2>/dev/null; \
+             git -C "$PROJECT_ROOT" ls-files --others --exclude-standard 2>/dev/null | sort | \
+               while IFS= read -r f; do cat "$PROJECT_ROOT/$f" 2>/dev/null; done) \
+           | sha256sum | cut -c1-16)
+
+cache_hit() {
+    [ -n "$TREE_KEY" ] && grep -qxF "$TREE_KEY $1" "$CACHE_FILE" 2>/dev/null
+}
+
+cache_put() {
+    [ -n "$TREE_KEY" ] || return 0
+    local tmp="$CACHE_FILE.tmp.$$"
+    grep -F "$TREE_KEY " "$CACHE_FILE" 2>/dev/null > "$tmp" || true
+    echo "$TREE_KEY $1" >> "$tmp"
+    sort -u "$tmp" > "$CACHE_FILE" 2>/dev/null
+    rm -f "$tmp"
+}
+
 run_verification() {
     local CMD_NAME="$1"
     local CMD_VALUE="$2"
-    if [ -n "$CMD_VALUE" ]; then
-        if ! timeout 120 bash -c "cd '$PROJECT_ROOT' && $CMD_VALUE" >/dev/null 2>&1; then
-            ISSUES+=("$CMD_NAME failing: $CMD_VALUE")
-        fi
+    [ -n "$CMD_VALUE" ] || return 0
+    if cache_hit "$CMD_NAME"; then
+        return 0
+    fi
+    if timeout 120 bash -c "cd '$PROJECT_ROOT' && $CMD_VALUE" >/dev/null 2>&1; then
+        cache_put "$CMD_NAME"
+    else
+        ISSUES+=("$CMD_NAME failing: $CMD_VALUE")
     fi
 }
 
@@ -66,30 +95,22 @@ fi
 
 if echo "$SUBJECT_LOWER" | grep -q "acceptance test\|write.*test"; then
     # RED phase: Acceptance test task
-    # Verify that test files were created (tests may fail — that's expected)
-    # Just check that the test command can be invoked
+    # Tests are expected to fail - just verify the command can be invoked.
     if [ -n "${V_ACCEPTANCE:-}" ]; then
-        # Run acceptance tests — allowed to fail (RED phase)
-        # We just verify the command doesn't error out completely (e.g. missing files)
         timeout 120 bash -c "cd '$PROJECT_ROOT' && $V_ACCEPTANCE" >/dev/null 2>&1 || true
     fi
     if [ -n "${V_TESTS:-}" ]; then
         timeout 120 bash -c "cd '$PROJECT_ROOT' && $V_TESTS" >/dev/null 2>&1 || true
     fi
-    # No gate enforcement for RED phase — tests are expected to fail
+    # No gate enforcement for RED phase
 
 elif echo "$SUBJECT_LOWER" | grep -q "^implement\|implementation"; then
-    # GREEN phase: Implementation task
-    # Acceptance tests MUST pass now (implementer's job is to make them green)
-    if [ -n "${V_ACCEPTANCE:-}" ]; then
-        run_verification "acceptance" "$V_ACCEPTANCE"
-    fi
-    if [ -n "${V_TESTS:-}" ]; then
-        run_verification "tests" "$V_TESTS"
-    fi
+    # GREEN phase: acceptance tests MUST pass now
+    [ -n "${V_ACCEPTANCE:-}" ] && run_verification "acceptance" "$V_ACCEPTANCE"
+    [ -n "${V_TESTS:-}" ] && run_verification "tests" "$V_TESTS"
 
 elif echo "$SUBJECT_LOWER" | grep -q "verif\|accept\|checkpoint\|final"; then
-    # Full verification gate — ALL commands must pass
+    # Full verification gate - ALL commands must pass
     [ -n "${V_BUILD:-}" ] && run_verification "build" "$V_BUILD"
     [ -n "${V_TESTS:-}" ] && run_verification "tests" "$V_TESTS"
     [ -n "${V_LINT:-}" ] && run_verification "lint" "$V_LINT"
@@ -97,11 +118,11 @@ elif echo "$SUBJECT_LOWER" | grep -q "verif\|accept\|checkpoint\|final"; then
     [ -n "${V_ACCEPTANCE:-}" ] && run_verification "acceptance" "$V_ACCEPTANCE"
 
 elif echo "$SUBJECT_LOWER" | grep -q "review\|feedback"; then
-    # Review/feedback tasks — only check lint (code quality)
+    # Review/feedback tasks - only check lint (code quality)
     [ -n "${V_LINT:-}" ] && run_verification "lint" "$V_LINT"
 
 else
-    # Unknown task type — no enforcement
+    # Unknown task type - no enforcement
     exit 0
 fi
 

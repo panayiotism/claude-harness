@@ -1,6 +1,9 @@
 ---
 name: checkpoint
 description: Save session progress by committing changes, pushing to remote, creating or updating a pull request, persisting decisions and patterns to memory layers, compiling session briefing, and archiving completed features. Use when saving work, creating a PR, preserving session state, or manually checkpointing progress.
+argument-hint: "[optional commit context]"
+allowed-tools: "Bash(git *), Bash(gh *)"
+disable-model-invocation: true
 ---
 
 # Checkpoint - Save Session Progress
@@ -9,6 +12,8 @@ Create a checkpoint of the current session: commit, push, PR, memory persistence
 
 Arguments: $ARGUMENTS
 
+Session ID: ${CLAUDE_SESSION_ID} — session state lives in `.claude-harness/sessions/${CLAUDE_SESSION_ID}/`.
+
 ## Phase 0: Set Paths
 
 1. **Set path variables**:
@@ -16,7 +21,7 @@ Arguments: $ARGUMENTS
    - `ARCHIVE_FILE=".claude-harness/features/archive.json"`
    - `MEMORY_DIR=".claude-harness/memory/"`
    - `PROGRESS_FILE=".claude-harness/claude-progress.json"`
-   - `SESSION_DIR=".claude-harness/sessions/{session-id}/"`
+   - `SESSION_DIR=".claude-harness/sessions/${CLAUDE_SESSION_ID}/"`
 
 ## Phase 1: Update Progress
 
@@ -26,54 +31,10 @@ Arguments: $ARGUMENTS
    - Recommended next steps
    - Update lastUpdated timestamp
 
-## Phase 1.5: Capture Working Context
-
-**Session Paths**: All session-specific state uses `.claude-harness/sessions/{session-id}/`. The session ID is provided by the SessionStart hook.
-
-1.5. Update session-scoped working context `.claude-harness/sessions/{session-id}/working-context.json` with current working state:
-   - Read `${FEATURES_FILE}` (from main repo in worktree mode) to identify active feature (first with passes=false)
-   - Set `activeFeature` to the feature ID and `summary` to feature name
-   - Populate `workingFiles` from:
-     - Feature's `relatedFiles` array
-     - Files shown in `git status` (modified/new)
-     - For each file, add brief role description (one line)
-   - Populate `decisions` with key architectural/implementation decisions made
-   - Populate `codebaseUnderstanding` with insights about relevant code areas
-   - Set `nextSteps` to immediate actionable items
-   - Update `lastUpdated` timestamp
-
-   **Keep concise**: ~25-40 lines total. This will be loaded on session resume.
-
-   Example output:
-   ```json
-   {
-     "version": 1,
-     "lastUpdated": "2025-12-29T16:00:00.000Z",
-     "activeFeature": "feature-003",
-     "summary": "Add Google OAuth login",
-     "workingFiles": {
-       "src/auth/google.ts": "new - OAuth provider implementation",
-       "src/auth/index.ts": "modified - added Google to provider registry",
-       "prisma/schema.prisma": "modified - added Account model"
-     },
-     "decisions": [
-       "Store tokens in DB, not cookies",
-       "Separate Account model linked to User"
-     ],
-     "codebaseUnderstanding": {
-       "authSystem": "Uses provider registry pattern, withAuth() middleware"
-     },
-     "nextSteps": [
-       "Add error handling for token revocation",
-       "Test OAuth callback flow"
-     ]
-   }
-   ```
-
 ## Phase 1.6: Persist to Memory Layers
 
 1.6. **Persist session decisions to episodic memory**:
-   - Read `${MEMORY_DIR}/episodic/decisions.json` (from main repo in worktree mode)
+   - Read `${MEMORY_DIR}/episodic/decisions.json`
    - For each key decision made during this session:
      - Append new entry:
        ```json
@@ -92,7 +53,7 @@ Arguments: $ARGUMENTS
    - Report: "Recorded {N} decisions to episodic memory"
 
 1.7. **Update semantic memory with discovered patterns**:
-   - Read `${MEMORY_DIR}/semantic/architecture.json` (from main repo in worktree mode)
+   - Read `${MEMORY_DIR}/semantic/architecture.json`
    - Update based on work done this session:
      - Add new file paths to `structure.entryPoints`, `structure.components`, etc.
      - Update `patterns.naming` with discovered naming conventions
@@ -102,13 +63,13 @@ Arguments: $ARGUMENTS
    - Write updated file
 
 1.8. **Update semantic entities (if new concepts discovered)**:
-   - Read `${MEMORY_DIR}/semantic/entities.json` (from main repo in worktree mode)
+   - Read `${MEMORY_DIR}/semantic/entities.json`
    - For new concepts/entities discovered:
      - Append entry with name, type, location, relationships
    - Write updated file
 
 1.9. **Update procedural patterns**:
-   - Read `${MEMORY_DIR}/procedural/patterns.json` (from main repo in worktree mode)
+   - Read `${MEMORY_DIR}/procedural/patterns.json`
    - Extract reusable patterns from this session:
      - Code patterns that worked well
      - Naming conventions used
@@ -120,7 +81,7 @@ Arguments: $ARGUMENTS
 ## Phase 1.9.5: Compile Session Briefing
 
 1.9.5. **Write persistent session briefing** to `.claude-harness/session-briefing.md`:
-   - This file is automatically injected into Claude's context at every SessionStart (via the hook)
+   - The SessionStart hook points Claude at this file on every new session
    - It ensures Claude is immediately aware of project state on new sessions without manual `/start`
    - Compile from current state -- read features, decisions, failures, rules, and status:
 
@@ -145,7 +106,7 @@ Arguments: $ARGUMENTS
    ## Current Status
    Last checkpoint: {commit message summary}
    Branch: {current branch}
-   Next steps: {from working-context nextSteps}
+   Next steps: {immediate actionable items}
    ```
 
    - Keep under 120 lines (~1500 tokens) to avoid context bloat
@@ -154,7 +115,7 @@ Arguments: $ARGUMENTS
 
 ## Phase 1.10: Auto-Reflect on User Corrections
 
-1.10. **Auto-reflect is now always enabled** (part of UX simplification):
+1.10. **Auto-reflect is always enabled**:
    - This phase always runs to capture learnings from the session
    - High-confidence rules are auto-saved; lower-confidence go to review queue
 
@@ -194,30 +155,24 @@ Arguments: $ARGUMENTS
    - **Stage harness state files first**: `git add .claude-harness/` (sessions/ and working/ are gitignored, so only persistent state is staged)
    - Stage all other modified files: `git add -A` (except secrets/env files)
    - Check loop state to determine commit prefix:
-     - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
-     - If session file doesn't exist, check legacy: `.claude-harness/loops/state.json`
+     - Read session-scoped loop state: `.claude-harness/sessions/${CLAUDE_SESSION_ID}/loop-state.json`
      - If `type` is "fix": Use `fix({linkedTo.featureId}): <description>` prefix
      - If `type` is "feature" or undefined: Use `feat({feature-id}): <description>` prefix
    - Write descriptive commit message summarizing the work
    - For fixes, include: `Fixes #{fix-issue-number}` and `Related to #{original-issue-number}`
-   - Push to remote
+   - Push with `git push -u origin {branch}`
 
-## Phase 4: PR Management (if GitHub MCP available)
+## Phase 4: PR Management
 
-4. If on a feature/fix branch and GitHub MCP is available:
-   - **Get GitHub owner/repo** (prefer cached from SessionStart):
-     - First check SessionStart hook output for cached `github.owner` and `github.repo`
-     - If cached values available, use them (faster, already parsed)
-     - If not cached, parse from git remote:
-       ```bash
-       REMOTE_URL=$(git remote get-url origin 2>/dev/null)
-       # SSH: git@github.com:owner/repo.git -> owner, repo
-       # HTTPS: https://github.com/owner/repo.git -> owner, repo
-       ```
+4. If on a feature/fix branch (`gh` CLI must be authenticated -- check `gh auth status` on failure):
+   - **Get GitHub owner/repo**: use the cached values from the session context (injected at SessionStart); only if absent, parse once from `git remote get-url origin`
    - Check loop state type to determine if this is a feature or fix
-   - Check if PR exists for this branch (use parsed owner/repo)
-   - If no PR exists:
-     - Create PR with descriptive title following conventional commits:
+   - Check if a PR exists for this branch: `gh pr list --head {branch} --json number,url`
+   - If no PR exists, create one:
+     ```
+     gh pr create --title "{title}" --body "{body}" --label "{labels}"
+     ```
+     - Title follows conventional commits:
        - For features: `feat: <description>`
        - For fixes: `fix: <description>`
        - `refactor: <description>` for refactoring
@@ -232,10 +187,10 @@ Arguments: $ARGUMENTS
        - For features: Copy from linked issue + add `status:ready-for-review`
        - For fixes: Add `bugfix` + `linked-to:{feature-id}` + `status:ready-for-review`
    - If PR exists:
-     - Update PR description with latest progress
-     - Add comment summarizing checkpoint changes
+     - Update PR description with latest progress: `gh pr edit {number} --body "{updated body}"`
+     - Add comment summarizing checkpoint changes: `gh pr comment {number} --body "..."`
      - Update labels based on current status
-   - Check PR status: CI/CD status, review status, merge conflicts
+   - Check PR status: `gh pr view {number} --json state,mergeable,reviewDecision,statusCheckRollup`
    - Update tracking:
      - For features: Update `${FEATURES_FILE}` features array with prNumber
      - For fixes: Update `${FEATURES_FILE}` fixes array with prNumber
@@ -260,13 +215,12 @@ Arguments: $ARGUMENTS
 ## Phase 6: Clear Loop State and Tasks (if feature/fix completed)
 
 6. If an agentic loop just completed successfully:
-   - Read session-scoped loop state: `.claude-harness/sessions/{session-id}/loop-state.json`
-   - If session file doesn't exist, check legacy: `.claude-harness/loops/state.json`
+   - Read session-scoped loop state: `.claude-harness/sessions/${CLAUDE_SESSION_ID}/loop-state.json`
    - If `status` is "completed" and matches current feature/fix:
      - **Mark all tasks complete** (if tasks.enabled in loop-state):
-       - Call `TaskList` to find feature's tasks
+       - Call `TaskList` to find the feature's tasks
        - For any tasks not yet "completed", call `TaskUpdate` to mark as "completed"
-       - Report: "All 5 tasks completed"
+       - Report: "All 6 tasks completed"
      - Reset loop state to idle (see `schemas/loop-state.schema.json` for canonical shape):
        ```json
        {
@@ -277,7 +231,7 @@ Arguments: $ARGUMENTS
          "linkedTo": null,
          "status": "idle",
          "attempt": 0,
-         "maxAttempts": 15,
+         "maxAttempts": 12,
          "startedAt": null,
          "lastAttemptAt": null,
          "verification": {},
@@ -294,12 +248,12 @@ Arguments: $ARGUMENTS
        ```
      - Report: "Loop completed and reset"
    - If loop is still in progress, preserve state for session continuity
-   - **Optional session cleanup**: If feature is archived and session is complete, the session directory can be removed (it's gitignored anyway)
+   - **Optional session cleanup**: If feature is archived and session is complete, the session directory can be removed (it's gitignored anyway; the SessionEnd hook also removes it on clean exit)
 
 ## Phase 7: Archive Completed Features and Fixes
 
 7. Archive completed features and fixes:
-   - Read `${FEATURES_FILE}` (from main repo in worktree mode)
+   - Read `${FEATURES_FILE}`
 
    **Archive features:**
    - Find all features with status="passing" or passes=true
@@ -323,7 +277,7 @@ Arguments: $ARGUMENTS
 ## Phase 8: Persist Orchestration Memory
 
 8. Persist orchestration memory (if orchestration was active):
-   - Read `.claude-harness/agents/context.json` (or legacy `agent-context.json`)
+   - Read `.claude-harness/agents/context.json`
    - Skip if no `currentSession` or no `agentResults`
 
    - For each entry in `agentResults`:
@@ -349,35 +303,24 @@ Arguments: $ARGUMENTS
    - Write updated files
    - Report: "Persisted {N} agent results to procedural memory"
 
-## Phase 9: Context Management Recommendation
+## Phase 9: Report Completion
 
-9. Display context management recommendation:
+9. Display checkpoint summary:
    ```
    CHECKPOINT COMPLETE
    Progress saved to memory layers
    Commit: {hash}
    PR: #{number} (if applicable)
 
-   RECOMMENDED: Run /clear to reset context
-
    Your progress is preserved in:
    - claude-progress.json (session summary)
-   - sessions/{id}/context.json (session working state)
    - memory/episodic/decisions.json (decisions)
    - memory/procedural/ (successes & failures)
    - memory/learned/rules.json (learned rules)
-   - session-briefing.md (auto-injected at next start)
-
-   Fresh context = better performance on next task.
-   Context auto-loads on next session (no /start needed).
+   - session-briefing.md (pointed to at next session start)
    ```
 
-   **Why clear context?**
-   - Prevents "context rot" from accumulated irrelevant information
-   - Reduces token costs for subsequent work
-   - Improves Claude's focus on the next task
-   - Memory files preserve all important learnings
-
-   **NOTE**: In `--autonomous` mode, context isolation is handled automatically
-   via subagent-per-feature delegation. Each feature runs in a fresh context
-   window -- no manual `/clear` needed between features.
+   **NOTE**: There is no need to `/clear` after a checkpoint. Feature work runs
+   in isolated subagents (fresh context per feature), and Claude Code's native
+   compaction preserves task-relevant context automatically. Clear only if you
+   want a full manual reset.

@@ -697,6 +697,24 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### 2026-07-02 - Modernize for current Claude Code APIs (speed + correctness)
+
+- **Fix: session liveness detection was always false**: The SessionStart hook recorded its own (immediately-dead) PID, so every other session was treated as stale — concurrent sessions deleted each other's live state and produced false interrupt markers. Sessions are now keyed by Claude Code's **native `session_id`** (read from hook stdin), and staleness is judged by transcript-file mtime (24h). Parallel sessions actually work now.
+- **Fix: interrupt detection moved from Stop to SessionEnd**: The Stop hook fires after *every* assistant turn, writing bogus "interrupted" recovery markers (and killing active team tmux sessions) mid-workflow. A new SessionEnd hook now handles interrupt rescue, orphaned-team cleanup, and session-dir removal at actual session termination. The Stop hook is gone.
+- **Fix: safety hook no longer fails open**: PreToolUse parsed Bash commands with a single-line grep, so multi-line commands bypassed every deny rule. Parsing now uses jq/python3 (multi-line safe). Static deny rules are additionally written to `permissions.deny` in settings.local.json — they block instantly without spawning a hook process.
+- **Fix: push-to-main / checkout-main rules are now loop-scoped**: The unconditional rules contradicted the flow's own documented "commit harness state to main" step. Both rules now apply only while a feature loop is in progress.
+- **Speed: setup.sh is stamp-gated**: Previously ran in full (project detection, migrations, gitignore reconciliation) on *every* session start; now only when the plugin SHA changes (`.claude-harness/.setup-stamp`).
+- **Speed: lean SessionStart context**: The hook now injects a ~15-line summary plus a pointer to `session-briefing.md` (read on demand) instead of inlining the full briefing, memory stats, and banners into every session.
+- **Speed: team gates deduplicated + cached**: TeammateIdle runs only fast checks (uncommitted work, lint, typecheck); TaskCompleted owns the full suite and caches results per working-tree hash (`.claude-harness/.verify-cache`), so unchanged trees skip re-verification.
+- **New: `harness-implementer` plugin agent**: Feature lifecycles are delegated to a dedicated subagent (`agents/harness-implementer.md`) instead of `general-purpose` + a 3,000-token inline prompt. Delegation prompts now carry only data. SubagentStart context injection is matcher-scoped to implementer agents.
+- **New: file-based result contract**: Subagents write `result-{feature-id}.json` instead of relying on parsing a `RESULT:` text block (kept as fallback).
+- **New: fresh-context retry policy**: 4 attempts per delegation, then escalate; the orchestrator re-delegates a fresh subagent seeded with the failure summary (max 3 delegations = 12 attempts). Replaces 15 attempts grinding inside one degraded context, and replaces the stale Opus 4.6 effort-escalation table.
+- **GitHub via `gh` CLI everywhere**: All skills now use `gh issue/pr` commands; the GitHub MCP server is no longer required (removes ~35 tool schemas from context). Branches are created locally (`git checkout -b` + `push -u`) instead of via API round-trips.
+- **Skills modernized**: `disable-model-invocation: true` on merge/setup/checkpoint/prd-breakdown (explicit-invocation commands), `argument-hint` + `allowed-tools` added, unsupported `compatibility` field removed, "Task tool" renamed to Agent tool, `${CLAUDE_SESSION_ID}` used directly, `/start` compiles its memory snapshot via dynamic `!` injection (`scripts/compile-briefing.py`) instead of five model-driven file reads.
+- **Agent Teams updated**: Removed the stale `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env-var gate (teams are built into current Claude Code; setup.sh removes the var from existing settings). tmux cleanup kept as legacy best-effort.
+- **Plugin manifest enriched**: `displayName`, `homepage`, `repository`, `license`, `keywords` (still SHA-versioned by design). CI now runs `claude plugin validate` before marketplace sync.
+- **Doc drift fixed**: loop-state schema v8→v9 in setup skill, 5→6 task references, checkpoint no longer writes the redundant `working-context.json`, CLAUDE.md startup protocol no longer duplicates hook-injected context.
+
 ### 2026-02-28 - Auto-inject session briefing + context isolation
 
 - **Auto-inject working context at session start**: The SessionStart hook now automatically injects project context (active features, recent decisions, failures to avoid, learned rules) without requiring a manual `/claude-harness:start` call. Uses a two-layer approach: (1) reads persistent `session-briefing.md` compiled at checkpoint time, (2) falls back to cold-start python3 extraction from memory files when no briefing exists. Inspired by patterns from claude-mem, OpenClaw, memsearch, and ContextStream plugins.

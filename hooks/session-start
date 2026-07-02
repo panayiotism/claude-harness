@@ -1,42 +1,132 @@
 #!/bin/bash
 # Claude Harness SessionStart Hook
+#
+# Uses the native session identity Claude Code provides on stdin
+# (session_id, source, transcript_path) instead of generating one.
+# Keeps injected context lean: full briefing lives in
+# .claude-harness/session-briefing.md and is read on demand.
+
+INPUT=$(cat)
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
 
-# --- First-time detection: suggest setup if harness not initialized ---
-if [ ! -d "$HARNESS_DIR" ]; then
-    USER_MSG="Claude Harness is not initialized in this project. Run /claude-harness:setup to get started."
-    USER_MSG_ESCAPED=$(echo "$USER_MSG" | sed 's/"/\\"/g')
-    cat << EOF
-{
-  "continue": true,
-  "systemMessage": "$USER_MSG_ESCAPED"
-}
-EOF
+# --- Parse hook stdin (session_id, source, transcript_path) ---
+SESSION_ID=""; SOURCE="startup"; TRANSCRIPT_PATH=""
+if command -v jq >/dev/null 2>&1; then
+    SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+    SOURCE=$(printf '%s' "$INPUT" | jq -r '.source // "startup"' 2>/dev/null)
+    TRANSCRIPT_PATH=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
+elif command -v python3 >/dev/null 2>&1; then
+    PARSED=$(printf '%s' "$INPUT" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    d = {}
+print(d.get("session_id", ""))
+print(d.get("source", "startup") or "startup")
+print(d.get("transcript_path", ""))
+' 2>/dev/null)
+    SESSION_ID=$(printf '%s' "$PARSED" | sed -n 1p)
+    SOURCE=$(printf '%s' "$PARSED" | sed -n 2p)
+    TRANSCRIPT_PATH=$(printf '%s' "$PARSED" | sed -n 3p)
+fi
+# Fallback for very old Claude Code versions that pass no session_id
+[ -n "$SESSION_ID" ] || SESSION_ID="sess-$(date +%s%N | sha256sum | head -c 16)"
+[ -n "$SOURCE" ] || SOURCE="startup"
+
+# On resume the conversation context is retained - nothing to (re)inject.
+if [ "$SOURCE" = "resume" ]; then
     exit 0
 fi
 
-# --- Auto-run setup.sh for migrations and updates ---
-# setup.sh is idempotent: create_file skips existing files, migrations are no-op if done.
-# Output suppressed — hook status box will reflect the updated state.
-bash "$CLAUDE_PLUGIN_ROOT/setup.sh" >/dev/null 2>&1 || true
-
-# --- Reusable box formatting ---
-build_box() {
-    local TOP="┌─────────────────────────────────────────────────────────────────┐"
-    local SEP="├─────────────────────────────────────────────────────────────────┤"
-    local BOT="└─────────────────────────────────────────────────────────────────┘"
-    local out="$TOP"
-    for line in "$@"; do
-        if [ "$line" = "---" ]; then out="$out
-$SEP"
-        else out="$out
-│$(printf '%-63s' "  $line")│"
-        fi
-    done
-    echo "$out
-$BOT"
+# --- JSON output helper (jq preferred, python3 fallback) ---
+emit_output() {
+    local MSG="$1" CTX="$2"
+    if command -v jq >/dev/null 2>&1; then
+        jq -n --arg msg "$MSG" --arg ctx "$CTX" '{
+            continue: true,
+            systemMessage: $msg,
+            hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: $ctx }
+        }'
+    else
+        MSG="$MSG" CTX="$CTX" python3 -c '
+import json, os
+print(json.dumps({
+    "continue": True,
+    "systemMessage": os.environ["MSG"],
+    "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": os.environ["CTX"]},
+}))'
+    fi
 }
+
+# --- First-time detection: suggest setup if harness not initialized ---
+if [ ! -d "$HARNESS_DIR" ]; then
+    emit_output "Claude Harness is not initialized in this project. Run /claude-harness:setup to get started." ""
+    exit 0
+fi
+
+# --- Version (SHA-based) ---
+PLUGIN_VERSION=$(cd "$CLAUDE_PLUGIN_ROOT" && git rev-parse --short HEAD 2>/dev/null || basename "$CLAUDE_PLUGIN_ROOT" | cut -c1-12)
+
+# --- Run setup.sh only when the plugin version changed (stamp-gated) ---
+# setup.sh is idempotent but not free; the stamp makes session start O(1).
+STAMP_FILE="$HARNESS_DIR/.setup-stamp"
+if [ "$SOURCE" = "startup" ] && [ "$(cat "$STAMP_FILE" 2>/dev/null)" != "$PLUGIN_VERSION" ]; then
+    bash "$CLAUDE_PLUGIN_ROOT/setup.sh" >/dev/null 2>&1 || true
+    echo "$PLUGIN_VERSION" > "$STAMP_FILE" 2>/dev/null || true
+fi
+
+# --- Session state dir (keyed by the NATIVE session id) ---
+SESSIONS_DIR="$HARNESS_DIR/sessions"
+SESSION_DIR="$SESSIONS_DIR/$SESSION_ID"
+RECOVERY_DIR="$SESSIONS_DIR/.recovery"
+mkdir -p "$SESSION_DIR"
+if [ ! -f "$SESSION_DIR/session.json" ] || [ "$SOURCE" = "startup" ]; then
+    cat > "$SESSION_DIR/session.json" << SESSIONEOF
+{ "id": "$SESSION_ID", "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "source": "$SOURCE", "transcriptPath": "$TRANSCRIPT_PATH", "workingDir": "$CLAUDE_PROJECT_DIR" }
+SESSIONEOF
+fi
+
+# --- Stale session cleanup (startup only) ---
+# A session is stale when its recorded transcript no longer exists or has
+# not been touched for 24h. (Liveness by PID is impossible here: the hook
+# process exits immediately, so any PID recorded at start is always dead.)
+if [ "$SOURCE" = "startup" ]; then
+    for sd in "$SESSIONS_DIR"/*/; do
+        [ -d "$sd" ] || continue
+        sid=$(basename "$sd")
+        [ "$sid" = "$SESSION_ID" ] && continue
+        [ "$sid" = ".recovery" ] && continue
+        sf="$sd/session.json"
+        tp=""
+        [ -f "$sf" ] && tp=$(grep -o '"transcriptPath"[[:space:]]*:[[:space:]]*"[^"]*"' "$sf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+        STALE=false
+        if [ -z "$tp" ] || [ ! -f "$tp" ]; then
+            STALE=true
+        elif [ -n "$(find "$tp" -mmin +1440 2>/dev/null)" ]; then
+            STALE=true
+        fi
+        [ "$STALE" = true ] || continue
+        # Rescue an interrupted loop before removing the stale dir
+        lf="$sd/loop-state.json"
+        if [ -f "$lf" ]; then
+            ls_val=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+            if [ "$ls_val" = "in_progress" ]; then
+                lfeat=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+                latmp=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$lf" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
+                lphase=$(grep -o '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+                mkdir -p "$RECOVERY_DIR"
+                cat > "$RECOVERY_DIR/interrupted.json" << INTEOF
+{ "version":1, "interruptedAt":"$(date -u +%Y-%m-%dT%H:%M:%SZ)", "staleSessionId":"$sid", "feature":"$lfeat", "attemptAtInterrupt":${latmp:-1}, "tddPhase":"${lphase:-null}", "reason":"stale-session-detected" }
+INTEOF
+                cp "$lf" "$RECOVERY_DIR/loop-state.json" 2>/dev/null
+                [ -f "$sd/autonomous-state.json" ] && cp "$sd/autonomous-state.json" "$RECOVERY_DIR/autonomous-state.json" 2>/dev/null
+            fi
+        fi
+        rm -rf "$sd"
+    done
+fi
 
 # --- GitHub repo caching ---
 GITHUB_OWNER=""; GITHUB_REPO=""
@@ -50,192 +140,28 @@ if [ -n "$REMOTE_URL" ]; then
     GITHUB_REPO="${GITHUB_REPO%.git}"
 fi
 
-# --- Session management ---
-SESSION_ID=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "sess-$(date +%s%N | sha256sum | head -c 16)")
-SESSION_DIR="$HARNESS_DIR/sessions/$SESSION_ID"
-mkdir -p "$SESSION_DIR"
-cat > "$SESSION_DIR/session.json" << SESSIONEOF
-{ "id": "$SESSION_ID", "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "pid": "$$", "workingDir": "$CLAUDE_PROJECT_DIR" }
-SESSIONEOF
-
-# --- Stale session cleanup ---
-SESSIONS_DIR="$HARNESS_DIR/sessions"; RECOVERY_DIR="$SESSIONS_DIR/.recovery"; CLEANED_COUNT=0
-if [ -d "$SESSIONS_DIR" ]; then
-    for sd in "$SESSIONS_DIR"/*/; do
-        [ -d "$sd" ] || continue
-        sid=$(basename "$sd"); [ "$sid" = "$SESSION_ID" ] && continue; [ "$sid" = ".recovery" ] && continue
-        sf="$sd/session.json"; [ -f "$sf" ] || continue
-        pid=$(grep '"pid"' "$sf" 2>/dev/null | grep -o '[0-9]\+')
-        if [ -z "$pid" ] || ! ps -p "$pid" > /dev/null 2>&1; then
-            lf="$sd/loop-state.json"
-            if [ -f "$lf" ]; then
-                ls=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-                if [ "$ls" = "in_progress" ]; then
-                    lfeat=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-                    latmp=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$lf" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
-                    lphase=$(grep -o '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-                    mkdir -p "$RECOVERY_DIR"
-                    cat > "$RECOVERY_DIR/interrupted.json" << INTEOF
-{ "version":1, "interruptedAt":"$(date -u +%Y-%m-%dT%H:%M:%SZ)", "staleSessionId":"$sid", "feature":"$lfeat", "attemptAtInterrupt":${latmp:-1}, "tddPhase":"${lphase:-null}", "reason":"stale-session-detected" }
-INTEOF
-                    cp "$lf" "$RECOVERY_DIR/loop-state.json" 2>/dev/null
-                    [ -f "$sd/autonomous-state.json" ] && cp "$sd/autonomous-state.json" "$RECOVERY_DIR/autonomous-state.json" 2>/dev/null
-                fi
-            fi
-            rm -rf "$sd"; CLEANED_COUNT=$((CLEANED_COUNT + 1))
-        fi
-    done
+# --- Feature summary (compact, via shared compiler) ---
+FEATURE_LINES=""
+if command -v python3 >/dev/null 2>&1; then
+    FEATURE_LINES=$(python3 "$CLAUDE_PLUGIN_ROOT/scripts/compile-briefing.py" "$HARNESS_DIR" --features-only 2>/dev/null || true)
 fi
 
-# --- Version (SHA-based) ---
-PLUGIN_VERSION=$(cd "$CLAUDE_PLUGIN_ROOT" && git rev-parse --short HEAD 2>/dev/null || basename "$CLAUDE_PLUGIN_ROOT" | cut -c1-12)
-
-# Update detection is handled natively by Claude Code via SHA comparison.
-# No custom version check needed — `claude plugin update` handles it.
-
-# --- Memory status ---
-
-EPISODIC_COUNT=0; FAILURES_COUNT=0; SUCCESSES_COUNT=0; RULES_COUNT=0; WORKING_COMPUTED=""; IS_V3=false
-if [ -d "$HARNESS_DIR/memory" ]; then
-    IS_V3=true
-    [ -f "$HARNESS_DIR/memory/working/context.json" ] && WORKING_COMPUTED=$(grep -o '"computedAt"[[:space:]]*:[[:space:]]*"[^"]*"' "$HARNESS_DIR/memory/working/context.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-    [ -f "$HARNESS_DIR/memory/episodic/decisions.json" ] && EPISODIC_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/episodic/decisions.json" 2>/dev/null; true)
-    [ -f "$HARNESS_DIR/memory/procedural/failures.json" ] && FAILURES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/procedural/failures.json" 2>/dev/null; true)
-    [ -f "$HARNESS_DIR/memory/procedural/successes.json" ] && SUCCESSES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/procedural/successes.json" 2>/dev/null; true)
-    [ -f "$HARNESS_DIR/memory/learned/rules.json" ] && RULES_COUNT=$(grep -c '"id"' "$HARNESS_DIR/memory/learned/rules.json" 2>/dev/null; true)
-fi
-
-# --- Auto-context injection: compile session briefing ---
-# Two layers: 1) Read persistent briefing (from last checkpoint), 2) Cold-start extraction
-# This ensures Claude is immediately aware of project context on every new session.
-BRIEFING_FILE="$HARNESS_DIR/session-briefing.md"
-BRIEFING_CONTENT=""
-
-if [ -f "$BRIEFING_FILE" ]; then
-    # Layer 1: Persistent briefing compiled at last checkpoint (fast — just read file)
-    BRIEFING_CONTENT=$(head -120 "$BRIEFING_FILE" 2>/dev/null || true)
-elif command -v python3 >/dev/null 2>&1; then
-    # Layer 2: Cold-start — extract live from memory files using python3
-    # Adapts the proven pattern from subagent-start hook
-    BRIEFING_CONTENT=$(python3 -c "
-import json, os
-
-harness = '$HARNESS_DIR'
-parts = []
-
-# 1. Features from active.json (id, name, status, description)
-af = os.path.join(harness, 'features', 'active.json')
-if os.path.isfile(af):
-    try:
-        with open(af) as f:
-            data = json.load(f)
-        feats = data.get('features', [])
-        if feats:
-            parts.append('## Active Features')
-            for feat in feats[:10]:
-                fid = feat.get('id', '?')
-                name = feat.get('name', '?')
-                status = feat.get('status', '?')
-                desc = feat.get('description', '')
-                line = '- ' + fid + ': ' + name + ' [' + status + ']'
-                if desc:
-                    line += '\n  ' + desc[:100]
-                ac = feat.get('acceptanceCriteria', [])
-                if ac:
-                    line += '\n  Acceptance: ' + str(len(ac)) + ' scenarios'
-                parts.append(line)
-    except Exception:
-        pass
-
-# 2. Recent decisions from episodic memory (last 5)
-df = os.path.join(harness, 'memory', 'episodic', 'decisions.json')
-if os.path.isfile(df):
-    try:
-        with open(df) as f:
-            data = json.load(f)
-        entries = data.get('entries', [])[-5:]
-        if entries:
-            parts.append('## Recent Decisions')
-            for e in reversed(entries):
-                dec = e.get('decision', '?')[:80]
-                feat = e.get('feature', '')
-                parts.append('- ' + dec + (' (' + feat + ')' if feat else ''))
-    except Exception:
-        pass
-
-# 3. Failures to avoid (last 3)
-ff = os.path.join(harness, 'memory', 'procedural', 'failures.json')
-if os.path.isfile(ff):
-    try:
-        with open(ff) as f:
-            data = json.load(f)
-        entries = data.get('entries', [])[-3:]
-        if entries:
-            parts.append('## Approaches to AVOID')
-            for e in reversed(entries):
-                approach = e.get('approach', '?')[:60]
-                cause = e.get('rootCause', '?')[:60]
-                parts.append('- ' + approach + ' -> ' + cause)
-    except Exception:
-        pass
-
-# 4. Learned rules (active, up to 5)
-rf = os.path.join(harness, 'memory', 'learned', 'rules.json')
-if os.path.isfile(rf):
-    try:
-        with open(rf) as f:
-            data = json.load(f)
-        rules = [r for r in data.get('rules', []) if r.get('active', True)][:5]
-        if rules:
-            parts.append('## Learned Rules')
-            for r in rules:
-                title = r.get('title', '?')
-                desc = r.get('description', '')[:60]
-                parts.append('- ' + title + (': ' + desc if desc else ''))
-    except Exception:
-        pass
-
-# 5. Last session summary from claude-progress.json
-pf = os.path.join(harness, 'claude-progress.json')
-if os.path.isfile(pf):
-    try:
-        with open(pf) as f:
-            data = json.load(f)
-        summary = data.get('summary', '')
-        if summary:
-            parts.append('## Last Session\n' + summary[:200])
-    except Exception:
-        pass
-
-output = '\n'.join(parts)
-lines = output.split('\n')[:120]
-print('\n'.join(lines))
-" 2>/dev/null || true)
-fi
-
-FEATURES_FILE="$HARNESS_DIR/features/active.json"; AGENT_FILE="$HARNESS_DIR/agents/context.json"
-LOOP_FILE="$SESSION_DIR/loop-state.json"; WORKING_FILE="$SESSION_DIR/context.json"
-
-ACTIVE_FEATURE=""; FEATURE_SUMMARY=""
-if [ -f "$WORKING_FILE" ]; then
-    ACTIVE_FEATURE=$(grep -o '"activeFeature"[[:space:]]*:[[:space:]]*"[^"]*"' "$WORKING_FILE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-    FEATURE_SUMMARY=$(grep -o '"summary"[[:space:]]*:[[:space:]]*"[^"]*"' "$WORKING_FILE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-fi
-
-TOTAL_FEATURES=0; PENDING_FEATURES=0; IN_PROGRESS=0; NEEDS_TESTS=0
+FEATURES_FILE="$HARNESS_DIR/features/active.json"
+PENDING_FEATURES=0; IN_PROGRESS=0
 if [ -f "$FEATURES_FILE" ]; then
-    TOTAL_FEATURES=$(grep -c '"id"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
     PENDING_FEATURES=$(grep -c '"status"[[:space:]]*:[[:space:]]*"pending"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
     IN_PROGRESS=$(grep -c '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
-    NEEDS_TESTS=$(grep -c '"status"[[:space:]]*:[[:space:]]*"needs_tests"' "$FEATURES_FILE" 2>/dev/null | head -1 || echo "0")
 fi
 
-ORCH_FEATURE=""; ORCH_PHASE=""
-if [ -f "$AGENT_FILE" ]; then
-    ORCH_FEATURE=$(grep -o '"activeFeature"[[:space:]]*:[[:space:]]*"[^"]*"' "$AGENT_FILE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-    ORCH_PHASE=$(grep -o '"orchestrationPhase"[[:space:]]*:[[:space:]]*"[^"]*"' "$AGENT_FILE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+# --- Interrupt / loop banners ---
+INT_FEATURE=""; INT_ATTEMPT=""; INT_PHASE=""
+if [ -f "$RECOVERY_DIR/interrupted.json" ]; then
+    INT_FEATURE=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    INT_ATTEMPT=$(grep -o '"attemptAtInterrupt"[[:space:]]*:[[:space:]]*[0-9]*' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
+    INT_PHASE=$(grep -o '"tddPhase"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
 fi
 
+LOOP_FILE="$SESSION_DIR/loop-state.json"
 LOOP_FEATURE=""; LOOP_STATUS=""; LOOP_ATTEMPT=""; LOOP_MAX=""
 if [ -f "$LOOP_FILE" ]; then
     LOOP_STATUS=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$LOOP_FILE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
@@ -246,94 +172,43 @@ if [ -f "$LOOP_FILE" ]; then
     fi
 fi
 
-INT_FEATURE=""; INT_ATTEMPT=""; INT_PHASE=""
-if [ -f "$RECOVERY_DIR/interrupted.json" ]; then
-    INT_FEATURE=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-    INT_ATTEMPT=$(grep -o '"attemptAtInterrupt"[[:space:]]*:[[:space:]]*[0-9]*' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
-    INT_PHASE=$(grep -o '"tddPhase"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-fi
-
-LAST_SUMMARY=""
-[ -f "$HARNESS_DIR/claude-progress.json" ] && LAST_SUMMARY=$(grep -o '"summary"[[:space:]]*:[[:space:]]*"[^"]*"' "$HARNESS_DIR/claude-progress.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-
-# --- Build user-visible message ---
-LOOP_LINE=""
-if [ -n "$INT_FEATURE" ]; then
-    LOOP_LINE="INTERRUPTED: $INT_FEATURE (attempt $INT_ATTEMPT, phase: ${INT_PHASE:-unknown})"
-    LOOP_FEATURE="$INT_FEATURE"
-elif [ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ]; then
-    LOOP_LINE="ACTIVE LOOP: $LOOP_FEATURE (attempt $LOOP_ATTEMPT/$LOOP_MAX)"
-fi
-
-STATUS_LINE="P:$PENDING_FEATURES WIP:$IN_PROGRESS Tests:$NEEDS_TESTS"
-[ -n "$ACTIVE_FEATURE" ] && [ "$ACTIVE_FEATURE" != "null" ] && STATUS_LINE="$STATUS_LINE | Active: $ACTIVE_FEATURE"
-[ -n "$ORCH_FEATURE" ] && [ "$ORCH_FEATURE" != "null" ] && [ "$ORCH_PHASE" != "completed" ] && STATUS_LINE="$STATUS_LINE | Orch: $ORCH_PHASE"
-
-BOX_LINES=("CLAUDE HARNESS v$PLUGIN_VERSION")
-if [ -n "$LOOP_LINE" ]; then
-    BOX_LINES+=("---" "$LOOP_LINE" "Resume: /claude-harness:flow $LOOP_FEATURE")
-fi
-BOX_LINES+=("---" "$STATUS_LINE")
-[ "$IS_V3" = true ] && BOX_LINES+=("Memory: $EPISODIC_COUNT decisions | $FAILURES_COUNT failures | $RULES_COUNT rules")
-BOX_LINES+=("---" "/claude-harness:flow        Unified workflow (recommended)" "Flags: --no-merge --plan-only --autonomous --quick --fix")
-
-USER_MSG=$(build_box "${BOX_LINES[@]}")
-
-# --- Build Claude context ---
-CLAUDE_CONTEXT="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ==="
-CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nSession ID: $SESSION_ID\nSession Dir: .claude-harness/sessions/$SESSION_ID/\nPlugin Root: $CLAUDE_PLUGIN_ROOT"
+# --- Build lean Claude context ---
+CTX="=== CLAUDE HARNESS SESSION (v$PLUGIN_VERSION) ===
+Session ID: $SESSION_ID
+Session state dir: .claude-harness/sessions/$SESSION_ID/"
 
 if [ -n "$GITHUB_OWNER" ] && [ -n "$GITHUB_REPO" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== GITHUB (CACHED) ===\nOwner: $GITHUB_OWNER\nRepo: $GITHUB_REPO\nIMPORTANT: Use these cached values for ALL GitHub API calls. Do NOT re-parse git remote."
+    CTX="$CTX
+GitHub (cached): $GITHUB_OWNER/$GITHUB_REPO - reuse for all gh calls, do NOT re-parse git remote."
 fi
 
-if [ "$IS_V3" = true ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== MEMORY ARCHITECTURE v3.0 ==="
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nEpisodic Memory: $EPISODIC_COUNT decisions recorded"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nProcedural Memory: $FAILURES_COUNT failures, $SUCCESSES_COUNT successes"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nLearned Rules: $RULES_COUNT rules from user corrections"
-    [ -n "$WORKING_COMPUTED" ] && CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Last compiled $WORKING_COMPUTED" \
-        || CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nWorking Context: Auto-injected (run /start for full refresh)"
-fi
-
-# --- Inject session briefing into Claude context ---
-if [ -n "$BRIEFING_CONTENT" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n=== SESSION BRIEFING (auto-compiled) ==="
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n$BRIEFING_CONTENT"
-fi
-
-[ -n "$ACTIVE_FEATURE" ] && [ "$ACTIVE_FEATURE" != "null" ] && \
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nRESUMING WORK:\nFeature: $ACTIVE_FEATURE\nSummary: $FEATURE_SUMMARY"
-[ "$TOTAL_FEATURES" != "0" ] && \
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nFeatures: P:$PENDING_FEATURES WIP:$IN_PROGRESS Tests:$NEEDS_TESTS / $TOTAL_FEATURES total"
+CTX="$CTX
+Features: $PENDING_FEATURES pending, $IN_PROGRESS in progress."
+[ -n "$FEATURE_LINES" ] && CTX="$CTX
+$FEATURE_LINES"
 
 if [ -n "$INT_FEATURE" ]; then
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** INTERRUPTED SESSION DETECTED ***"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nFeature: $INT_FEATURE was interrupted at attempt $INT_ATTEMPT\nTDD Phase: ${INT_PHASE:-null}"
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\nRecovery: .claude-harness/sessions/.recovery/interrupted.json\nResume: /claude-harness:flow $INT_FEATURE\nIMPORTANT: On resume, flow will offer recovery options. Do NOT retry same approach blindly."
+    CTX="$CTX
+
+*** INTERRUPTED SESSION DETECTED ***
+Feature $INT_FEATURE was interrupted at attempt ${INT_ATTEMPT:-?} (phase: ${INT_PHASE:-unknown}).
+Resume with /claude-harness:flow $INT_FEATURE - it will offer recovery options. Do NOT retry the same approach blindly."
 fi
 
-[ -n "$LOOP_FEATURE" ] && [ "$LOOP_STATUS" = "in_progress" ] && \
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** ACTIVE AGENTIC LOOP ***\nFeature: $LOOP_FEATURE\nAttempt: $LOOP_ATTEMPT of $LOOP_MAX\nStatus: In Progress"
-[ -n "$ORCH_FEATURE" ] && [ "$ORCH_FEATURE" != "null" ] && [ "$ORCH_PHASE" != "completed" ] && \
-    CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nACTIVE ORCHESTRATION:\nFeature: $ORCH_FEATURE\nPhase: $ORCH_PHASE"
-[ -n "$LAST_SUMMARY" ] && CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\nLast session: $LAST_SUMMARY"
-CLAUDE_CONTEXT="$CLAUDE_CONTEXT\n\n*** PARALLEL SESSIONS ENABLED ***\nThis session has its own state directory. Multiple Claude instances can work on different features simultaneously without conflicts."
+if [ -n "$LOOP_FEATURE" ]; then
+    CTX="$CTX
 
-# --- Output JSON ---
-USER_MSG_ESCAPED=$(echo "$USER_MSG" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-CLAUDE_CONTEXT_ESCAPED=$(echo -e "$CLAUDE_CONTEXT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+ACTIVE LOOP: $LOOP_FEATURE (attempt $LOOP_ATTEMPT/$LOOP_MAX). Resume: /claude-harness:flow $LOOP_FEATURE"
+fi
 
-cat << EOF
-{
-  "continue": true,
-  "systemMessage": "$USER_MSG_ESCAPED",
-  "hookSpecificOutput": {
-    "hookEventName": "SessionStart",
-    "sessionId": "$SESSION_ID",
-    "sessionDir": "$SESSION_DIR",
-    "github": { "owner": "$GITHUB_OWNER", "repo": "$GITHUB_REPO" },
-    "additionalContext": "$CLAUDE_CONTEXT_ESCAPED"
-  }
-}
-EOF
+CTX="$CTX
+
+Before starting harness work (flow/checkpoint/merge), read .claude-harness/session-briefing.md for full context (recent decisions, approaches to avoid, learned rules)."
+
+# --- Build compact user-visible message ---
+STATUS_LINE="P:$PENDING_FEATURES WIP:$IN_PROGRESS"
+[ -n "$INT_FEATURE" ] && STATUS_LINE="$STATUS_LINE | INTERRUPTED: $INT_FEATURE"
+[ -n "$LOOP_FEATURE" ] && STATUS_LINE="$STATUS_LINE | ACTIVE: $LOOP_FEATURE ($LOOP_ATTEMPT/$LOOP_MAX)"
+MSG="Claude Harness v$PLUGIN_VERSION | $STATUS_LINE | /claude-harness:flow to start"
+
+emit_output "$MSG" "$CTX"

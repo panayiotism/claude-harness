@@ -1,6 +1,8 @@
 ---
 name: flow
-description: Unified development workflow for implementing features, fixing bugs, running autonomous batch processing, planning implementations, and orchestrating ATDD agent teams. Triggers on feature creation, bug fixes, batch processing, implementation planning, team-based development, and any end-to-end coding workflow.
+description: Unified end-to-end development workflow - creates a feature (GitHub issue, branch, Gherkin acceptance criteria), implements it in an isolated subagent via ATDD, verifies, checkpoints (commit/push/PR), and merges. Use for implementing features, fixing bugs, batch-processing a feature backlog, or planning implementations.
+argument-hint: "[description | feature-id] [--no-merge --plan-only --autonomous --quick --fix --team]"
+allowed-tools: "Bash(git *), Bash(gh *)"
 ---
 
 # Flow - Unified Development Workflow
@@ -8,6 +10,8 @@ description: Unified development workflow for implementing features, fixing bugs
 The single command for all development workflows. Handles the entire feature lifecycle from creation to merge.
 
 Arguments: $ARGUMENTS
+
+Session ID: ${CLAUDE_SESSION_ID} — session state lives in `.claude-harness/sessions/${CLAUDE_SESSION_ID}/`.
 
 ## Overview
 
@@ -22,27 +26,15 @@ All workflows run through this single entry point with flags:
 
 **Lifecycle**: Context -> Creation -> **[Subagent Delegation]** -> Planning -> Implementation -> Verification -> Checkpoint -> Merge -> **[Result Processing]**
 
-**Context Isolation**: In standard mode, Phases 3-6 run inside an isolated subagent (via Task tool). The main context stays clean after feature completion -- no `/clear` needed between features.
+**Context Isolation**: In standard mode, Phases 3-6 run inside an isolated subagent (via the Agent tool, subagent type `claude-harness:harness-implementer`). The main context stays clean after feature completion -- no `/clear` needed between features.
 
 **ATDD Team Lifecycle** (with `--team`): Context -> Creation (with Gherkin criteria) -> **[Subagent Delegation]** -> Planning -> **Team Spawn** -> Acceptance Tests (RED) -> Implementation (GREEN) -> Review -> Verify -> Checkpoint -> Merge
 
 ---
 
-## Effort Controls (Opus 4.6+)
+## Retry Policy
 
-| Phase | Effort | Why |
-|-------|--------|-----|
-| Context Compilation | low | Mechanical data loading |
-| Feature Creation / Selection / Conflict Detection | low | Template-based, deterministic |
-| Planning | max | Determines approach quality, avoids past failures |
-| Implementation | high | Core coding, escalate to max on retry |
-| Verification / Debug | max | Root-cause analysis needs deepest reasoning |
-| Checkpoint / Merge | low | Mechanical operations |
-| Subagent Delegation (autonomous) | low | Mechanical prompt assembly and result parsing |
-
-**Adaptive Escalation** (progressive on retries): Attempts 1-5: high. Attempts 6-10: max. Attempts 11-15: max + full procedural memory.
-
-On models without effort controls, all phases run at default effort.
+Each delegated subagent gets **at most 4 implementation attempts**. If it escalates, the orchestrator spawns a **fresh subagent** (clean context) seeded with the failure summary from the previous delegation -- up to **3 delegations per feature** (12 attempts total). A fresh context with distilled failure knowledge outperforms a degraded context grinding through attempt 15.
 
 ---
 
@@ -73,22 +65,22 @@ On models without effort controls, all phases run at default effort.
 
 Read `${CLAUDE_SKILL_DIR}/references/team-atdd.md` for full Agent Teams ATDD details.
 
-- Check `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var is set to `1`
-- If not set: display error with instructions to enable, then STOP
-- Read `.claude-harness/config.json` `agentTeams` section: verify `enabled` is `true`
+- Read `.claude-harness/config.json` `agentTeams` section: verify `enabled` is `true`. If not: display "Enable agentTeams in config.json" and STOP.
 - Cache team config: `defaultTeamSize`, `roles`, `requirePlanApproval`, `teammateModel`
 
 ---
 
 ## Autonomous Wrapper (if --autonomous)
 
-When `--autonomous` is set, the flow operates as a **lean orchestrator loop** that iterates all active features. Each feature is executed in an **isolated subagent context** via the Task tool.
+When `--autonomous` is set, the flow operates as a **lean orchestrator loop** that iterates all active features. Each feature is executed in an **isolated subagent context** via the Agent tool.
 
 Read `${CLAUDE_SKILL_DIR}/references/autonomous-wrapper.md` for the full autonomous orchestration phases (A.1 through A.7).
 
+**Tip**: for fully unattended batches, run the session as `claude --permission-mode acceptEdits` -- the PermissionRequest hook then only has to arbitrate the rare dangerous operations.
+
 ### Context Isolation (All Modes)
 
-Both standard and autonomous modes delegate feature implementation to a `general-purpose` subagent via the Task tool. This provides:
+Both standard and autonomous modes delegate feature implementation to the `claude-harness:harness-implementer` subagent via the Agent tool (fall back to `general-purpose` if the type is unavailable). This provides:
 
 - **Fresh context window**: Each feature starts with zero accumulated context
 - **Clean token budget**: No context waste from previous features
@@ -104,26 +96,20 @@ Both standard and autonomous modes delegate feature implementation to a `general
 
 ## Phase 1: Context Compilation (Auto-Start)
 
-Read all memory layers IN PARALLEL for speed.
-
 1. **Set paths**:
    - `FEATURES_FILE=".claude-harness/features/active.json"`
    - `MEMORY_DIR=".claude-harness/memory/"`
    - `ARCHIVE_FILE=".claude-harness/features/archive.json"`
 
-2. **Parse and cache GitHub repo** (do this ONCE):
-   ```bash
-   REMOTE_URL=$(git remote get-url origin 2>/dev/null)
-   ```
-   Parse owner/repo from SSH or HTTPS URL. Store for reuse.
+2. **GitHub repo**: use the cached owner/repo from the session context (injected at SessionStart). Only if absent, parse once from `git remote get-url origin`.
 
-3. **Read IN PARALLEL**: failures.json, successes.json, decisions.json, rules.json, active.json
+3. **Read IN PARALLEL** (single message, multiple Read calls): failures.json, successes.json, decisions.json, rules.json, active.json
 
-4. **Compile working context** to `.claude-harness/sessions/{session-id}/context.json`:
+4. **Compile working context** to `.claude-harness/sessions/${CLAUDE_SESSION_ID}/context.json`:
    ```json
    {
-     "version": 3, "computedAt": "{ISO}", "sessionId": "{session-id}",
-     "github": { "owner": "{parsed}", "repo": "{parsed}" },
+     "version": 3, "computedAt": "{ISO}", "sessionId": "${CLAUDE_SESSION_ID}",
+     "github": { "owner": "{owner}", "repo": "{repo}" },
      "activeFeature": null,
      "relevantMemory": { "recentDecisions": [], "projectPatterns": [], "avoidApproaches": [], "learnedRules": [] }
    }
@@ -145,11 +131,11 @@ Use cached GitHub owner/repo from Phase 1.
    - Format as structured Gherkin: `{ "scenario", "given", "when", "then" }`
    - Aim for 2-5 scenarios covering: happy path, error cases, edge cases
 
-3. **Create GitHub Issue**: `mcp__github__create_issue` with labels `["feature", "claude-harness", "flow"]`, body with Problem/Solution/Acceptance Criteria (Gherkin)/Verification. STOP if fails.
+3. **Create GitHub Issue** via `gh issue create --title "{name}" --label "feature,claude-harness,flow" --body "{Problem/Solution/Acceptance Criteria (Gherkin)/Verification}"`. STOP if it fails (check `gh auth status`).
 
-4. **Create and checkout branch**: `mcp__github__create_branch`, then `git fetch origin && git checkout feature/feature-XXX`.
+4. **Create and checkout branch locally**: `git checkout -b feature/feature-XXX` (no API round-trip; the branch reaches the remote on first `git push -u origin feature/feature-XXX`).
 
-5. **Create feature entry** in active.json: id, name, status "in_progress", acceptanceCriteria, github refs, verificationCommands, maxAttempts 15.
+5. **Create feature entry** in active.json: id, name, status "in_progress", acceptanceCriteria, github refs, verificationCommands, maxAttempts 12.
 
 ---
 
@@ -157,14 +143,14 @@ Use cached GitHub owner/repo from Phase 1.
 
 **Skip this phase** if `--plan-only` or `--autonomous`.
 
-After feature creation, delegate the remaining lifecycle to an isolated subagent for clean context. Read `${CLAUDE_SKILL_DIR}/references/implementation.md` for the full subagent prompt format and result processing logic.
+After feature creation, delegate the remaining lifecycle to an isolated subagent for clean context. Read `${CLAUDE_SKILL_DIR}/references/implementation.md` for the delegation prompt format and result processing logic.
 
 ### Summary:
-1. Compile subagent prompt (feature entry, verification commands, memory, GitHub info, flags)
-2. Delegate to Task tool with `subagent_type="general-purpose"`
-3. Subagent runs Phases 3-6 autonomously in fresh context
-4. Parse RESULT block from subagent response
-5. Process result: archive on success, persist memory, clean up branches
+1. Compile subagent prompt (feature entry, verification commands, memory, GitHub info, flags, result file path)
+2. Delegate via Agent tool with `subagent_type="claude-harness:harness-implementer"`
+3. Subagent runs Phases 3-6 autonomously in fresh context and writes its result file
+4. Read the result file (fallback: parse `RESULT:` from the subagent's reply)
+5. Process result: archive on success, persist memory, clean up branches; on `escalated`, re-delegate a fresh subagent (max 3 delegations)
 6. Skip to Phase 7
 
 ---
@@ -173,7 +159,7 @@ After feature creation, delegate the remaining lifecycle to an isolated subagent
 
 **Note**: In standard mode, this phase runs inside the delegated subagent. It only runs inline when `--plan-only` is set.
 
-1. **Query procedural memory** (effort: max): Check past failures/successes. Warn if planned approach matches past failure.
+1. **Query procedural memory**: Check past failures/successes. Warn if planned approach matches past failure.
 2. **Analyze requirements**: Break down, identify files, calculate impact.
 3. **Generate plan**: Store in feature entry or session context.
 
@@ -181,7 +167,7 @@ After feature creation, delegate the remaining lifecycle to an isolated subagent
 
 ## Phase 3.5: Create Task Breakdown
 
-Uses Claude Code's native Tasks for visual progress tracking.
+Uses Claude Code's native task tracking (TaskCreate/TaskUpdate) for visual progress.
 
 - Create task chain (6 tasks): Research -> Plan -> Implement -> Verify -> Accept -> Checkpoint
 - Each blocked by previous. Store IDs in loop-state.
@@ -212,7 +198,7 @@ Read `${CLAUDE_SKILL_DIR}/references/implementation.md` for full implementation 
 2. Initialize loop state (canonical Loop-State Schema v9)
 3. Implement feature following ATDD: acceptance tests first (RED), implement to pass (GREEN), refactor
 4. Run verification commands after implementation
-5. On failure: record to failures.json, increment attempts, retry with escalation
+5. On failure: record to failures.json, increment attempts, retry with a different approach (max 4 per delegation)
 
 ### Team (--team):
 Read `${CLAUDE_SKILL_DIR}/references/team-atdd.md` for full ATDD team implementation including team creation, monitoring, shutdown gate, and cleanup.
@@ -231,12 +217,11 @@ Triggers when verification passes. Read `${CLAUDE_SKILL_DIR}/references/checkpoi
 
 Summary:
 1. Update `.claude-harness/claude-progress.json` with session summary
-2. Capture working context to session-scoped file
-3. Compile session briefing to `.claude-harness/session-briefing.md`
-4. Persist to all memory layers (episodic, semantic, procedural)
-5. Auto-reflect on user corrections
-6. Persist orchestration memory
-7. Commit, push, create/update PR
+2. Compile session briefing to `.claude-harness/session-briefing.md`
+3. Persist to all memory layers (episodic, semantic, procedural)
+4. Auto-reflect on user corrections
+5. Persist orchestration memory
+6. Commit, push (`git push -u origin {branch}`), create/update PR via `gh pr create` / `gh pr edit`
 
 ---
 
@@ -244,10 +229,10 @@ Summary:
 
 Only proceeds if PR approved and CI passes.
 
-1. Check PR status via `mcp__github__get_pull_request_status`
-2. If ready: merge (squash), close issue, delete remote branch, update status to "passing", archive feature
+1. Check PR status: `gh pr view {number} --json state,mergeable,reviewDecision,statusCheckRollup`
+2. If ready: `gh pr merge {number} --squash --delete-branch`, close issue if not auto-closed (`gh issue close {issueNumber}`), update status to "passing", archive feature
 3. If needs review: display PR URL with resume/merge commands
-4. **Final cleanup**: switch to main, delete local feature branch (`git branch -d`), prune refs, clear loop state
+4. **Final cleanup**: switch to main, pull, delete local feature branch (`git branch -d`), prune refs, clear loop state
 
 ---
 
@@ -270,8 +255,8 @@ Only proceeds if PR approved and CI passes.
 
 ## Error Handling
 
-- **GitHub API failures**: Retry with exponential backoff. If persistent: pause and inform user.
-- **Verification failures**: Record to procedural memory, try alternative, escalate after maxAttempts.
+- **GitHub/`gh` failures**: Retry with exponential backoff. If persistent (auth, network): pause and inform user (`gh auth status`).
+- **Verification failures**: Record to procedural memory, try alternative, escalate after max attempts.
 - **Merge conflicts**: Inform user, offer rebase or manual resolution.
 
 ---

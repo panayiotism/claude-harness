@@ -1,11 +1,13 @@
 #!/bin/bash
 # Claude Harness PreToolUse Hook
-# Branch safety + state protection
-# Matchers: "Bash" and "Edit|Write" (registered separately in hooks.json)
-# Exit 0 with permissionDecision: "deny" = block the tool call
-# Exit 0 with no decision = allow
+# Branch safety + state protection (matcher: "Bash|Edit|Write")
+#
+# Note: the common static forms of these rules are ALSO written as
+# permissions.deny entries in .claude/settings.local.json by setup.sh
+# (zero-latency declarative path). This hook is the regex backstop that
+# catches reordered flags plus the rules that need runtime state.
 
-# Safety net: ensure hook NEVER exits non-zero (which causes "hook error" in Claude Code)
+# Safety net: ensure hook NEVER exits non-zero (which surfaces as a hook error)
 trap 'exit 0' ERR
 
 HARNESS_DIR="$CLAUDE_PROJECT_DIR/.claude-harness"
@@ -15,154 +17,130 @@ if [ ! -d "$HARNESS_DIR" ]; then
     exit 0
 fi
 
-# Read stdin JSON
+# Read stdin JSON. Parse with jq or python3 - both handle multi-line
+# commands correctly. (A line-based grep fallback silently missed
+# multi-line/escaped commands, letting dangerous git commands through.)
 INPUT=$(cat)
-
-# Parse JSON with jq (reliable) or grep fallback
+TOOL_NAME=""; COMMAND=""; FILE_PATH=""
 if command -v jq >/dev/null 2>&1; then
     TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null) || TOOL_NAME=""
+    COMMAND=$(printf '%s' "$INPUT" | jq -r '(.tool_input.command // "") | gsub("[\n\r\t]"; " ")' 2>/dev/null) || COMMAND=""
+    FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null) || FILE_PATH=""
+elif command -v python3 >/dev/null 2>&1; then
+    PARSED=$(printf '%s' "$INPUT" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    d = {}
+ti = d.get("tool_input") or {}
+print(d.get("tool_name", ""))
+print(" ".join(str(ti.get("command", "")).split()))
+print(ti.get("file_path", ""))
+' 2>/dev/null) || PARSED=""
+    TOOL_NAME=$(printf '%s' "$PARSED" | sed -n 1p)
+    COMMAND=$(printf '%s' "$PARSED" | sed -n 2p)
+    FILE_PATH=$(printf '%s' "$PARSED" | sed -n 3p)
 else
-    TOOL_NAME=$(printf '%s' "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || TOOL_NAME=""
+    # No safe JSON parser available - cannot reliably inspect the call.
+    exit 0
 fi
 
+# Is this project the plugin's own source repo? (Development exemption:
+# the self-modification guard must not block plugin development itself.)
+IS_PLUGIN_SOURCE=false
+if [ -f "$CLAUDE_PROJECT_DIR/.claude-plugin/plugin.json" ] && [ -f "$CLAUDE_PROJECT_DIR/hooks/run-hook.cmd" ]; then
+    IS_PLUGIN_SOURCE=true
+fi
+
+# Any session currently running a feature loop?
+active_loop_in_progress() {
+    local sd lf ls_val
+    for sd in "$HARNESS_DIR/sessions"/*/; do
+        [ -d "$sd" ] || continue
+        [ "$(basename "$sd")" = ".recovery" ] && continue
+        lf="$sd/loop-state.json"
+        [ -f "$lf" ] || continue
+        if command -v jq >/dev/null 2>&1; then
+            ls_val=$(jq -r '.status // empty' "$lf" 2>/dev/null) || ls_val=""
+        else
+            ls_val=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || ls_val=""
+        fi
+        [ "$ls_val" = "in_progress" ] && return 0
+    done
+    return 1
+}
+
+deny() {
+    local REASON="$1"
+    if command -v jq >/dev/null 2>&1; then
+        jq -n --arg reason "$REASON" '{
+            hookSpecificOutput: {
+                hookEventName: "PreToolUse",
+                permissionDecision: "deny",
+                permissionDecisionReason: $reason
+            }
+        }'
+    else
+        REASON="$REASON" python3 -c '
+import json, os
+print(json.dumps({
+    "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "deny",
+        "permissionDecisionReason": os.environ["REASON"],
+    }
+}))'
+    fi
+    exit 0
+}
+
 # ============================================================================
-# BASH TOOL — Block dangerous git commands and state destruction
+# BASH TOOL - Block dangerous git commands and state destruction
 # ============================================================================
 
 if [ "$TOOL_NAME" = "Bash" ]; then
-    if command -v jq >/dev/null 2>&1; then
-        COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null) || COMMAND=""
-    else
-        COMMAND=$(printf '%s' "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || COMMAND=""
-    fi
-
-    DENY_REASON=""
-
-    # Block checkout to main/master ONLY if an active loop is in progress
-    # (autonomous flow legitimately checks out main between features)
+    # Rules gated on an active feature loop: outside a loop, the flow
+    # orchestrator legitimately checks out main and pushes harness state.
     if printf '%s' "$COMMAND" | grep -qE 'git\s+checkout\s+(main|master)\b'; then
-        SESSIONS_DIR="$HARNESS_DIR/sessions"
-        if [ -d "$SESSIONS_DIR" ]; then
-            for sd in "$SESSIONS_DIR"/*/; do
-                [ -d "$sd" ] || continue
-                [ "$(basename "$sd")" = ".recovery" ] && continue
-                lf="$sd/loop-state.json"
-                [ -f "$lf" ] || continue
-                if command -v jq >/dev/null 2>&1; then
-                    ls_val=$(jq -r '.status // empty' "$lf" 2>/dev/null) || ls_val=""
-                else
-                    ls_val=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$lf" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || ls_val=""
-                fi
-                if [ "$ls_val" = "in_progress" ]; then
-                    DENY_REASON="BLOCKED: git checkout main/master while a feature loop is in progress. Stay on your feature branch."
-                    break
-                fi
-            done
+        if active_loop_in_progress; then
+            deny "BLOCKED: git checkout main/master while a feature loop is in progress. Stay on your feature branch."
         fi
     fi
 
-    # Block force push
-    if printf '%s' "$COMMAND" | grep -qE 'git\s+push\s+.*--force'; then
-        DENY_REASON="BLOCKED: git push --force is destructive. Use normal push or ask the user."
-    fi
-
-    # Block reset --hard
-    if printf '%s' "$COMMAND" | grep -qE 'git\s+reset\s+--hard'; then
-        DENY_REASON="BLOCKED: git reset --hard discards changes. Use git stash or ask the user."
-    fi
-
-    # Block clean -f
-    if printf '%s' "$COMMAND" | grep -qE 'git\s+clean\s+-[a-zA-Z]*f'; then
-        DENY_REASON="BLOCKED: git clean -f deletes untracked files permanently. Ask the user."
-    fi
-
-    # Block direct push to main
     if printf '%s' "$COMMAND" | grep -qE 'git\s+push\s+origin\s+(main|master)\b'; then
-        DENY_REASON="BLOCKED: Direct push to main/master. Use a PR workflow instead."
-    fi
-
-    # Block rm -rf of harness state
-    if printf '%s' "$COMMAND" | grep -qE 'rm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+.*\.claude-harness'; then
-        DENY_REASON="BLOCKED: Deleting .claude-harness would destroy all session state and memory."
-    fi
-
-    # Block branch -D (force delete)
-    if printf '%s' "$COMMAND" | grep -qE 'git\s+branch\s+-D\b'; then
-        DENY_REASON="BLOCKED: git branch -D force-deletes a branch. Use -d for safe delete or ask the user."
-    fi
-
-    if [ -n "$DENY_REASON" ]; then
-        # Use jq for safe JSON output if available
-        if command -v jq >/dev/null 2>&1; then
-            jq -n --arg reason "$DENY_REASON" '{
-                hookSpecificOutput: {
-                    hookEventName: "PreToolUse",
-                    permissionDecision: "deny",
-                    permissionDecisionReason: $reason
-                }
-            }'
-        else
-            # Escape quotes in deny reason for JSON safety
-            SAFE_REASON=$(printf '%s' "$DENY_REASON" | sed 's/"/\\"/g')
-            cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "$SAFE_REASON"
-  }
-}
-EOF
+        if active_loop_in_progress; then
+            deny "BLOCKED: direct push to main/master while a feature loop is in progress. Use the PR workflow."
         fi
-        exit 0
     fi
+
+    # Unconditional safety rules
+    printf '%s' "$COMMAND" | grep -qE 'git\s+push\s+.*(--force|-f)\b' && \
+        deny "BLOCKED: force push is destructive. Use normal push or ask the user."
+
+    printf '%s' "$COMMAND" | grep -qE 'git\s+reset\s+--hard' && \
+        deny "BLOCKED: hard reset discards changes. Use git stash or ask the user."
+
+    printf '%s' "$COMMAND" | grep -qE 'git\s+clean\s+-[a-zA-Z]*f' && \
+        deny "BLOCKED: git clean -f deletes untracked files permanently. Ask the user."
+
+    printf '%s' "$COMMAND" | grep -qE 'rm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+.*\.claude-harness' && \
+        deny "BLOCKED: Deleting .claude-harness would destroy all session state and memory."
+
+    printf '%s' "$COMMAND" | grep -qE 'git\s+branch\s+-D\b' && \
+        deny "BLOCKED: force branch delete. Use -d for safe delete or ask the user."
 fi
 
 # ============================================================================
-# EDIT/WRITE TOOL — Block writes to harness-managed state files
+# EDIT/WRITE TOOL - Block writes to plugin-managed hook files
 # ============================================================================
 
 if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ]; then
-    if command -v jq >/dev/null 2>&1; then
-        FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null) || FILE_PATH=""
-    else
-        FILE_PATH=$(printf '%s' "$INPUT" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || FILE_PATH=""
-    fi
-
-    DENY_REASON=""
-
-    # Block writes to hooks (self-modification prevention)
-    # Note: loop-state.json and active.json are NOT blocked here because /flow
-    # legitimately writes these files using Write/Edit tools. The hook cannot
-    # distinguish between /flow state management and accidental writes.
-    if printf '%s' "$FILE_PATH" | grep -qE 'hooks/(hooks\.json|run-hook\.cmd|session-start|pre-compact|stop|pre-tool-use|permission-request|subagent-start|teammate-idle|task-completed)$'; then
-        DENY_REASON="BLOCKED: Hook files are managed by the harness plugin. Do not self-modify."
-    fi
-
-    if [ -n "$DENY_REASON" ]; then
-        if command -v jq >/dev/null 2>&1; then
-            jq -n --arg reason "$DENY_REASON" '{
-                hookSpecificOutput: {
-                    hookEventName: "PreToolUse",
-                    permissionDecision: "deny",
-                    permissionDecisionReason: $reason
-                }
-            }'
-        else
-            SAFE_REASON=$(printf '%s' "$DENY_REASON" | sed 's/"/\\"/g')
-            cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "$SAFE_REASON"
-  }
-}
-EOF
-        fi
-        exit 0
+    if [ "$IS_PLUGIN_SOURCE" = false ] && \
+       printf '%s' "$FILE_PATH" | grep -qE 'hooks/(hooks\.json|run-hook\.cmd|session-start|session-end|pre-compact|pre-tool-use|permission-request|subagent-start|teammate-idle|task-completed)$'; then
+        deny "BLOCKED: Hook files are managed by the harness plugin. Do not self-modify."
     fi
 fi
 
-# No issues found — allow the tool call (no output needed)
+# No issues found - allow the tool call (no output needed)
 exit 0

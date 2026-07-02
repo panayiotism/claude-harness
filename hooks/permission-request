@@ -1,8 +1,12 @@
 #!/bin/bash
 # Claude Harness PermissionRequest Hook
-# Autonomous mode acceleration — auto-approve safe ops, auto-deny destructive
-# No matcher — fires for all permission requests
+# Autonomous mode acceleration - auto-approve safe ops, auto-deny destructive
+# No matcher - fires for all permission requests
 # No-op when not in autonomous mode
+#
+# Native alternative: for fully unattended batches, prefer running with
+#   claude --permission-mode acceptEdits -p "/claude-harness:flow --autonomous"
+# which makes most of this hook unnecessary. It remains as a safety layer.
 
 # Safety net: ensure hook NEVER exits non-zero
 trap 'exit 0' ERR
@@ -30,24 +34,37 @@ if [ -d "$SESSIONS_DIR" ]; then
     done
 fi
 
-# Not in autonomous mode — let user handle permissions normally
+# Not in autonomous mode - let user handle permissions normally
 if [ "$AUTONOMOUS" = false ]; then
     exit 0
 fi
 
 # ============================================================================
-# READ REQUEST
+# READ REQUEST (jq or python3 - both handle multi-line commands correctly)
 # ============================================================================
 
 INPUT=$(cat)
 
-# Parse JSON with jq (reliable) or grep fallback
+TOOL_NAME=""; COMMAND=""
 if command -v jq >/dev/null 2>&1; then
     TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null) || TOOL_NAME=""
-    COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null) || COMMAND=""
+    COMMAND=$(printf '%s' "$INPUT" | jq -r '(.tool_input.command // "") | gsub("[\n\r\t]"; " ")' 2>/dev/null) || COMMAND=""
+elif command -v python3 >/dev/null 2>&1; then
+    PARSED=$(printf '%s' "$INPUT" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    d = {}
+ti = d.get("tool_input") or {}
+print(d.get("tool_name", ""))
+print(" ".join(str(ti.get("command", "")).split()))
+' 2>/dev/null) || PARSED=""
+    TOOL_NAME=$(printf '%s' "$PARSED" | sed -n 1p)
+    COMMAND=$(printf '%s' "$PARSED" | sed -n 2p)
 else
-    TOOL_NAME=$(printf '%s' "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || TOOL_NAME=""
-    COMMAND=$(printf '%s' "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/') || COMMAND=""
+    # No safe JSON parser - leave the decision to the user.
+    exit 0
 fi
 
 # Helper: output permission decision JSON
@@ -71,60 +88,43 @@ emit_decision() {
             }'
         fi
     else
-        if [ -n "$MESSAGE" ]; then
-            SAFE_MSG=$(printf '%s' "$MESSAGE" | sed 's/"/\\"/g')
-            cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": {
-      "behavior": "$BEHAVIOR",
-      "message": "$SAFE_MSG"
-    }
-  }
-}
-EOF
-        else
-            cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": {
-      "behavior": "$BEHAVIOR"
-    }
-  }
-}
-EOF
-        fi
+        BEHAVIOR="$BEHAVIOR" MESSAGE="$MESSAGE" python3 -c '
+import json, os
+decision = {"behavior": os.environ["BEHAVIOR"]}
+if os.environ.get("MESSAGE"):
+    decision["message"] = os.environ["MESSAGE"]
+print(json.dumps({
+    "hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": decision}
+}))'
     fi
 }
 
 # ============================================================================
-# DENY LIST — block even in autonomous mode
+# DENY LIST - block even in autonomous mode
 # ============================================================================
 
 if [ "$TOOL_NAME" = "Bash" ] && [ -n "$COMMAND" ]; then
     # Force push
-    if printf '%s' "$COMMAND" | grep -qE 'git\s+push\s+.*--force'; then
-        emit_decision "deny" "AUTONOMOUS DENY: git push --force is destructive even in autonomous mode."
+    if printf '%s' "$COMMAND" | grep -qE 'git\s+push\s+.*(--force|-f)\b'; then
+        emit_decision "deny" "AUTONOMOUS DENY: force push is destructive even in autonomous mode."
         exit 0
     fi
 
     # Reset hard
     if printf '%s' "$COMMAND" | grep -qE 'git\s+reset\s+--hard'; then
-        emit_decision "deny" "AUTONOMOUS DENY: git reset --hard discards changes."
+        emit_decision "deny" "AUTONOMOUS DENY: hard reset discards changes."
         exit 0
     fi
 
     # Broad rm -rf
     if printf '%s' "$COMMAND" | grep -qE 'rm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+(/|~|\.\.)'; then
-        emit_decision "deny" "AUTONOMOUS DENY: Broad rm -rf is too destructive."
+        emit_decision "deny" "AUTONOMOUS DENY: Broad recursive delete is too destructive."
         exit 0
     fi
 fi
 
 # ============================================================================
-# ALLOW LIST — auto-approve safe operations in autonomous mode
+# ALLOW LIST - auto-approve safe operations in autonomous mode
 # ============================================================================
 
 if [ "$TOOL_NAME" = "Bash" ] && [ -n "$COMMAND" ]; then
@@ -142,7 +142,12 @@ if [ "$TOOL_NAME" = "Bash" ] && [ -n "$COMMAND" ]; then
 
     # Non-force, non-main push
     if printf '%s' "$COMMAND" | grep -qE '^git\s+push\b' && \
-       ! printf '%s' "$COMMAND" | grep -qE '(--force|origin\s+(main|master)\b)'; then
+       ! printf '%s' "$COMMAND" | grep -qE '(--force|-f\b|origin\s+(main|master)\b)'; then
+        ALLOW=true
+    fi
+
+    # Read-only gh operations (issue/pr views, checks)
+    if printf '%s' "$COMMAND" | grep -qE '^gh\s+(pr|issue)\s+(list|view|status|checks)\b'; then
         ALLOW=true
     fi
 
@@ -181,17 +186,17 @@ if [ "$TOOL_NAME" = "Bash" ] && [ -n "$COMMAND" ]; then
     fi
 fi
 
-# For Edit/Write tools — auto-approve in autonomous mode (PreToolUse handles safety)
+# For Edit/Write tools - auto-approve in autonomous mode (PreToolUse handles safety)
 if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ]; then
     emit_decision "allow"
     exit 0
 fi
 
-# For Read/Glob/Grep — auto-approve (read-only)
+# For Read/Glob/Grep - auto-approve (read-only)
 if [ "$TOOL_NAME" = "Read" ] || [ "$TOOL_NAME" = "Glob" ] || [ "$TOOL_NAME" = "Grep" ]; then
     emit_decision "allow"
     exit 0
 fi
 
-# Unrecognized tool — let user decide
+# Unrecognized tool - let user decide
 exit 0

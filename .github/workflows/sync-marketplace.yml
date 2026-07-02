@@ -6,7 +6,9 @@ on:
     paths:
       - '.claude-plugin/**'
       - 'skills/**'
+      - 'agents/**'
       - 'hooks/**'
+      - 'scripts/**'
       - 'schemas/**'
       - 'setup.sh'
       - 'CLAUDE.md'
@@ -18,6 +20,11 @@ jobs:
     steps:
       - name: Checkout source repo
         uses: actions/checkout@v4
+
+      - name: Validate plugin
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude plugin validate .
 
       - name: Checkout marketplace repo
         uses: actions/checkout@v4
@@ -35,8 +42,10 @@ jobs:
             --exclude='tests/' \
             --exclude='RELEASES/' \
             --exclude='.claude-harness/' \
+            --exclude='.claude/' \
             --exclude='.github/' \
             --exclude='marketplace/' \
+            --exclude='__pycache__/' \
             ./ marketplace/plugins/claude-harness/
 
       - name: Commit and push

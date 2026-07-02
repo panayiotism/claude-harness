@@ -428,32 +428,23 @@ print('  [MIGRATE] Added agentTeams + atdd config sections')
     fi
 fi
 
-# v9.0 migration: inject Agent Teams env var into settings.local.json if enabled
-if [ -f ".claude-harness/config.json" ] && [ -f ".claude/settings.local.json" ]; then
-    if grep -q '"agentTeams"' ".claude-harness/config.json" 2>/dev/null; then
-        TEAMS_ENABLED=$(python3 -c "
-import json
-with open('.claude-harness/config.json') as f:
-    data = json.load(f)
-print('true' if data.get('agentTeams', {}).get('enabled', False) else 'false')
-" 2>/dev/null || echo "false")
-        if [ "$TEAMS_ENABLED" = "true" ]; then
-            if ! grep -q 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' ".claude/settings.local.json" 2>/dev/null; then
-                python3 -c "
+# Cleanup: remove the legacy Agent Teams env var from settings.local.json.
+# Agent Teams are built into current Claude Code - no experimental flag needed.
+if [ -f ".claude/settings.local.json" ] && grep -q 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' ".claude/settings.local.json" 2>/dev/null; then
+    python3 -c "
 import json
 with open('.claude/settings.local.json') as f:
     data = json.load(f)
-if 'env' not in data:
-    data['env'] = {}
-data['env']['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] = '1'
-with open('.claude/settings.local.json', 'w') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
-print('  [MIGRATE] Added CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 to settings.local.json')
+env = data.get('env', {})
+if 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' in env:
+    del env['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS']
+    if not env:
+        data.pop('env', None)
+    with open('.claude/settings.local.json', 'w') as f:
+        json.dump(data, f, indent=2)
+        f.write('\n')
+    print('  [CLEANUP] Removed legacy CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS from settings.local.json')
 " 2>/dev/null
-            fi
-        fi
-    fi
 fi
 
 echo "Creating harness files (v3.0 Memory Architecture)..."
@@ -862,10 +853,10 @@ if [ -f ".claude-harness/loops/state.json" ]; then
         if [ "$looptype" = "fix" ]; then
             echo "ACTIVE FIX: $feature (attempt $attempt, status: $status)"
             echo "Linked to: $linkedFeature"
-            echo "Resume with: /claude-harness:flow $feature (or /do for step-by-step)"
+            echo "Resume with: /claude-harness:flow $feature"
         else
             echo "ACTIVE LOOP: $feature (attempt $attempt, status: $status)"
-            echo "Resume with: /claude-harness:flow $feature (or /do for step-by-step)"
+            echo "Resume with: /claude-harness:flow $feature"
         fi
     else
         echo "No active loop"
@@ -898,13 +889,14 @@ fi
 
 echo ""
 echo "=== Environment Ready ==="
-echo "Commands (5 total):"
-echo "  /claude-harness:setup       - Initialize harness (one-time)"
-echo "  /claude-harness:start       - Compile context, show GitHub dashboard"
-echo "  /claude-harness:flow        - Unified workflow (recommended)"
-echo "  /claude-harness:checkpoint  - Save progress, persist memory"
-echo "  /claude-harness:merge       - Merge PRs, close issues"
-echo "  Flags: --no-merge --plan-only --autonomous --quick --fix"
+echo "Skills (6 total):"
+echo "  /claude-harness:setup          - Initialize harness (one-time)"
+echo "  /claude-harness:start          - Compile context, show GitHub dashboard"
+echo "  /claude-harness:flow           - Unified workflow (recommended)"
+echo "  /claude-harness:checkpoint     - Save progress, persist memory"
+echo "  /claude-harness:merge          - Merge PRs, close issues"
+echo "  /claude-harness:prd-breakdown  - Break PRD into features"
+echo "  Flags: --no-merge --plan-only --autonomous --quick --fix --team"
 INITEOF
 )
 # init.sh is always refreshed (generated status script, not user-customizable)
@@ -955,17 +947,61 @@ mkdir -p .claude
 # ============================================================================
 
 # settings.local.json: create if missing with default permissions.
+# The deny rules are the declarative fast path for the same protections the
+# PreToolUse hook enforces - they block without spawning a hook process.
+# (Prefix rules can't catch reordered flags, so the hook remains as backstop.)
 create_file ".claude/settings.local.json" '{
   "permissions": {
     "allow": [
       "Bash(./.claude-harness/init.sh)",
       "Bash(git:*)",
+      "Bash(gh:*)",
       "WebSearch"
     ],
-    "deny": [],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -f:*)",
+      "Bash(git branch -D:*)",
+      "Bash(rm -rf .claude-harness)",
+      "Bash(rm -rf .claude-harness:*)"
+    ],
     "ask": []
   }
 }'
+
+# For EXISTING installs: merge the harness deny rules into settings.local.json
+# (idempotent - only adds rules that are missing, never removes user rules).
+if [ -f ".claude/settings.local.json" ] && command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+import json
+RULES = [
+    'Bash(git push --force:*)',
+    'Bash(git push -f:*)',
+    'Bash(git reset --hard:*)',
+    'Bash(git clean -f:*)',
+    'Bash(git branch -D:*)',
+    'Bash(rm -rf .claude-harness)',
+    'Bash(rm -rf .claude-harness:*)',
+]
+path = '.claude/settings.local.json'
+try:
+    with open(path) as f:
+        data = json.load(f)
+except Exception:
+    raise SystemExit(0)
+perms = data.setdefault('permissions', {})
+deny = perms.setdefault('deny', [])
+added = [r for r in RULES if r not in deny]
+if added:
+    deny.extend(added)
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
+        f.write('\n')
+    print(f'  [UPDATE] settings.local.json (+{len(added)} harness deny rules)')
+" 2>/dev/null
+fi
 
 
 # ============================================================================
@@ -1021,6 +1057,8 @@ update_gitignore() {
         ".claude-harness/sessions/"
         ".claude-harness/memory/compaction-backups/"
         ".claude-harness/memory/working/"
+        ".claude-harness/.setup-stamp"
+        ".claude-harness/.verify-cache"
         ""
         "# Claude Code - Local settings"
         ".claude/settings.local.json"
@@ -1096,11 +1134,15 @@ echo "  └── config.json"
 echo ""
 echo "Commands (served from plugin cache):"
 echo "  /claude-harness:*             (auto-discovered by Claude Code)"
+# Stamp the plugin version so the SessionStart hook can skip setup.sh
+# entirely until the plugin is updated (keeps session start fast).
+echo "$PLUGIN_VERSION" > .claude-harness/.setup-stamp 2>/dev/null || true
+
 echo ""
-echo "=== GitHub MCP Setup (Optional) ==="
+echo "=== GitHub Integration ==="
 echo ""
-echo "To enable GitHub integration:"
-echo "  claude mcp add github -s user"
+echo "GitHub features use the gh CLI. Verify with:"
+echo "  gh auth status    (login: gh auth login)"
 echo ""
 echo "=== Next Steps ==="
 echo ""
@@ -1110,8 +1152,9 @@ echo "  3. Run /claude-harness:flow \"feature description\" for end-to-end autom
 echo "  4. Run /claude-harness:flow --no-merge \"description\" for step-by-step control"
 echo "  5. Run /claude-harness:flow --fix feature-XXX \"bug\" to create bug fixes"
 echo ""
-echo "v6.0.0 Changes:"
-echo "  • Commands served from plugin cache (no longer copied to .claude/commands/)"
-echo "  • Hooks consolidated: 6 registrations (safety, quality gates)"
+echo "Recent Changes:"
+echo "  • Session identity now uses Claude Code's native session_id"
+echo "  • Feature implementation delegated to the harness-implementer agent"
+echo "  • GitHub operations via gh CLI (GitHub MCP no longer required)"
 echo "  • Update plugin via: claude plugin update claude-harness"
 echo ""

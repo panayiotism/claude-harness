@@ -1,0 +1,104 @@
+#!/bin/bash
+# Claude Harness SessionEnd Hook
+#
+# Runs when the session actually terminates (exit/clear/logout) - unlike
+# Stop, which fires after every assistant turn and produced false
+# "interrupted" markers mid-workflow. Responsibilities:
+#   1. Rescue an in-progress loop as an interrupt-recovery marker
+#   2. Flag/clean up an orphaned Agent Team
+#   3. Remove this session's state dir when work completed cleanly
+
+INPUT=$(cat)
+
+HARNESS_DIR="${CLAUDE_PROJECT_DIR:-.}/.claude-harness"
+[ -d "$HARNESS_DIR" ] || exit 0
+
+SESSIONS_DIR="$HARNESS_DIR/sessions"
+RECOVERY_DIR="$SESSIONS_DIR/.recovery"
+AGENTS_CONTEXT="$HARNESS_DIR/agents/context.json"
+
+# --- Parse stdin (session_id, reason) ---
+SESSION_ID=""; REASON=""
+if command -v jq >/dev/null 2>&1; then
+    SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+    REASON=$(printf '%s' "$INPUT" | jq -r '.reason // empty' 2>/dev/null)
+elif command -v python3 >/dev/null 2>&1; then
+    PARSED=$(printf '%s' "$INPUT" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    d = {}
+print(d.get("session_id", ""))
+print(d.get("reason", ""))
+' 2>/dev/null)
+    SESSION_ID=$(printf '%s' "$PARSED" | sed -n 1p)
+    REASON=$(printf '%s' "$PARSED" | sed -n 2p)
+fi
+
+# --- Orphaned Agent Team handling ---
+# Teammates are independent processes that can survive the lead's session.
+if [ -f "$AGENTS_CONTEXT" ]; then
+    team_name=$(grep -o '"teamName"[[:space:]]*:[[:space:]]*"[^"]*"' "$AGENTS_CONTEXT" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    if [ -n "$team_name" ] && [ "$team_name" != "null" ]; then
+        mkdir -p "$RECOVERY_DIR"
+        cat > "$RECOVERY_DIR/orphaned-team.json" << TEAMEOF
+{
+  "version": 1,
+  "detectedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "teamName": "$team_name",
+  "reason": "session-ended-with-active-team",
+  "action": "Next session should verify teammates are stopped and clean up team resources"
+}
+TEAMEOF
+        # Best-effort: kill a legacy tmux-backed team session if one exists
+        if command -v tmux >/dev/null 2>&1; then
+            tmux kill-session -t "$team_name" 2>/dev/null || true
+        fi
+    fi
+fi
+
+# --- This session's loop state ---
+[ -n "$SESSION_ID" ] || exit 0
+SESSION_DIR="$SESSIONS_DIR/$SESSION_ID"
+[ -d "$SESSION_DIR" ] || exit 0
+
+LOOP_STATE="$SESSION_DIR/loop-state.json"
+STATUS=""; FEATURE=""
+if [ -f "$LOOP_STATE" ]; then
+    STATUS=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$LOOP_STATE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    FEATURE=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$LOOP_STATE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+fi
+
+if [ "$STATUS" = "in_progress" ] && [ -n "$FEATURE" ]; then
+    # Session ended mid-feature: write recovery marker, keep state dir.
+    attempt=$(grep -o '"attempt"[[:space:]]*:[[:space:]]*[0-9]*' "$LOOP_STATE" 2>/dev/null | head -1 | sed 's/.*: *\([0-9]*\).*/\1/')
+    tdd_phase=$(grep -o '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' "$LOOP_STATE" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    mkdir -p "$RECOVERY_DIR"
+    cat > "$RECOVERY_DIR/interrupted.json" << INTEOF
+{
+  "version": 1,
+  "interruptedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "staleSessionId": "$SESSION_ID",
+  "feature": "$FEATURE",
+  "attemptAtInterrupt": ${attempt:-1},
+  "tddPhase": "${tdd_phase:-null}",
+  "reason": "session-ended-while-in-progress${REASON:+-($REASON)}"
+}
+INTEOF
+    cp "$LOOP_STATE" "$RECOVERY_DIR/loop-state.json" 2>/dev/null
+    [ -f "$SESSION_DIR/autonomous-state.json" ] && cp "$SESSION_DIR/autonomous-state.json" "$RECOVERY_DIR/autonomous-state.json" 2>/dev/null
+    exit 0
+fi
+
+# Clean end: clear any recovery markers this feature left behind, drop dir.
+if [ "$STATUS" = "completed" ] && [ -n "$FEATURE" ] && [ -f "$RECOVERY_DIR/interrupted.json" ]; then
+    rec_feature=$(grep -o '"feature"[[:space:]]*:[[:space:]]*"[^"]*"' "$RECOVERY_DIR/interrupted.json" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    if [ "$rec_feature" = "$FEATURE" ]; then
+        rm -f "$RECOVERY_DIR/interrupted.json" "$RECOVERY_DIR/loop-state.json" "$RECOVERY_DIR/autonomous-state.json"
+        rmdir "$RECOVERY_DIR" 2>/dev/null
+    fi
+fi
+rm -rf "$SESSION_DIR"
+
+exit 0
