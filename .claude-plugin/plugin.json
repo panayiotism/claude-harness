@@ -1,7 +1,12 @@
 {
   "name": "claude-harness",
-  "description": "Long-running agent harness with 5-layer memory architecture, GitHub integration, autonomous batch processing, Agent Teams with ATDD, 9 hooks (safety, quality gates, team coordination), and 6 Agent Skills",
+  "displayName": "Claude Harness",
+  "description": "Long-running agent harness with 5-layer memory architecture, GitHub integration via gh CLI, autonomous batch processing with a dedicated implementer subagent, Agent Teams with ATDD, quality-gate hooks, and 6 Agent Skills",
   "author": {
     "name": "panayiotis"
-  }
+  },
+  "homepage": "https://github.com/panayiotism/claude-harness",
+  "repository": "https://github.com/panayiotism/claude-harness",
+  "license": "MIT",
+  "keywords": ["workflow", "memory", "autonomous", "atdd", "github", "agent-teams"]
 }

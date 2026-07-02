@@ -13,3 +13,6 @@ RELEASES/
 .claude-harness/memory/compaction-backups/
 .claude-harness/memory/working/
 # Claude Code - Local settings
+
+# Python bytecode
+__pycache__/

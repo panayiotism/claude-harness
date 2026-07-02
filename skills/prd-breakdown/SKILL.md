@@ -1,7 +1,8 @@
 ---
 name: prd-breakdown
-description: Analyze a PRD (product requirements document) and perform a breakdown into atomic features with Gherkin acceptance criteria. Triggers on PRD analysis, feature extraction, requirement decomposition, acceptance test generation, dependency graphing, and project planning from product specifications.
-compatibility: Designed for Claude Code
+description: Analyze a PRD (product requirements document) and perform a breakdown into atomic features with Gherkin acceptance criteria. Use for PRD analysis, feature extraction, requirement decomposition, acceptance test generation, dependency graphing, and project planning from product specifications.
+argument-hint: "[@prd-file | inline PRD text] [--no-issues --analyze-only --auto --max-features N]"
+disable-model-invocation: true
 ---
 
 # PRD Breakdown - Analyze and Decompose Product Requirements
@@ -211,7 +212,7 @@ GitHub issues are created **by default** for all generated features. Skip with `
 
 15. **Pass 1 -- Create issues with rich bodies** (in dependency order -- dependencies first):
 
-    - Parse GitHub owner/repo from `git remote get-url origin` (or use cached from SessionStart)
+    - Use the cached GitHub owner/repo from the session context (parse `git remote get-url origin` only if absent)
     - For each created feature (ordered so dependencies are created first):
 
       1. **Build labels**:
@@ -281,17 +282,12 @@ GitHub issues are created **by default** for all generated features. Skip with `
          *Breakdown ID: {prdMetadata.breakdown}*
          ```
 
-      3. **Create issue** via `gh issue create` or `mcp__github__create_issue`:
-         - Title: `{feature.name}`
-         - Body: rich template from step 2
-         - Labels: from step 1
+      3. **Create issue** via `gh issue create --title "{feature.name}" --body "{rich body}" --label "{labels}"`:
          - Handle failures gracefully (log warning, continue with other features)
 
       4. **Update feature entry** in active.json:
          - Set `github.issueNumber` to created issue number
          - Save updated `.claude-harness/features/active.json`
-
-      5. **Rate limiting**: 500ms delay between API calls
 
 15.5. **Pass 2 -- Update issues with cross-references** (after ALL issues are created):
 
@@ -316,19 +312,17 @@ GitHub issues are created **by default** for all generated features. Skip with `
          ```
 
       3. **Replace the Dependencies section** in the issue body:
-         - Use `gh issue edit {issueNumber} --body "{updated body}"` or GitHub MCP
+         - Use `gh issue edit {issueNumber} --body "{updated body}"`
          - Replace the placeholder dependency section with the actual cross-referenced version
-
-      4. **Rate limiting**: 500ms delay between API calls
 
     This ensures **bidirectional linking**: if feature-002 depends on feature-001, then:
     - feature-001's issue shows "**Blocks:** #44 -- feature-002 name"
     - feature-002's issue shows "**Depends on:** #43 -- feature-001 name"
 
     **Error Handling** (applies to both Pass 1 and Pass 2):
-    - GitHub MCP unavailable -> Log warning, skip issue creation entirely but continue with feature creation
+    - `gh` unavailable or unauthenticated (`gh auth status` fails) -> Log warning, skip issue creation entirely but continue with feature creation
     - Permission denied -> Log error for specific feature, continue with others
-    - API rate limit -> Add 500ms delay between requests
+    - API rate limit (rare below ~50 issues) -> back off and retry the failed call
     - Network error -> Retry 3x with exponential backoff
     - Pass 2 update failure -> Log warning (issues exist but without cross-references), continue
 
@@ -416,13 +410,13 @@ GitHub issues are created **by default** for all generated features. Skip with `
 |----------|--------|
 | PRD not provided | Prompt via AskUserQuestion |
 | PRD too large (>100KB) | Warn user, ask to focus section |
-| GitHub fetch fails (no MCP) | Fall back to interactive input |
+| GitHub fetch fails (`gh` error) | Fall back to interactive input |
 | Invalid markdown | Parse as plaintext, still extract |
 | Feature ID collision | Use timestamp suffix for uniqueness |
 | Dependency cycle | Report error, suggest manual ordering |
-| GitHub MCP unavailable | Log warning, skip issue creation entirely but continue with feature creation |
+| `gh` unavailable/unauthenticated | Log warning, skip issue creation entirely but continue with feature creation |
 | Issue creation permission denied | Log error for specific feature, continue with others |
-| Issue creation rate limit | Add 500ms delay between requests, continue |
+| Issue creation rate limit | Back off and retry the failed call, continue |
 | Issue creation network error | Retry 3x with exponential backoff |
 | Pass 2 update failure | Log warning (issues exist but without cross-references), continue |
 

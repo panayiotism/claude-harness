@@ -10,19 +10,10 @@ Update `.claude-harness/claude-progress.json` with:
 - Recommended next steps
 - Update lastUpdated timestamp
 
-## Phase 5.2: Capture Working Context
-
-Update session-scoped working context `.claude-harness/sessions/{session-id}/working-context.json`:
-- Set `activeFeature`, `summary`
-- Populate `workingFiles` from feature's `relatedFiles` + `git status`
-- Populate `decisions` with key architectural/implementation decisions made
-- Set `nextSteps` to immediate actionable items
-- Keep concise (~25-40 lines)
-
-## Phase 5.2.5: Compile Session Briefing
+## Phase 5.2: Compile Session Briefing
 
 **Write persistent session briefing** to `.claude-harness/session-briefing.md`:
-- This file is automatically injected into Claude's context at every SessionStart (via the hook)
+- The SessionStart hook points Claude at this file on every new session
 - Ensures Claude is immediately aware of project state on new sessions without manual `/start`
 - Compile from current state -- read features, decisions, failures, rules, and status:
 
@@ -47,7 +38,7 @@ Last updated: {ISO timestamp}
 ## Current Status
 Last checkpoint: {commit message summary}
 Branch: {current branch}
-Next steps: {from working-context nextSteps}
+Next steps: {immediate actionable items}
 ```
 
 - Keep under 120 lines (~1500 tokens) to avoid context bloat
@@ -96,9 +87,11 @@ Next steps: {from working-context nextSteps}
 
 ## Phase 5.6: Commit, Push, PR
 
-1. **Stage harness state files**: `git add .claude-harness/` (sessions/ and working/ are gitignored, so only persistent state is staged — memory layers, features, progress, session-briefing, agents, config)
+1. **Stage harness state files**: `git add .claude-harness/` (sessions/ and working/ are gitignored, so only persistent state is staged -- memory layers, features, progress, session-briefing, agents, config)
 2. Stage all other modified files: `git add -A`
-3. Commit `feat(feature-XXX): {description}`, push to remote
-4. Create/update PR via `mcp__github__create_pull_request`: title, body with `Closes #{issue}`
+3. Commit `feat(feature-XXX): {description}`, push with `git push -u origin {branch}`
+4. Create or update the PR:
+   - New: `gh pr create --title "feat: {description}" --body "..."` with `Closes #{issue}` in the body
+   - Existing: `gh pr edit {number} --body "..."` with updated progress
 5. Mark Checkpoint task completed
 6. Display checkpoint summary: commit hash, PR number, task status

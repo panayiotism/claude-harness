@@ -1,7 +1,7 @@
 ---
 name: setup
-description: Initialize, upgrade, or migrate the claude-harness plugin in a project. Triggers on first-time setup, plugin installation, version migration, memory directory configuration, legacy file cleanup, and project harness initialization.
-compatibility: Designed for Claude Code
+description: Initialize, upgrade, or migrate the claude-harness plugin in a project. Use for first-time setup, plugin installation, version migration, memory directory configuration, legacy file cleanup, and project harness initialization.
+disable-model-invocation: true
 ---
 
 # Setup - Initialize or Upgrade Claude Harness
@@ -69,8 +69,8 @@ Canonical schemas are defined in the plugin's `schemas/` directory (JSON Schema 
 | File | Schema | Created By |
 |------|--------|------------|
 | `sessions/{id}/context.json` | `schemas/context.schema.json` (v3) | Phase 1 context compilation |
-| `sessions/{id}/loop-state.json` | `schemas/loop-state.schema.json` (v8) | Phase 4 implementation |
-| `sessions/{id}/autonomous-state.json` | `schemas/autonomous-state.schema.json` (v3) | `--autonomous` mode |
+| `sessions/{id}/loop-state.json` | `schemas/loop-state.schema.json` (v9) | Phase 4 implementation |
+| `sessions/{id}/autonomous-state.json` | `schemas/autonomous-state.schema.json` (v4) | `--autonomous` mode |
 | `features/active.json` | `schemas/active-features.schema.json` (v3) | Phase 2 feature creation |
 | `memory/procedural/failures.json` | `schemas/memory-entries.schema.json` (v3) | Verification failures |
 | `memory/procedural/successes.json` | `schemas/memory-entries.schema.json` (v3) | Verification passes |

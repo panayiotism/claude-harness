@@ -1,30 +1,23 @@
 ---
 name: merge
 description: Merge all open pull requests, close linked issues, delete feature branches, and clean up local and remote refs. Use when completing features, merging PRs after review, or finalizing a release cycle.
+allowed-tools: "Bash(git *), Bash(gh *)"
+disable-model-invocation: true
 ---
 
 # Merge - Merge PRs, Close Issues, Clean Up Branches
 
-Merge all open PRs and close related issues. Requires GitHub MCP to be configured.
+Merge all open PRs and close related issues. Requires the `gh` CLI to be authenticated (`gh auth status`).
 
 ## Phase 0: Get Repository Info
 
-0. **Get GitHub owner/repo** (prefer cached from SessionStart):
-   - First check SessionStart hook output for cached `github.owner` and `github.repo`
-   - If cached values available, use them (faster, already parsed)
-   - If not cached, parse from git remote:
-     ```bash
-     REMOTE_URL=$(git remote get-url origin 2>/dev/null)
-     # SSH: git@github.com:owner/repo.git -> owner, repo
-     # HTTPS: https://github.com/owner/repo.git -> owner, repo
-     ```
-   Use the owner/repo for ALL GitHub API calls in this command.
+0. **Get GitHub owner/repo**: use the cached values from the session context (injected at SessionStart). Only if absent, parse once from `git remote get-url origin` (SSH: `git@github.com:owner/repo.git`, HTTPS: `https://github.com/owner/repo.git`). Use the owner/repo for ALL GitHub calls in this command.
 
 ## Phase 1: Gather State
 
-1. Gather state (using parsed owner/repo):
-   - List all open PRs for this repository (includes both feature and fix PRs)
-   - List all open issues with "feature" or "bugfix" labels
+1. Gather state:
+   - List all open PRs: `gh pr list --json number,title,headRefName,baseRefName,url,body`
+   - List all open issues with "feature" or "bugfix" labels: `gh issue list --label feature --label bugfix --json number,title`
    - Read `.claude-harness/features/active.json`:
      - Check `features` array for linked issue/PR numbers
      - Check `fixes` array for linked issue/PR numbers
@@ -38,7 +31,7 @@ Merge all open PRs and close related issues. Requires GitHub MCP to be configure
 
 ## Phase 3: Pre-merge Validation
 
-3. Pre-merge validation for each PR:
+3. Pre-merge validation for each PR (`gh pr view {number} --json state,mergeable,reviewDecision,statusCheckRollup`):
    - CI status passes
    - No merge conflicts
    - Has required approvals (if any)
@@ -47,17 +40,15 @@ Merge all open PRs and close related issues. Requires GitHub MCP to be configure
 ## Phase 4: Execute Merges
 
 4. Execute merges in dependency order:
-   - Merge the PR (squash merge preferred)
-   - Wait for merge to complete
+   - Merge the PR: `gh pr merge {number} --squash --delete-branch`
+     (`--delete-branch` removes the remote branch and, when the repo is checked out on it, moves you back to the default branch)
    - Find and close any linked issues:
-     - Check PR body for "Closes #XX" or "Fixes #XX"
-     - Check `.claude-harness/features/active.json` for linked issues
+     - Check PR body for "Closes #XX" or "Fixes #XX" (these auto-close on merge)
+     - Check `.claude-harness/features/active.json` for linked issues; close stragglers with `gh issue close {number}`
    - For fix PRs:
      - Close the fix issue
-     - Add comment to original feature issue: "Related fix merged: #{fix-issue} - {description}"
-   - Delete the source branch (both remote and local):
-     - Remote: `git push origin --delete {branch}`
-     - Local: `git branch -D {branch}` (if exists)
+     - Add comment to original feature issue: `gh issue comment {number} --body "Related fix merged: #{fix-issue} - {description}"`
+   - Delete the local branch if it remains: `git branch -d {branch}` (safe delete)
    - Update `.claude-harness/features/active.json`:
      - For features: Set status="passing" in features array
      - For fixes: Set status="passing" in fixes array

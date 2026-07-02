@@ -3,27 +3,28 @@
 # Prevents teammates from going idle when work is incomplete.
 # Exit 2 = keep teammate working (with feedback via stderr)
 # Exit 0 = allow teammate to idle
+#
+# Deliberately runs only the FAST checks (uncommitted work, lint,
+# typecheck). The full verification suite (build/tests/acceptance) is
+# enforced once by the TaskCompleted gate - running it here too made
+# every idle event cost minutes and duplicated the same work.
 
-set -euo pipefail
+trap 'exit 0' ERR
 
 # Read hook input from stdin
 INPUT=$(cat)
 
-# Extract teammate name (used to determine role-specific checks)
-TEAMMATE_NAME=$(echo "$INPUT" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data.get('teammate_name', data.get('teammateName', '')))" 2>/dev/null || echo "")
-
-# Find project root (look for .claude-harness/)
-PROJECT_ROOT="$(pwd)"
-while [ "$PROJECT_ROOT" != "/" ]; do
-    [ -d "$PROJECT_ROOT/.claude-harness" ] && break
-    PROJECT_ROOT="$(dirname "$PROJECT_ROOT")"
-done
+# Find project root
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+if [ ! -d "$PROJECT_ROOT/.claude-harness" ]; then
+    PROJECT_ROOT="$(pwd)"
+    while [ "$PROJECT_ROOT" != "/" ]; do
+        [ -d "$PROJECT_ROOT/.claude-harness" ] && break
+        PROJECT_ROOT="$(dirname "$PROJECT_ROOT")"
+    done
+fi
 
 if [ ! -d "$PROJECT_ROOT/.claude-harness" ]; then
-    # No harness found — allow idle
     exit 0
 fi
 
@@ -37,16 +38,14 @@ if [ -n "$UNCOMMITTED" ]; then
     ISSUES+=("$FILE_COUNT uncommitted files. Stage and commit your work.")
 fi
 
-# --- Check 2: Verification commands ---
-# Read verification commands from config.json
+# --- Check 2: Fast verification (lint + typecheck only) ---
 if [ -f "$CONFIG_FILE" ] && command -v python3 >/dev/null 2>&1; then
     VERIFICATION=$(python3 -c "
-import json, sys
+import json
 with open('$CONFIG_FILE') as f:
     config = json.load(f)
 v = config.get('verification', {})
-# Output: cmd_name=command pairs, one per line
-for key in ['build', 'tests', 'lint', 'typecheck', 'acceptance']:
+for key in ['lint', 'typecheck']:
     cmd = v.get(key, '')
     if cmd:
         print(f'{key}={cmd}')
@@ -56,15 +55,6 @@ for key in ['build', 'tests', 'lint', 'typecheck', 'acceptance']:
         while IFS= read -r line; do
             CMD_NAME="${line%%=*}"
             CMD_VALUE="${line#*=}"
-
-            # Reviewer teammates only run lint (not full test suite)
-            if echo "$TEAMMATE_NAME" | grep -qi "reviewer"; then
-                if [ "$CMD_NAME" != "lint" ]; then
-                    continue
-                fi
-            fi
-
-            # Run the verification command with a timeout
             if ! timeout 60 bash -c "cd '$PROJECT_ROOT' && $CMD_VALUE" >/dev/null 2>&1; then
                 ISSUES+=("$CMD_NAME failing: $CMD_VALUE")
             fi
@@ -83,5 +73,5 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
     exit 2
 fi
 
-# All clear — teammate can idle
+# All clear - teammate can idle
 exit 0

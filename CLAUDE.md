@@ -9,21 +9,21 @@ Claude Code plugin for automated, context-preserving coding sessions with 5-laye
 - JSON (configuration, state files)
 
 ## Session Startup Protocol
-On every session start:
-1. Run `pwd` to confirm working directory
-2. Read `.claude-harness/sessions/{session-id}/context.json` for active working state (if exists)
-3. Read `.claude-harness/claude-progress.json` for context
-4. Run `git log --oneline -5` to see recent changes
-5. Check `.claude-harness/features/active.json` for current priorities
+The SessionStart hook auto-injects session context (features, GitHub info, interrupt markers). Before starting harness work, read `.claude-harness/session-briefing.md` for full context; check `.claude-harness/features/active.json` for current priorities.
 
 ## Project Structure
 - `skills/` - Agent Skills (SKILL.md with YAML frontmatter, auto-discovered by Claude Code)
-- `hooks/` - Session hooks (9 registrations, extensionless scripts with `run-hook.cmd` polyglot wrapper)
+- `agents/` - Plugin subagents (`harness-implementer` executes delegated feature lifecycles)
+- `hooks/` - Session hooks (8 registrations, extensionless scripts with `run-hook.cmd` polyglot wrapper)
+- `scripts/` - Shared helpers (`compile-briefing.py` compiles memory into briefings)
 - `schemas/` - Canonical JSON Schema files for state file validation
-- `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations)
+- `setup.sh` - Project initialization script (memory dirs, CLAUDE.md, migrations; stamp-gated at session start)
 - `.claude-plugin/plugin.json` - Plugin manifest
 - Marketplace lives in separate repo: `panayiotism/claude-harness-marketplace`
 - Updates tracked by git commit SHA (no semver in plugin.json) — GitHub Actions syncs to marketplace on every push
+
+## GitHub Integration
+All GitHub operations use the `gh` CLI (issues, PRs, merges). The GitHub MCP server is NOT required.
 
 ## Development Rules
 - Work on ONE feature at a time

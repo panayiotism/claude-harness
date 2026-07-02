@@ -4,12 +4,11 @@ Covers Phase 0.2 (Team Preflight), Phase 3.7 (Team Roster), and Phase 4 Team mod
 
 ## Phase 0.2: Team Preflight
 
-1. **Verify Agent Teams environment**:
-   - Check `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var is set to `1`
-   - If not set: display error with instructions to enable in config.json, run `/claude-harness:setup`, then STOP
+1. **Verify Agent Teams configuration**:
    - Read `.claude-harness/config.json` `agentTeams` section:
      - Verify `agentTeams.enabled` is `true`. If not: display "Enable agentTeams in config.json" and STOP
      - Cache team config: `defaultTeamSize`, `roles`, `requirePlanApproval`, `teammateModel`
+   - Agent Teams are built into current Claude Code (each session has an implicit team -- no experimental env var, no explicit team-create step). If teammate spawning is unavailable in this environment, fall back to standard Phase 4 (direct implementation).
 
 ---
 
@@ -103,9 +102,9 @@ Covers Phase 0.2 (Team Preflight), Phase 3.7 (Team Roster), and Phase 4 Team mod
 
 ## Phase 4 (Team -- if --team): ATDD with Agent Teams
 
-### 18T: Create the Agent Team
+### 18T: Spawn the Agent Team
 
-- Tell Claude to create an agent team named `"{teamName}"` with delegate mode
+- The session's implicit team is used -- record `"{teamName}"` in loop-state for tracking/cleanup, and operate in delegate mode (coordination only)
 - Spawn 3 teammates using the prompts from Phase 3.7:
   - Tester (with `requirePlanApproval: true` from config)
   - Implementer (with `requirePlanApproval: true` from config)
@@ -164,7 +163,7 @@ This gate ensures ALL teammates are fully stopped before proceeding. Skipping th
 attempts = 0
 max_poll_attempts = 12  (every 5 seconds for 60s total)
 while attempts < max_poll_attempts:
-  Check each teammate status (via team list / Shift+Up/Down)
+  Check each teammate status (teammate list / agents panel)
   If ALL teammates stopped: BREAK -> proceed to Step C
   If any still running: wait 5 seconds, increment attempts
 ```
@@ -181,10 +180,10 @@ while attempts < max_poll_attempts:
 - If cleanup fails because teammates are still active:
   - Log the failure
   - **In autonomous mode**: CRITICAL -- do NOT proceed. Mark feature as "needs_review" and add to `skippedFeatures` with reason "team-cleanup-failed"
-  - **In standard mode**: warn user, suggest manual tmux session cleanup
+  - **In standard mode**: warn user, suggest manual teammate cleanup
 
 **Step E -- Verify and persist**:
-- Confirm no orphaned tmux sessions: `tmux ls 2>/dev/null | grep "{teamName}"` -- if found, kill: `tmux kill-session -t "{teamName}"`
+- Confirm no orphaned legacy tmux-backed sessions: `tmux ls 2>/dev/null | grep "{teamName}"` -- if found, kill: `tmux kill-session -t "{teamName}"` (best-effort; current teams run in-process)
 - Persist team results to `agents/context.json` `agentResults`
 - Set `agents/context.json` `teamState` to null
 - Update loop-state `team.teammates[].status` to "completed"

@@ -10,7 +10,7 @@ After feature creation completes (feature entry exists in active.json with GitHu
 
 ### 2.5.1: Compile Subagent Prompt
 
-**Assemble all context the subagent needs** (effort: low -- mechanical data assembly):
+The lifecycle instructions live in the `claude-harness:harness-implementer` agent definition -- the prompt only needs to carry **data**:
 
 Read and compile from Phase 1 context (already loaded):
 - **Feature entry**: full object from active.json (id, name, description, acceptanceCriteria, relatedFiles, verification, github refs)
@@ -22,12 +22,12 @@ Read and compile from Phase 1 context (already loaded):
 - **GitHub info**: owner/repo from Phase 1 cache
 - **Flag states**: `--team` (boolean), `--quick` (boolean), `--no-merge` (boolean)
 - **Team config**: `agentTeams` section from config.json (if `--team`)
+- **Result file**: `.claude-harness/sessions/${CLAUDE_SESSION_ID}/result-{feature-id}.json`
 
-**Format structured subagent prompt** (target: under 3,000 tokens):
+**Format structured subagent prompt** (target: under 2,000 tokens):
 
 ```
-You are implementing feature {feature-id}: {featureName}.
-Execute the full feature lifecycle and return a structured result.
+Implement feature {feature-id}: {featureName}.
 
 ## Feature
 {feature JSON entry -- id, name, description, acceptanceCriteria, relatedFiles}
@@ -51,57 +51,34 @@ build: {build} | tests: {tests} | lint: {lint} | typecheck: {typecheck} | accept
 ## Recent Decisions
 {for each decision: "- {decision} ({feature})"}
 
-## Instructions
-1. Checkout the feature branch: git checkout {branch}
-2. Plan the implementation {unless --quick: "(skip planning -- --quick mode)"}
-3. Follow ATDD: write acceptance tests first from the Gherkin acceptance criteria (RED), then implement to pass all tests (GREEN), then refactor.
-4. {if --team: "Create an Agent Team (tester, implementer, reviewer). Execute Mandatory Team Shutdown Gate before checkpoint."}
-5. {if NOT --team: "Implement directly -- but still follow ATDD order: acceptance tests first, then implementation."}
-6. Run ALL verification commands after implementation
-7. On pass: stage ALL modified files including `.claude-harness/` state files (`git add .claude-harness/ && git add -A`), then commit as `feat({feature-id}): {description}`, push, create/update PR with `Closes #{issueNumber}`
-8. On fail: retry with escalation (attempts 1-5: high effort, 6-10: max, 11-15: max + full memory). Max 15 attempts.
-9. {if NOT --no-merge: "Merge PR (squash), close issue, delete branch, update feature status to 'passing', then archive: read archive.json (create if missing), append feature with archivedAt timestamp, remove from active.json, write both files"}
-10. {if --no-merge: "Stop at checkpoint. Do not merge."}
-11. Compile session briefing: write `.claude-harness/session-briefing.md` with condensed context. Keep under 120 lines.
+## Flags
+quick: {true|false} | team: {true|false} | no-merge: {true|false}
+{if --team: team config JSON}
 
-## Return Format
-End your response with this exact structured block:
-
-RESULT:
-status: completed | failed | escalated | needs_review
-commitHash: {hash or null}
-prNumber: {number or null}
-attempts: {number}
-featureStatus: passing | failed | needs_review | escalated
-memoryUpdates:
-  decisions: [{decision, rationale, impact}]
-  failures: [{approach, errors, rootCause}]
-  successes: [{approach, files, patterns}]
-summary: {one-line summary of what was done}
+## Result File
+Write your result JSON to: {resultFile}
 ```
+
+**Fallback**: if the `claude-harness:harness-implementer` agent type is unavailable (plugin agents disabled), delegate to `general-purpose` instead and append the lifecycle instructions from the agent definition (`agents/harness-implementer.md` body) to the prompt.
 
 ### 2.5.2: Delegate to Subagent
 
-- Use Task tool with `subagent_type="general-purpose"`
+- Use the Agent tool with `subagent_type="claude-harness:harness-implementer"`
 - Pass the compiled prompt from 2.5.1
-- The subagent executes in its **own fresh context window** (complete isolation)
-- The subagent runs Phases 3-6 autonomously
+- The subagent executes in its **own fresh context window** (complete isolation), runs Phases 3-6 autonomously, and is capped at **4 implementation attempts**
 - Wait for subagent completion
 
 ### 2.5.3: Process Subagent Result
 
-**Parse the RESULT block** from the subagent's response:
-- Search for `RESULT:` prefix in the subagent's return message
-- Parse key-value pairs (status, commitHash, prNumber, attempts, featureStatus, memoryUpdates, summary)
-- If RESULT block not found: treat as `needs_review`, check external state:
-  - `git log --oneline -1` on feature branch for commit evidence
-  - `gh pr list --head {branch}` for PR evidence
-  - Log warning: "Subagent did not return structured result -- checking external state"
+**Read the result file** (`{resultFile}` from the prompt). If missing, parse the `RESULT:` line from the subagent's reply. If neither exists: treat as `needs_review` and check external state:
+- `git log --oneline -1` on feature branch for commit evidence
+- `gh pr list --head {branch}` for PR evidence
+- Log warning: "Subagent did not return a structured result -- checking external state"
 
 **Process result based on status**:
 
 **If `completed`**:
-- **Persist memory updates** from subagent:
+- **Persist memory updates** from the result:
   - For each decision: append to `${MEMORY_DIR}/episodic/decisions.json` (enforce maxEntries 50, FIFO)
   - For each failure: append to `${MEMORY_DIR}/procedural/failures.json`
   - For each success: append to `${MEMORY_DIR}/procedural/successes.json`
@@ -115,19 +92,24 @@ summary: {one-line summary of what was done}
   - `git checkout main && git pull origin main`
   - `git branch -d feature/{feature-id}` (safe delete)
   - `git fetch --prune`
-- **Clear session state**: clear loop-state.json, working-context.json
+- **Clear session state**: clear loop-state.json and the result file
 - **Regenerate session briefing**: write `.claude-harness/session-briefing.md` if subagent didn't
-- **Commit harness state updates to main** (CRITICAL — orchestrator changes must be persisted):
+- **Commit harness state updates to main** (CRITICAL -- orchestrator changes must be persisted):
   - `git add .claude-harness/ && git status --porcelain .claude-harness/`
   - If there are staged changes: `git commit -m "chore: update harness state (memory, features, briefing)" && git push origin main`
   - This captures: archived features, memory persistence, session briefing, progress updates
 
-**If `failed` or `escalated`**:
-- Persist memory updates (failures)
-- **Commit harness state updates**: `git add .claude-harness/ && git commit -m "chore: persist harness state after {feature-id} failure" && git push` (on current branch)
-- Display failure summary with attempt count, last approach, last error
-- Suggest: retry with `/claude-harness:flow {feature-id}`, increase maxAttempts, or get help
-- Do NOT archive, do NOT switch to main
+**If `escalated` or `failed`**:
+- Persist memory updates (failures) from the result -- this is the distilled knowledge the next attempt needs
+- **Re-delegate with a fresh subagent** if fewer than 3 delegations have been used for this feature:
+  - Recompile the prompt (2.5.1) including the new failure entries under "Approaches to AVOID" and the escalation summary under a `## Previous Delegation` section
+  - Increment the delegation counter in loop-state history
+  - Go back to 2.5.2
+- If delegation budget exhausted:
+  - **Commit harness state updates**: `git add .claude-harness/ && git commit -m "chore: persist harness state after {feature-id} failure" && git push` (on current branch)
+  - Display failure summary with attempt count, last approach, last error
+  - Suggest: retry with `/claude-harness:flow {feature-id}`, or get help
+  - Do NOT archive, do NOT switch to main
 
 **If `needs_review`**:
 - Display PR URL and status
@@ -153,12 +135,14 @@ After result processing, **skip directly to Phase 7** (Completion Report). Phase
      "version": 9,
      "feature": "feature-XXX", "featureName": "{description}",
      "type": "feature", "status": "in_progress",
-     "attempt": 1, "maxAttempts": 15,
+     "attempt": 1, "maxAttempts": 12,
      "startedAt": "{ISO}", "history": [],
      "tasks": { "enabled": true, "chain": ["{task-ids}"], "current": null, "completed": [] },
      "team": null
    }
    ```
+   `maxAttempts` 12 = 4 attempts per delegation x 3 delegations. Record each delegation boundary in `history`.
+
    If `--team`: set `team` field:
    ```json
    "team": {
@@ -180,7 +164,7 @@ After result processing, **skip directly to Phase 7** (Completion Report). Phase
 - Implement the feature directly based on the plan from Phase 3
 - Follow ATDD: write acceptance tests first from Gherkin acceptance criteria (RED), then implement to pass (GREEN), then refactor
 - Run verification commands after implementation
-- On failure: record to failures.json, increment attempts, retry with escalation
+- On failure: record to failures.json, increment attempts, retry with a DIFFERENT approach
 
 ### Phase 4.1: Verification and Memory Updates
 
@@ -188,4 +172,4 @@ After result processing, **skip directly to Phase 7** (Completion Report). Phase
   - Fail: append to failures.json (id, feature, approach, errors, rootCause), increment attempts, retry
   - Pass: append to successes.json (id, feature, approach, files, patterns), mark loop "completed", update tasks (mark Implement/Verify/Accept completed, Checkpoint in_progress)
 
-- **On escalation** (max attempts): show summary, offer options (increase attempts, get help, abort). Do NOT checkpoint.
+- **On escalation** (4 attempts inside a delegation): stop and return `escalated` with a summary of every approach tried and why it failed -- the orchestrator uses this to seed the next delegation.
