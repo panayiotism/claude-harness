@@ -42,8 +42,10 @@ jobs:
             --exclude='tests/' \
             --exclude='RELEASES/' \
             --exclude='.claude-harness/' \
+            --exclude='.claude/' \
             --exclude='.github/' \
             --exclude='marketplace/' \
+            --exclude='__pycache__/' \
             ./ marketplace/plugins/claude-harness/
 
       - name: Commit and push
