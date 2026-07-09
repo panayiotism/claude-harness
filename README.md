@@ -697,6 +697,10 @@ Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
 
+### 2026-07-09 - Fix hook commands failing with unexpanded ${CLAUDE_PLUGIN_ROOT}
+
+- **Fix: `PreToolUse:Bash hook error ... ${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd: not found` on every tool call**: hooks.json wrapped the hook path in single quotes, which blocks shell variable expansion. Current Claude Code provides `CLAUDE_PLUGIN_ROOT` as an environment variable expanded by `/bin/sh` (rather than textually substituting it), so the literal unexpanded string reached the shell and every hook failed. All 8 hook commands now use double quotes, which work under both expansion regimes.
+
 ### 2026-07-02 - Modernize for current Claude Code APIs (speed + correctness)
 
 - **Fix: session liveness detection was always false**: The SessionStart hook recorded its own (immediately-dead) PID, so every other session was treated as stale — concurrent sessions deleted each other's live state and produced false interrupt markers. Sessions are now keyed by Claude Code's **native `session_id`** (read from hook stdin), and staleness is judged by transcript-file mtime (24h). Parallel sessions actually work now.
