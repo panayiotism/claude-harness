@@ -36,7 +36,7 @@ When `--autonomous` is set, the flow operates as a lean orchestrator loop that i
 
 4. **GitHub repo**: use the cached owner/repo from the session context (injected at SessionStart); parse from `git remote get-url origin` only if absent.
 
-5. **Read all memory layers IN PARALLEL**: failures.json, successes.json, decisions.json, rules.json
+5. **Read all memory layers IN PARALLEL**: the bundle index files `${MEMORY_DIR}/failures/index.md`, `${MEMORY_DIR}/successes/index.md`, `${MEMORY_DIR}/decisions/index.md`, `${MEMORY_DIR}/rules/index.md` (then only the relevant concept files)
 
 6. **Display autonomous banner** showing: feature count, max iterations, merge/planning mode, GitHub info, memory stats, context isolation status.
 
@@ -70,10 +70,10 @@ The lifecycle instructions live in the `claude-harness:harness-implementer` agen
 
 - **Feature entry**: full object from active.json (id, name, description, acceptanceCriteria, relatedFiles, verification, github refs)
 - **Verification commands**: from `.claude-harness/config.json` verification section
-- **Relevant failures**: max 5 from `failures.json`, filtered by feature's relatedFiles overlap
-- **Success patterns**: max 5 from `successes.json`, filtered for similar file patterns
-- **Recent decisions**: max 10 from `decisions.json`
-- **Learned rules**: all active rules from `rules.json` applicable to this feature (max 5)
+- **Relevant failures**: max 5 concepts from `${MEMORY_DIR}/failures/`, filtered by feature's relatedFiles overlap
+- **Success patterns**: max 5 concepts from `${MEMORY_DIR}/successes/`, filtered for similar file patterns
+- **Recent decisions**: max 10 concepts from `${MEMORY_DIR}/decisions/`
+- **Learned rules**: all active Rule concepts from `${MEMORY_DIR}/rules/` applicable to this feature (max 5)
 - **GitHub info**: owner/repo from A.1 cache
 - **Previous delegations**: failure summaries from earlier delegations of THIS feature (if any)
 - **Flag states**: `--team` (boolean), `--quick` (boolean), `--no-merge` (boolean)
@@ -178,11 +178,11 @@ Write your result JSON to: {resultFile}
    - Add to `skippedFeatures` with reason `"needs_review"`
    - Do NOT increment `consecutiveFailures`
 
-3. **Persist memory updates from the result** (critical for cross-feature learning):
-   - For each decision: append to `${MEMORY_DIR}/episodic/decisions.json` (enforce maxEntries 50, FIFO)
-   - For each failure: append to `${MEMORY_DIR}/procedural/failures.json`
-   - For each success: append to `${MEMORY_DIR}/procedural/successes.json`
-   - For each pattern: merge into `${MEMORY_DIR}/procedural/patterns.json` (deduplicate)
+3. **Persist memory updates from the result** (critical for cross-feature learning; write OKF concept files per `schemas/okf-memory.md` and list each in its directory's `index.md`):
+   - For each decision: write `${MEMORY_DIR}/decisions/dec-{NNN}-{slug}.md` (`type: Decision`; enforce 50-concept rolling window, delete oldest FIFO)
+   - For each failure: write `${MEMORY_DIR}/failures/fail-{NNN}-{slug}.md` (`type: Failure`)
+   - For each success: write `${MEMORY_DIR}/successes/suc-{NNN}-{slug}.md` (`type: Success`)
+   - For each pattern: write `${MEMORY_DIR}/patterns/pat-{NNN}-{slug}.md` (`type: Pattern`; skip if an equivalent concept already exists)
 
 4. **Record feature result** in autonomous-state `featureResults` array:
    ```json

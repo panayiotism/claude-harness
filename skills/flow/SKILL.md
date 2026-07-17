@@ -103,7 +103,7 @@ Both standard and autonomous modes delegate feature implementation to the `claud
 
 2. **GitHub repo**: use the cached owner/repo from the session context (injected at SessionStart). Only if absent, parse once from `git remote get-url origin`.
 
-3. **Read IN PARALLEL** (single message, multiple Read calls): failures.json, successes.json, decisions.json, rules.json, active.json
+3. **Read IN PARALLEL** (single message, multiple Read calls): active.json plus the memory bundle index files `${MEMORY_DIR}/failures/index.md`, `${MEMORY_DIR}/successes/index.md`, `${MEMORY_DIR}/decisions/index.md`, `${MEMORY_DIR}/rules/index.md` (then read only the relevant concept files)
 
 4. **Compile working context** to `.claude-harness/sessions/${CLAUDE_SESSION_ID}/context.json`:
    ```json
@@ -198,15 +198,15 @@ Read `${CLAUDE_SKILL_DIR}/references/implementation.md` for full implementation 
 2. Initialize loop state (canonical Loop-State Schema v9)
 3. Implement feature following ATDD: acceptance tests first (RED), implement to pass (GREEN), refactor
 4. Run verification commands after implementation
-5. On failure: record to failures.json, increment attempts, retry with a different approach (max 4 per delegation)
+5. On failure: record a Failure concept file to `${MEMORY_DIR}/failures/`, increment attempts, retry with a different approach (max 4 per delegation)
 
 ### Team (--team):
 Read `${CLAUDE_SKILL_DIR}/references/team-atdd.md` for full ATDD team implementation including team creation, monitoring, shutdown gate, and cleanup.
 
 ### Phase 4.1: Verification and Memory Updates
 
-- **Fail**: append to failures.json, increment attempts, retry
-- **Pass**: append to successes.json, mark loop "completed", update tasks
+- **Fail**: write a Failure concept to `${MEMORY_DIR}/failures/` (+ index.md line), increment attempts, retry
+- **Pass**: write a Success concept to `${MEMORY_DIR}/successes/` (+ index.md line), mark loop "completed", update tasks
 - **Escalation** (max attempts): show summary, offer options. Do NOT checkpoint.
 
 ---

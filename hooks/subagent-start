@@ -28,8 +28,7 @@ fi
 
 CONFIG_FILE="$PROJECT_ROOT/.claude-harness/config.json"
 FEATURES_FILE="$PROJECT_ROOT/.claude-harness/features/active.json"
-FAILURES_FILE="$PROJECT_ROOT/.claude-harness/memory/procedural/failures.json"
-RULES_FILE="$PROJECT_ROOT/.claude-harness/memory/learned/rules.json"
+MEMORY_DIR="$PROJECT_ROOT/.claude-harness/memory"
 
 # Find active session dir (most recent session with loop-state)
 SESSION_DIR=""
@@ -87,30 +86,65 @@ if os.path.isfile(features_file):
     except Exception:
         pass
 
-# 4. Last 3 failures from procedural memory
-failures_file = '$FAILURES_FILE'
-if os.path.isfile(failures_file):
-    try:
-        with open(failures_file) as f:
-            fail_data = json.load(f)
-        entries = fail_data.get('entries', [])[-3:]
-        if entries:
-            avoid = [f\"{e.get('approach', '?')} ({e.get('rootCause', '?')})\" for e in entries]
-            context_parts.append('Avoid: ' + '; '.join(avoid))
-    except Exception:
-        pass
+# 4+5. Memory bundle (OKF v0.1): failures to avoid + learned rules.
+# Concept files: markdown with YAML frontmatter (type, title, ...) and
+# '## Heading' body sections. Unknown keys/types are tolerated.
+memory_dir = '$MEMORY_DIR'
 
-# 5. Learned rules (titles only)
-rules_file = '$RULES_FILE'
-if os.path.isfile(rules_file):
-    try:
-        with open(rules_file) as f:
-            rules_data = json.load(f)
-        rules = [r.get('title', '') for r in rules_data.get('rules', []) if r.get('active', True)][:5]
-        if rules:
-            context_parts.append('Rules: ' + '; '.join(rules))
-    except Exception:
-        pass
+def read_concepts(layer):
+    d = os.path.join(memory_dir, layer)
+    out = []
+    if not os.path.isdir(d):
+        return out
+    for name in sorted(os.listdir(d)):
+        if not name.endswith('.md') or name in ('index.md', 'log.md'):
+            continue
+        try:
+            with open(os.path.join(d, name)) as f:
+                lines = f.read().splitlines()
+        except Exception:
+            continue
+        c = {'_file': name}
+        i = 0
+        if lines and lines[0].strip() == '---':
+            i = 1
+            while i < len(lines) and lines[i].strip() != '---':
+                line = lines[i]
+                if ':' in line and not line.startswith((' ', chr(9), '-', '#')):
+                    k, _, v = line.partition(':')
+                    v = v.strip()
+                    if len(v) >= 2 and v[0] == v[-1] and v[0] in '\'\"':
+                        v = v[1:-1]
+                    c[k.strip()] = v
+                i += 1
+            i += 1
+        sec = None
+        for line in lines[i:]:
+            if line.startswith('## '):
+                sec = 'section:' + line[3:].strip().lower()
+            elif sec and line.strip():
+                c.setdefault(sec, line.strip())
+        out.append(c)
+    out.sort(key=lambda c: (c.get('timestamp', ''), c['_file']))
+    return out
+
+# Last 3 failures (title = approach, root cause from body section)
+try:
+    fails = read_concepts('failures')[-3:]
+    if fails:
+        avoid = [f\"{c.get('title', c['_file'])} ({c.get('section:root cause', '?')})\" for c in fails]
+        context_parts.append('Avoid: ' + '; '.join(avoid))
+except Exception:
+    pass
+
+# Learned rules (active only, titles only)
+try:
+    rules = [c.get('title', c['_file']) for c in read_concepts('rules')
+             if str(c.get('active', 'true')).lower() != 'false'][:5]
+    if rules:
+        context_parts.append('Rules: ' + '; '.join(rules))
+except Exception:
+    pass
 
 # Build output JSON (keep under 500 chars for token efficiency)
 additional = ' | '.join(context_parts)

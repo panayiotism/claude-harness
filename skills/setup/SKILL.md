@@ -72,10 +72,8 @@ Canonical schemas are defined in the plugin's `schemas/` directory (JSON Schema 
 | `sessions/{id}/loop-state.json` | `schemas/loop-state.schema.json` (v9) | Phase 4 implementation |
 | `sessions/{id}/autonomous-state.json` | `schemas/autonomous-state.schema.json` (v4) | `--autonomous` mode |
 | `features/active.json` | `schemas/active-features.schema.json` (v3) | Phase 2 feature creation |
-| `memory/procedural/failures.json` | `schemas/memory-entries.schema.json` (v3) | Verification failures |
-| `memory/procedural/successes.json` | `schemas/memory-entries.schema.json` (v3) | Verification passes |
 
-All other memory files (episodic, semantic, learned) use v3 schemas as created by `setup.sh`.
+Memory knowledge layers (`memory/decisions/`, `failures/`, `successes/`, `patterns/`, `rules/`) are an **OKF v0.1 bundle** -- markdown concept files with YAML frontmatter, not JSON. Their conformance rules are documented in `schemas/okf-memory.md` and checked by `scripts/check-okf.py`; `setup.sh` migrates legacy JSON memory files to the bundle automatically (stamp-gated). Semantic memory (`memory/semantic/*.json`) and runtime state stay JSON with v3 schemas as created by `setup.sh`.
 
 ## After Setup
 
