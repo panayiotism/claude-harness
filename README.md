@@ -147,30 +147,35 @@ Shows:
 - **Memory stats**: Decisions recorded, failures to avoid, successes to reuse
 - **Failure prevention**: If failures exist, warns before implementing
 
-## v3.0 Memory Architecture
+## Memory Architecture (OKF v0.1 Bundle)
 
-### Four Layers
+Knowledge layers live as an [OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle: one markdown **concept file** per entry with YAML frontmatter (required `type` field), an `index.md` listing per directory for progressive disclosure, and `okf_version` declared in the bundle-root `index.md`. Runtime state stays JSON.
 
 ```
-.claude-harness/memory/
-├── working/context.json      # Rebuilt each session (computed)
-├── episodic/decisions.json   # Rolling window of recent decisions
-├── semantic/                 # Persistent project knowledge
-│   ├── architecture.json
-│   ├── entities.json
-│   └── constraints.json
-└── procedural/               # Success/failure patterns (append-only)
-    ├── failures.json
-    ├── successes.json
-    └── patterns.json
+.claude-harness/memory/           # OKF v0.1 bundle root
+├── index.md                      # Declares okf_version: "0.1" + layer listing
+├── log.md                        # Chronological history (newest first)
+├── decisions/                    # type: Decision - rolling window (50 max)
+├── failures/                     # type: Failure - append-only
+├── successes/                    # type: Success - append-only
+├── patterns/                     # type: Pattern - append-only
+├── rules/                        # type: Rule - learned from user corrections
+│   └── (each: index.md + one .md concept file per entry)
+└── semantic/                     # Persistent project knowledge (stays JSON)
+    ├── architecture.json
+    ├── entities.json
+    └── constraints.json
 ```
 
 | Layer | Purpose | Lifecycle |
 |-------|---------|-----------|
-| **Working** | Current task only | Rebuilt each session |
-| **Episodic** | Recent decisions, context | Rolling window (50 max) |
-| **Semantic** | Project architecture, patterns | Persistent |
-| **Procedural** | What worked, what failed | Append-only |
+| **Working** (`sessions/{id}/`) | Current task only | Rebuilt each session (JSON) |
+| **Episodic** (`decisions/`) | Recent decisions, context | Rolling window (50 max) |
+| **Semantic** (`semantic/`) | Project architecture, patterns | Persistent (JSON) |
+| **Procedural** (`failures/`, `successes/`, `patterns/`) | What worked, what failed | Append-only |
+| **Learned** (`rules/`) | Rules from user corrections | Append-only |
+
+Conformance rules: `schemas/okf-memory.md` — check with `python3 scripts/check-okf.py .claude-harness/memory`. `setup.sh` migrates legacy JSON memory files to the bundle automatically (stamp-gated via `memory/.okf-migrated`).
 
 ### Context Compilation
 
@@ -190,24 +195,35 @@ Each session compiles **fresh working context** by pulling relevant information 
 
 ## Failure Prevention System
 
-Never repeat the same mistakes. When you try an approach that fails, it's recorded:
+Never repeat the same mistakes. When you try an approach that fails, it's recorded as a Failure concept file:
 
-```json
-// .claude-harness/memory/procedural/failures.json
-{
-  "entries": [
-    {
-      "id": "uuid",
-      "timestamp": "2025-01-20T10:30:00Z",
-      "feature": "feature-001",
-      "approach": "Used direct DOM manipulation for state",
-      "files": ["src/components/Auth.tsx"],
-      "errors": ["React hydration mismatch"],
-      "rootCause": "SSR incompatibility with direct DOM access",
-      "prevention": "Use useState and useEffect instead"
-    }
-  ]
-}
+```markdown
+<!-- .claude-harness/memory/failures/fail-001-direct-dom-manipulation.md -->
+---
+type: Failure
+id: fail-001
+title: "Used direct DOM manipulation for state"
+timestamp: 2025-01-20T10:30:00Z
+feature: feature-001
+---
+
+# Used direct DOM manipulation for state
+
+## Errors
+
+- React hydration mismatch
+
+## Root Cause
+
+SSR incompatibility with direct DOM access
+
+## Prevention
+
+Use useState and useEffect instead
+
+## Files
+
+- src/components/Auth.tsx
 ```
 
 Before each implementation attempt, `/flow` automatically checks past failures:
@@ -415,25 +431,22 @@ Use `--no-issues` to skip GitHub issue creation (features are still created in a
 
 **Note**: Requires GitHub CLI (`gh`) or GitHub MCP integration to be configured.
 
-## v3.0 Directory Structure
+## Directory Structure
 
 ```
 .claude-harness/
-├── memory/
-│   ├── working/
-│   │   └── context.json          # Rebuilt each session
-│   ├── episodic/
-│   │   └── decisions.json        # Rolling window (50 max)
-│   ├── semantic/
-│   │   ├── architecture.json     # Project structure
-│   │   ├── entities.json         # Key components
-│   │   └── constraints.json      # Rules & conventions
-│   ├── procedural/
-│   │   ├── failures.json         # Append-only failure log
-│   │   ├── successes.json        # Append-only success log
-│   │   └── patterns.json         # Learned patterns
-│   └── learned/
-│       └── rules.json            # Rules from user corrections
+├── memory/                       # OKF v0.1 bundle (concept .md files)
+│   ├── index.md                  # Bundle root, declares okf_version
+│   ├── log.md                    # Chronological history
+│   ├── decisions/                # type: Decision - rolling window (50 max)
+│   ├── failures/                 # type: Failure - append-only
+│   ├── successes/                # type: Success - append-only
+│   ├── patterns/                 # type: Pattern - learned patterns
+│   ├── rules/                    # type: Rule - from user corrections
+│   └── semantic/                 # Persistent knowledge (JSON)
+│       ├── architecture.json     # Project structure
+│       ├── entities.json         # Key components
+│       └── constraints.json      # Rules & conventions
 ├── impact/
 │   ├── dependency-graph.json     # File dependencies
 │   └── change-log.json           # Recent changes
@@ -558,14 +571,14 @@ The `/flow` command runs autonomous implementation loops that continue until ALL
 │  │   └─ Typecheck: PASSED                                       │
 │  └─ Result: SUCCESS                                             │
 ├─────────────────────────────────────────────────────────────────┤
-│  Feature complete! Approach saved to successes.json             │
+│  Feature complete! Success concept saved to memory/successes/   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 On failure:
-- Records approach to `failures.json` with root cause analysis
+- Records the approach as a Failure concept in `memory/failures/` with root cause analysis
 - Analyzes errors and tries different approach
-- Consults `successes.json` for working patterns
+- Consults Success concepts in `memory/successes/` for working patterns
 - Up to 10 attempts before escalation
 
 ## Impact Analysis
@@ -696,6 +709,13 @@ claude plugin install claude-harness@claude-harness
 Then restart Claude Code and run `/claude-harness:setup`.
 
 ## Changelog
+
+### 2026-07-17 - Memory layers migrated to OKF v0.1 bundle format (feature-004)
+
+- **Memory knowledge layers are now an OKF v0.1 bundle**: `decisions.json`, `failures.json`, `successes.json`, `patterns.json`, and `rules.json` are replaced by one markdown **concept file per entry** with YAML frontmatter (required `type`: Decision/Failure/Success/Pattern/Rule) under `memory/decisions|failures|successes|patterns|rules/`. Each directory has an `index.md` listing (progressive disclosure); the bundle-root `index.md` declares `okf_version: "0.1"`; `log.md` records bundle history. Runtime state (features, sessions, agents, config, progress) and semantic memory stay JSON.
+- **Stamp-gated migration in setup.sh**: legacy JSON memory files are converted to concept files automatically (idempotent, gated by `memory/.okf-migrated`); fresh projects bootstrap an empty OKF skeleton with no legacy JSON.
+- **New conformance check**: `scripts/check-okf.py` validates frontmatter/type on every non-reserved `.md` and the `okf_version` declaration; conformance rules documented in `schemas/okf-memory.md` (replaces `schemas/memory-entries.schema.json`).
+- **Consumers updated**: `scripts/compile-briefing.py` (with `--write` to emit `session-briefing.md`) and the SubagentStart hook read the bundle (legacy-JSON fallback kept for un-migrated projects); flow/checkpoint/start skill instructions now write concept files and maintain `index.md` listings.
 
 ### 2026-07-09 - Fix hook commands failing with unexpanded ${CLAUDE_PLUGIN_ROOT}
 

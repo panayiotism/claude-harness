@@ -15,10 +15,11 @@ The lifecycle instructions live in the `claude-harness:harness-implementer` agen
 Read and compile from Phase 1 context (already loaded):
 - **Feature entry**: full object from active.json (id, name, description, acceptanceCriteria, relatedFiles, verification, github refs)
 - **Verification commands**: from `.claude-harness/config.json` verification section
-- **Relevant failures**: max 5 from `failures.json`, filtered by feature's relatedFiles overlap
-- **Success patterns**: max 5 from `successes.json`, filtered for similar file patterns
-- **Recent decisions**: max 10 from `decisions.json`
-- **Learned rules**: max 5 active rules from `rules.json` applicable to this feature
+- **Relevant failures**: max 5 concepts from `${MEMORY_DIR}/failures/`, filtered by feature's relatedFiles overlap
+- **Success patterns**: max 5 concepts from `${MEMORY_DIR}/successes/`, filtered for similar file patterns
+- **Recent decisions**: max 10 concepts from `${MEMORY_DIR}/decisions/`
+- **Learned rules**: max 5 active Rule concepts from `${MEMORY_DIR}/rules/` applicable to this feature
+- (Memory layers are OKF concept files -- read each directory's `index.md` first, then only the relevant concept files)
 - **GitHub info**: owner/repo from Phase 1 cache
 - **Flag states**: `--team` (boolean), `--quick` (boolean), `--no-merge` (boolean)
 - **Team config**: `agentTeams` section from config.json (if `--team`)
@@ -78,10 +79,10 @@ Write your result JSON to: {resultFile}
 **Process result based on status**:
 
 **If `completed`**:
-- **Persist memory updates** from the result:
-  - For each decision: append to `${MEMORY_DIR}/episodic/decisions.json` (enforce maxEntries 50, FIFO)
-  - For each failure: append to `${MEMORY_DIR}/procedural/failures.json`
-  - For each success: append to `${MEMORY_DIR}/procedural/successes.json`
+- **Persist memory updates** from the result (write OKF concept files per `schemas/okf-memory.md`, and list each new concept in its directory's `index.md`):
+  - For each decision: write `${MEMORY_DIR}/decisions/dec-{NNN}-{slug}.md` (`type: Decision`; enforce 50-concept rolling window, delete oldest FIFO)
+  - For each failure: write `${MEMORY_DIR}/failures/fail-{NNN}-{slug}.md` (`type: Failure`)
+  - For each success: write `${MEMORY_DIR}/successes/suc-{NNN}-{slug}.md` (`type: Success`)
 - **Archive feature**:
   1. Read `${FEATURES_FILE}` and `${ARCHIVE_FILE}` (create archive if missing)
   2. Add `"archivedAt"` timestamp, set `"status": "passing"` on the feature
@@ -164,12 +165,12 @@ After result processing, **skip directly to Phase 7** (Completion Report). Phase
 - Implement the feature directly based on the plan from Phase 3
 - Follow ATDD: write acceptance tests first from Gherkin acceptance criteria (RED), then implement to pass (GREEN), then refactor
 - Run verification commands after implementation
-- On failure: record to failures.json, increment attempts, retry with a DIFFERENT approach
+- On failure: record a Failure concept to `${MEMORY_DIR}/failures/`, increment attempts, retry with a DIFFERENT approach
 
 ### Phase 4.1: Verification and Memory Updates
 
-- **Streaming memory updates** after each verification attempt:
-  - Fail: append to failures.json (id, feature, approach, errors, rootCause), increment attempts, retry
-  - Pass: append to successes.json (id, feature, approach, files, patterns), mark loop "completed", update tasks (mark Implement/Verify/Accept completed, Checkpoint in_progress)
+- **Streaming memory updates** after each verification attempt (concept files per `schemas/okf-memory.md`, listed in the directory's `index.md`):
+  - Fail: write `${MEMORY_DIR}/failures/fail-{NNN}-{slug}.md` (`type: Failure`; frontmatter id/title/timestamp/feature, body `# {approach}` + `## Errors` + `## Root Cause`), increment attempts, retry
+  - Pass: write `${MEMORY_DIR}/successes/suc-{NNN}-{slug}.md` (`type: Success`; body `# {approach}` + `## Files` + `## Patterns`), mark loop "completed", update tasks (mark Implement/Verify/Accept completed, Checkpoint in_progress)
 
 - **On escalation** (4 attempts inside a delegation): stop and return `escalated` with a summary of every approach tried and why it failed -- the orchestrator uses this to seed the next delegation.

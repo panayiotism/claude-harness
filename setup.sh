@@ -447,6 +447,252 @@ if 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' in env:
 " 2>/dev/null
 fi
 
+# ============================================================================
+# OKF MIGRATION: memory layers JSON -> OKF v0.1 bundle (stamp-gated)
+# ============================================================================
+# Knowledge layers (decisions, failures, successes, patterns, rules) live as
+# an OKF v0.1 bundle: one markdown concept file per entry with YAML
+# frontmatter (required: type), index.md per directory, okf_version declared
+# in the bundle-root index.md. Runtime state (features/, sessions/, config,
+# semantic/*.json, claude-progress.json) stays JSON.
+# Conformance rules: schemas/okf-memory.md — check: scripts/check-okf.py
+
+migrate_memory_to_okf() {
+    local MEM=".claude-harness/memory"
+    local LEGACY=false
+    for f in "$MEM/episodic/decisions.json" "$MEM/procedural/failures.json" \
+             "$MEM/procedural/successes.json" "$MEM/procedural/patterns.json" \
+             "$MEM/learned/rules.json"; do
+        [ -f "$f" ] && LEGACY=true
+    done
+
+    # Stamp-gated: skip when already migrated and no legacy JSON reappeared
+    if [ -f "$MEM/.okf-migrated" ] && [ "$LEGACY" = false ]; then
+        return 0
+    fi
+
+    if [ "$LEGACY" = true ]; then
+        if ! command -v python3 >/dev/null 2>&1; then
+            echo "  [SKIP] python3 not available - legacy JSON memory kept (OKF migration deferred)"
+            return 0
+        fi
+        echo "=== Migrating memory layers to OKF v0.1 bundle ==="
+        if python3 - <<'OKFEOF'
+import json, os, re
+from datetime import datetime, timezone
+
+MEM = ".claude-harness/memory"
+TODAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+migrated = []
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def slug(text, limit=48):
+    s = re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-")
+    return s[:limit].rstrip("-") or "entry"
+
+def q(v):
+    return json.dumps(str(v))  # YAML-safe double-quoted scalar
+
+def write_concept(layer, fname, fm, body):
+    path = os.path.join(MEM, layer, fname)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    lines = ["---", "type: " + fm.pop("type")]
+    for k, v in fm.items():
+        if v is None or v == "" or v == []:
+            continue
+        if k in ("id", "feature", "timestamp", "active"):
+            lines.append("{}: {}".format(k, v))
+        else:
+            lines.append("{}: {}".format(k, q(v)))
+    lines += ["---", ""]
+    lines += body
+    with open(path, "w") as f:
+        f.write("\n".join(lines).rstrip() + "\n")
+
+def section(title, value):
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        return ["## " + title, ""] + ["- " + str(v) for v in value] + [""]
+    return ["## " + title, "", str(value), ""]
+
+# --- decisions (episodic) -> decisions/  (type: Decision)
+data = load(os.path.join(MEM, "episodic", "decisions.json")) or {}
+for i, e in enumerate(data.get("entries", []), 1):
+    eid = e.get("id") or "dec-{:03d}".format(i)
+    text = e.get("decision", "")
+    body = ["# " + text, ""]
+    body += section("Rationale", e.get("rationale"))
+    body += section("Alternatives", e.get("alternatives"))
+    body += section("Impact", e.get("impact"))
+    write_concept("decisions", "{}-{}.md".format(eid, slug(text)), {
+        "type": "Decision", "id": eid, "title": text[:80],
+        "timestamp": e.get("timestamp"), "feature": e.get("feature"),
+    }, body)
+    migrated.append("decisions")
+
+# --- failures (procedural) -> failures/  (type: Failure)
+data = load(os.path.join(MEM, "procedural", "failures.json")) or {}
+for i, e in enumerate(data.get("entries", []), 1):
+    eid = e.get("id") or "fail-{:03d}".format(i)
+    text = e.get("approach", "")
+    body = ["# " + text, ""]
+    body += section("Errors", e.get("errors"))
+    body += section("Root Cause", e.get("rootCause"))
+    body += section("Prevention", e.get("prevention"))
+    body += section("Files", e.get("files"))
+    write_concept("failures", "{}-{}.md".format(eid, slug(text)), {
+        "type": "Failure", "id": eid, "title": text[:80],
+        "timestamp": e.get("timestamp"), "feature": e.get("feature"),
+        "agent": e.get("agent"), "linkedTo": e.get("linkedTo"),
+    }, body)
+    migrated.append("failures")
+
+# --- successes (procedural) -> successes/  (type: Success)
+data = load(os.path.join(MEM, "procedural", "successes.json")) or {}
+for i, e in enumerate(data.get("entries", []), 1):
+    eid = e.get("id") or "suc-{:03d}".format(i)
+    text = e.get("approach", "")
+    body = ["# " + text, ""]
+    body += section("Files", e.get("files"))
+    body += section("Patterns", e.get("patterns"))
+    body += section("Lessons", e.get("lessons"))
+    write_concept("successes", "{}-{}.md".format(eid, slug(text)), {
+        "type": "Success", "id": eid, "title": text[:80],
+        "timestamp": e.get("timestamp"), "feature": e.get("feature"),
+        "agent": e.get("agent"), "linkedTo": e.get("linkedTo"),
+    }, body)
+    migrated.append("successes")
+
+# --- patterns (procedural) -> patterns/  (type: Pattern)
+data = load(os.path.join(MEM, "procedural", "patterns.json")) or {}
+pats = data.get("patterns", {}) if isinstance(data.get("patterns"), dict) else {}
+n = 0
+for e in pats.get("codePatterns", []):
+    n += 1
+    text = e.get("pattern", "") if isinstance(e, dict) else str(e)
+    src = e.get("source", "") if isinstance(e, dict) else ""
+    body = ["# " + text, ""] + section("Source", src)
+    write_concept("patterns", "pat-{:03d}-{}.md".format(n, slug(text)), {
+        "type": "Pattern", "id": "pat-{:03d}".format(n), "title": text[:80],
+    }, body)
+    migrated.append("patterns")
+for key, val in (pats.get("namingConventions") or {}).items():
+    n += 1
+    text = "Naming convention ({}): {}".format(key, val)
+    write_concept("patterns", "pat-{:03d}-{}.md".format(n, slug(text)), {
+        "type": "Pattern", "id": "pat-{:03d}".format(n), "title": text[:80],
+        "tags": "naming-convention",
+    }, ["# " + text, ""])
+    migrated.append("patterns")
+for val in (pats.get("projectSpecificRules") or []):
+    n += 1
+    text = str(val)
+    write_concept("patterns", "pat-{:03d}-{}.md".format(n, slug(text)), {
+        "type": "Pattern", "id": "pat-{:03d}".format(n), "title": text[:80],
+        "tags": "project-rule",
+    }, ["# " + text, ""])
+    migrated.append("patterns")
+
+# --- learned rules -> rules/  (type: Rule)
+data = load(os.path.join(MEM, "learned", "rules.json")) or {}
+for i, r in enumerate(data.get("rules", []), 1):
+    rid = r.get("id") or "rule-{:03d}".format(i)
+    title = r.get("title", "")
+    active = r.get("active", True)
+    body = ["# " + title, ""]
+    if r.get("description"):
+        body += [str(r["description"]), ""]
+    body += section("Origin", r.get("origin") or r.get("source"))
+    write_concept("rules", "{}-{}.md".format(rid, slug(title)), {
+        "type": "Rule", "id": rid, "title": title[:80],
+        "timestamp": r.get("createdAt") or r.get("timestamp"),
+        "active": "true" if active else "false",
+    }, body)
+    migrated.append("rules")
+
+# --- regenerate index.md for every layer that received concepts
+HEADINGS = {
+    "decisions": ("Decisions", "Episodic memory - recent significant decisions (type: Decision)."),
+    "failures": ("Failures", "Procedural memory - failed approaches to avoid (type: Failure)."),
+    "successes": ("Successes", "Procedural memory - approaches that worked (type: Success)."),
+    "patterns": ("Patterns", "Procedural memory - reusable patterns and conventions (type: Pattern)."),
+    "rules": ("Rules", "Learned rules from user corrections (type: Rule)."),
+}
+for layer in sorted(set(migrated)):
+    d = os.path.join(MEM, layer)
+    heading, desc = HEADINGS[layer]
+    entries = []
+    for name in sorted(os.listdir(d)):
+        if not name.endswith(".md") or name in ("index.md", "log.md"):
+            continue
+        title = name[:-3]
+        with open(os.path.join(d, name)) as f:
+            for line in f.read().splitlines():
+                if line.startswith("title:"):
+                    title = line.partition(":")[2].strip().strip('"')
+                    break
+        entries.append("* [{}](/{}/{}) - {}".format(title, layer, name, title[:60]))
+    with open(os.path.join(d, "index.md"), "w") as f:
+        f.write("# {}\n\n{}\n\n{}\n".format(heading, desc, "\n".join(entries)))
+
+# --- remove legacy JSON files and now-empty legacy directories
+for legacy in ("episodic/decisions.json", "procedural/failures.json",
+               "procedural/successes.json", "procedural/patterns.json",
+               "learned/rules.json"):
+    path = os.path.join(MEM, legacy)
+    if os.path.isfile(path):
+        os.remove(path)
+        print("  [MIGRATE] {} -> {}/".format(legacy, {
+            "episodic/decisions.json": "decisions",
+            "procedural/failures.json": "failures",
+            "procedural/successes.json": "successes",
+            "procedural/patterns.json": "patterns",
+            "learned/rules.json": "rules"}[legacy]))
+for d in ("episodic", "procedural", "learned"):
+    path = os.path.join(MEM, d)
+    if os.path.isdir(path) and not os.listdir(path):
+        os.rmdir(path)
+
+# --- log.md: prepend migration entry (newest first)
+log_path = os.path.join(MEM, "log.md")
+entry = "## {}\n\n**Update** Migrated {} legacy JSON entr{} to OKF v0.1 concept files.\n".format(
+    TODAY, len(migrated), "y" if len(migrated) == 1 else "ies")
+existing = ""
+if os.path.isfile(log_path):
+    with open(log_path) as f:
+        existing = f.read()
+    head, sep, tail = existing.partition("\n## ")
+    existing = head.rstrip() + "\n\n" + entry + ("\n## " + tail if sep else "")
+    with open(log_path, "w") as f:
+        f.write(existing.rstrip() + "\n")
+else:
+    with open(log_path, "w") as f:
+        f.write("# Memory Log\n\n" + entry)
+
+print("  Migrated {} entr{} across {} layer(s)".format(
+    len(migrated), "y" if len(migrated) == 1 else "ies", len(set(migrated))))
+OKFEOF
+        then
+            echo ""
+        else
+            echo "  [WARN] OKF migration failed - legacy JSON memory kept"
+            return 0
+        fi
+    fi
+
+    mkdir -p "$MEM"
+    echo "0.1" > "$MEM/.okf-migrated"
+}
+
+migrate_memory_to_okf
+
 echo "Creating harness files (v3.0 Memory Architecture)..."
 echo ""
 
@@ -454,10 +700,12 @@ echo ""
 # CREATE v3.0 DIRECTORY STRUCTURE
 # ============================================================================
 
-mkdir -p .claude-harness/memory/episodic
 mkdir -p .claude-harness/memory/semantic
-mkdir -p .claude-harness/memory/procedural
-mkdir -p .claude-harness/memory/learned
+mkdir -p .claude-harness/memory/decisions
+mkdir -p .claude-harness/memory/failures
+mkdir -p .claude-harness/memory/successes
+mkdir -p .claude-harness/memory/patterns
+mkdir -p .claude-harness/memory/rules
 mkdir -p .claude-harness/impact
 mkdir -p .claude-harness/features/tests
 mkdir -p .claude-harness/agents
@@ -503,12 +751,16 @@ On every session start:
 ## Progress Tracking
 See: \`.claude-harness/sessions/{session-id}/context.json\` and \`.claude-harness/features/active.json\`
 
-## Memory Architecture (v3.0)
+## Memory Architecture (OKF v0.1 bundle)
 - \`sessions/{session-id}/\` - Current session context (per-session, gitignored)
-- \`memory/episodic/\` - Recent decisions (rolling window)
-- \`memory/semantic/\` - Project knowledge (persistent)
-- \`memory/procedural/\` - Success/failure patterns (append-only)
-- \`memory/learned/\` - Rules from user corrections (append-only)
+- \`memory/\` - OKF v0.1 knowledge bundle: one markdown concept file per entry
+  with YAML frontmatter (required \`type\` field), \`index.md\` per directory
+  - \`memory/decisions/\` - Recent decisions (type: Decision, rolling window)
+  - \`memory/failures/\` - Failed approaches to avoid (type: Failure)
+  - \`memory/successes/\` - Approaches that worked (type: Success)
+  - \`memory/patterns/\` - Reusable patterns (type: Pattern)
+  - \`memory/rules/\` - Rules from user corrections (type: Rule)
+- \`memory/semantic/\` - Project knowledge (persistent, JSON)
 "
 
 # ============================================================================
@@ -518,14 +770,62 @@ See: \`.claude-harness/sessions/{session-id}/context.json\` and \`.claude-harnes
 # .claude-harness/sessions/{session-id}/context.json
 
 # ============================================================================
-# 3. MEMORY LAYER: Episodic Memory (rolling window of decisions)
+# 3. MEMORY LAYERS: OKF v0.1 bundle skeleton (knowledge layers)
 # ============================================================================
+# One markdown concept file per entry, YAML frontmatter with required `type`.
+# index.md per directory (progressive disclosure), okf_version declared in the
+# bundle-root index.md. See schemas/okf-memory.md for conformance rules.
 
-create_file ".claude-harness/memory/episodic/decisions.json" '{
-  "version": 3,
-  "maxEntries": 50,
-  "entries": []
-}'
+create_file ".claude-harness/memory/index.md" '---
+okf_version: "0.1"
+---
+
+# Claude Harness Memory
+
+OKF v0.1 knowledge bundle. One markdown concept file per memory entry; every
+concept declares a `type` in its YAML frontmatter. Reserved files: index.md
+(directory listing) and log.md (chronological history). Conformance check:
+`python3 scripts/check-okf.py .claude-harness/memory` (from the plugin root).
+
+* [Decisions](/decisions/index.md) - Recent significant decisions (episodic layer, type: Decision)
+* [Failures](/failures/index.md) - Failed approaches to avoid (procedural layer, type: Failure)
+* [Successes](/successes/index.md) - Approaches that worked (procedural layer, type: Success)
+* [Patterns](/patterns/index.md) - Reusable patterns and conventions (procedural layer, type: Pattern)
+* [Rules](/rules/index.md) - Learned rules from user corrections (type: Rule)
+
+Runtime and semantic state remain JSON (not part of the bundle contract):
+semantic/*.json, features/, sessions/, agents/, config.json, claude-progress.json.'
+
+create_file ".claude-harness/memory/log.md" "# Memory Log
+
+## $(date -u +%Y-%m-%d)
+
+**Creation** Initialized OKF v0.1 memory bundle."
+
+create_file ".claude-harness/memory/decisions/index.md" '# Decisions
+
+Episodic memory - recent significant decisions (type: Decision).
+'
+
+create_file ".claude-harness/memory/failures/index.md" '# Failures
+
+Procedural memory - failed approaches to avoid (type: Failure).
+'
+
+create_file ".claude-harness/memory/successes/index.md" '# Successes
+
+Procedural memory - approaches that worked (type: Success).
+'
+
+create_file ".claude-harness/memory/patterns/index.md" '# Patterns
+
+Procedural memory - reusable patterns and conventions (type: Pattern).
+'
+
+create_file ".claude-harness/memory/rules/index.md" '# Rules
+
+Learned rules from user corrections (type: Rule).
+'
 
 # ============================================================================
 # 4. MEMORY LAYER: Semantic Memory (persistent project knowledge)
@@ -567,43 +867,11 @@ create_file ".claude-harness/memory/semantic/constraints.json" '{
 }'
 
 # ============================================================================
-# 5. MEMORY LAYER: Procedural Memory (success/failure patterns - append-only)
+# 5. MEMORY LAYERS: Procedural + Learned (OKF concept files)
 # ============================================================================
-
-create_file ".claude-harness/memory/procedural/failures.json" '{
-  "version": 3,
-  "entries": []
-}'
-
-create_file ".claude-harness/memory/procedural/successes.json" '{
-  "version": 3,
-  "entries": []
-}'
-
-create_file ".claude-harness/memory/procedural/patterns.json" '{
-  "version": 3,
-  "patterns": {
-    "codePatterns": [],
-    "namingConventions": {},
-    "projectSpecificRules": []
-  }
-}'
-
-# ============================================================================
-# 5.5. MEMORY LAYER: Learned Rules (from user corrections)
-# ============================================================================
-
-create_file ".claude-harness/memory/learned/rules.json" '{
-  "version": 3,
-  "lastUpdated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-  "metadata": {
-    "totalRules": 0,
-    "projectSpecific": 0,
-    "general": 0,
-    "lastReflection": null
-  },
-  "rules": []
-}'
+# failures/, successes/, patterns/, rules/ are part of the OKF bundle created
+# in section 3 above. Entries are written as individual concept files by the
+# checkpoint/flow skills; no JSON state files are created for these layers.
 
 # ============================================================================
 # 6. IMPACT ANALYSIS: Dependency graph and change log
@@ -805,21 +1073,16 @@ else
     echo "Working Context: Not initialized"
 fi
 
-# Episodic memory
-if [ -f ".claude-harness/memory/episodic/decisions.json" ]; then
-    count=$(grep -c '"id":' .claude-harness/memory/episodic/decisions.json 2>/dev/null) || count=0
-    echo "Episodic Memory: $count decisions recorded"
+# Memory bundle (OKF v0.1: one concept file per entry)
+count_concepts() {
+    find ".claude-harness/memory/$1" -maxdepth 1 -name '*.md' ! -name 'index.md' ! -name 'log.md' 2>/dev/null | wc -l | tr -d ' '
+}
+if [ -f ".claude-harness/memory/index.md" ]; then
+    echo "Episodic Memory: $(count_concepts decisions) decisions recorded"
+    echo "Procedural Memory: $(count_concepts failures) failures, $(count_concepts successes) successes recorded"
+    echo "Learned Rules: $(count_concepts rules) rules"
 else
-    echo "Episodic Memory: Not initialized"
-fi
-
-# Procedural memory
-if [ -f ".claude-harness/memory/procedural/failures.json" ]; then
-    failures=$(grep -c '"id":' .claude-harness/memory/procedural/failures.json 2>/dev/null) || failures=0
-    successes=$(grep -c '"id":' .claude-harness/memory/procedural/successes.json 2>/dev/null) || successes=0
-    echo "Procedural Memory: $failures failures, $successes successes recorded"
-else
-    echo "Procedural Memory: Not initialized"
+    echo "Memory Bundle: Not initialized"
 fi
 
 # Check feature status
@@ -1106,19 +1369,20 @@ update_gitignore
 echo ""
 echo "=== Setup Complete (v${PLUGIN_VERSION}) ==="
 echo ""
-echo "Directory Structure (v3.0 Memory Architecture):"
+echo "Directory Structure (OKF v0.1 Memory Bundle):"
 echo "  .claude-harness/"
-echo "  ├── memory/"
-echo "  │   ├── working/context.json      (rebuilt each session)"
-echo "  │   ├── episodic/decisions.json   (rolling window)"
-echo "  │   ├── semantic/                 (persistent knowledge)"
-echo "  │   │   ├── architecture.json"
-echo "  │   │   ├── entities.json"
-echo "  │   │   └── constraints.json"
-echo "  │   └── procedural/               (success/failure patterns)"
-echo "  │       ├── failures.json"
-echo "  │       ├── successes.json"
-echo "  │       └── patterns.json"
+echo "  ├── memory/                 (OKF v0.1 bundle - concept .md files)"
+echo "  │   ├── index.md            (bundle root, declares okf_version)"
+echo "  │   ├── log.md              (chronological history)"
+echo "  │   ├── decisions/          (type: Decision, rolling window)"
+echo "  │   ├── failures/           (type: Failure)"
+echo "  │   ├── successes/          (type: Success)"
+echo "  │   ├── patterns/           (type: Pattern)"
+echo "  │   ├── rules/              (type: Rule)"
+echo "  │   └── semantic/           (persistent knowledge, JSON)"
+echo "  │       ├── architecture.json"
+echo "  │       ├── entities.json"
+echo "  │       └── constraints.json"
 echo "  ├── impact/"
 echo "  │   ├── dependency-graph.json"
 echo "  │   └── change-log.json"

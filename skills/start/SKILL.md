@@ -32,12 +32,12 @@ Migrations are handled by `setup.sh`, which the SessionStart hook runs automatic
 
 The snapshot above already contains the compiled overview (features, recent decisions, failures to avoid, learned rules, last session). Use it directly - do NOT re-read the memory files unless you need detail beyond the snapshot.
 
-1. **Deep-dive reads (only when needed)**: if the active feature requires filtering memory by `relatedFiles`, read the specific files IN PARALLEL (single message, multiple Read calls):
+1. **Deep-dive reads (only when needed)**: if the active feature requires filtering memory by `relatedFiles`, read IN PARALLEL (single message, multiple Read calls) -- memory layers are OKF concept files (markdown with YAML frontmatter), so read each directory's `index.md` first, then only the relevant concept files:
    - `${FEATURES_FILE}` (full feature entries)
-   - `${MEMORY_DIR}/procedural/failures.json`
-   - `${MEMORY_DIR}/procedural/successes.json`
-   - `${MEMORY_DIR}/episodic/decisions.json`
-   - `${MEMORY_DIR}/learned/rules.json`
+   - `${MEMORY_DIR}/failures/index.md` (then relevant Failure concepts)
+   - `${MEMORY_DIR}/successes/index.md` (then relevant Success concepts)
+   - `${MEMORY_DIR}/decisions/index.md` (then relevant Decision concepts)
+   - `${MEMORY_DIR}/rules/index.md` (then relevant Rule concepts)
 
 2. **Write compiled context** to `${SESSION_DIR}/context.json`:
    ```json
@@ -110,7 +110,7 @@ The snapshot above already contains the compiled overview (features, recent deci
    - `currentSession.activeFeature` set -> incomplete orchestration; recommend `/claude-harness:flow {feature-id}` to resume
    - `teamState` non-null -> display the team roster and status. Note: Agent Teams do not survive session restarts; if teammates are gone, flow will offer to spawn fresh ones or fall back to direct implementation.
 
-7. **Check procedural memory hotspots**: read `${MEMORY_DIR}/procedural/patterns.json` if it exists; report any `codebaseInsights.hotspots` affecting current work.
+7. **Check procedural memory hotspots**: read `${MEMORY_DIR}/patterns/index.md` if it exists; report any Pattern concepts affecting current work.
 
 ## Phase 4: GitHub Integration
 

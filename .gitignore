@@ -16,3 +16,5 @@ RELEASES/
 
 # Python bytecode
 __pycache__/
+.claude-harness/.setup-stamp
+.claude-harness/.verify-cache

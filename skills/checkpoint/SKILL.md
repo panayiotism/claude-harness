@@ -31,25 +31,35 @@ Session ID: ${CLAUDE_SESSION_ID} — session state lives in `.claude-harness/ses
    - Recommended next steps
    - Update lastUpdated timestamp
 
-## Phase 1.6: Persist to Memory Layers
+## Phase 1.6: Persist to Memory Layers (OKF bundle)
 
-1.6. **Persist session decisions to episodic memory**:
-   - Read `${MEMORY_DIR}/episodic/decisions.json`
+Memory layers are an OKF v0.1 bundle at `${MEMORY_DIR}`: one markdown concept file per entry with YAML frontmatter (required `type` field), plus an `index.md` listing per directory. See `schemas/okf-memory.md` for the format.
+
+1.6. **Persist session decisions** to `${MEMORY_DIR}/decisions/`:
    - For each key decision made during this session:
-     - Append new entry:
-       ```json
-       {
-         "id": "{uuid}",
-         "timestamp": "{ISO timestamp}",
-         "feature": "{feature-id}",
-         "decision": "{what was decided}",
-         "rationale": "{why this decision was made}",
-         "alternatives": ["{other options considered}"],
-         "impact": "{files or areas affected}"
-       }
+     - Write a concept file `dec-{NNN}-{slug}.md` (next NNN from existing files; slug = lowercased decision, non-alphanumerics as hyphens, <=48 chars):
+       ```markdown
+       ---
+       type: Decision
+       id: dec-{NNN}
+       title: "{what was decided, <=80 chars}"
+       timestamp: {ISO timestamp}
+       feature: {feature-id}
+       ---
+
+       # {full decision text}
+
+       ## Rationale
+       {why this decision was made}
+
+       ## Alternatives
+       - {other options considered}
+
+       ## Impact
+       {files or areas affected}
        ```
-   - If entries exceed `maxEntries` (default 50), remove oldest entries (FIFO)
-   - Write updated file
+     - Append `* [{id}: {title}](/decisions/{filename}) - {short description}` to `${MEMORY_DIR}/decisions/index.md`
+   - Rolling window: if more than 50 decision concepts exist, delete the oldest files and their index lines (FIFO)
    - Report: "Recorded {N} decisions to episodic memory"
 
 1.7. **Update semantic memory with discovered patterns**:
@@ -68,14 +78,14 @@ Session ID: ${CLAUDE_SESSION_ID} — session state lives in `.claude-harness/ses
      - Append entry with name, type, location, relationships
    - Write updated file
 
-1.9. **Update procedural patterns**:
-   - Read `${MEMORY_DIR}/procedural/patterns.json`
+1.9. **Persist reusable patterns** to `${MEMORY_DIR}/patterns/`:
    - Extract reusable patterns from this session:
      - Code patterns that worked well
      - Naming conventions used
      - Project-specific rules learned
-   - Merge into existing patterns (don't duplicate)
-   - Write updated file
+   - For each NEW pattern (check `${MEMORY_DIR}/patterns/index.md` to avoid duplicates):
+     - Write `pat-{NNN}-{slug}.md` with frontmatter (`type: Pattern`, `id`, `title`) and body `# {pattern}` + `## Source`
+     - Append a matching `* [...](...)` line to `${MEMORY_DIR}/patterns/index.md`
    - Report: "Updated procedural patterns"
 
 ## Phase 1.9.5: Compile Session Briefing
@@ -110,7 +120,7 @@ Session ID: ${CLAUDE_SESSION_ID} — session state lives in `.claude-harness/ses
    ```
 
    - Keep under 120 lines (~1500 tokens) to avoid context bloat
-   - Source data: `${FEATURES_FILE}`, `${MEMORY_DIR}/episodic/decisions.json`, `${MEMORY_DIR}/procedural/failures.json`, `${MEMORY_DIR}/learned/rules.json`
+   - Source data: `${FEATURES_FILE}` plus the OKF memory bundle (`${MEMORY_DIR}/decisions/`, `${MEMORY_DIR}/failures/`, `${MEMORY_DIR}/rules/` concept files) -- or run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/compile-briefing.py" .claude-harness --write` to generate it
    - This file is git-tracked and persists across sessions, `/clear`, and machine reboots
 
 ## Phase 1.10: Auto-Reflect on User Corrections
@@ -125,7 +135,7 @@ Session ID: ${CLAUDE_SESSION_ID} — session state lives in `.claude-harness/ses
      - Filter for high-confidence corrections only
      - Skip interactive approval (auto mode)
    - For corrections with confidence >= `minConfidenceForAuto`:
-     - Auto-approve and save to `${MEMORY_DIR}/learned/rules.json`
+     - Auto-approve and save as a Rule concept: write `${MEMORY_DIR}/rules/rule-{NNN}-{slug}.md` (frontmatter `type: Rule`, `id`, `title`, `timestamp`, `active: true`; body = `# {title}` + description) and add it to `${MEMORY_DIR}/rules/index.md`
    - For lower confidence corrections:
      - Add to queue for manual review (don't save)
 
@@ -280,16 +290,16 @@ Session ID: ${CLAUDE_SESSION_ID} — session state lives in `.claude-harness/ses
    - Read `.claude-harness/agents/context.json`
    - Skip if no `currentSession` or no `agentResults`
 
-   - For each entry in `agentResults`:
+   - For each entry in `agentResults` (write OKF concept files, list each in the directory's `index.md`):
      - If status is "completed":
-       - Add to `${MEMORY_DIR}/procedural/successes.json`
+       - Write a Success concept to `${MEMORY_DIR}/successes/` (`suc-{NNN}-{slug}.md`, `type: Success`; body `# {approach}` + `## Files` + `## Patterns`)
      - If status is "failed":
-       - Add to `${MEMORY_DIR}/procedural/failures.json`
+       - Write a Failure concept to `${MEMORY_DIR}/failures/` (`fail-{NNN}-{slug}.md`, `type: Failure`; body `# {approach}` + `## Errors` + `## Root Cause` + `## Prevention`)
 
    - If `sharedState.discoveredPatterns` has new entries:
-     - Merge into `${MEMORY_DIR}/procedural/patterns.json`
+     - Write Pattern concepts to `${MEMORY_DIR}/patterns/` (skip ones already listed in `patterns/index.md`)
    - If `architecturalDecisions` has entries:
-     - Persist to `${MEMORY_DIR}/episodic/decisions.json`
+     - Write Decision concepts to `${MEMORY_DIR}/decisions/`
 
    - Clear `agentResults` array (already persisted to memory)
    - Set `currentSession` to null
@@ -314,9 +324,9 @@ Session ID: ${CLAUDE_SESSION_ID} — session state lives in `.claude-harness/ses
 
    Your progress is preserved in:
    - claude-progress.json (session summary)
-   - memory/episodic/decisions.json (decisions)
-   - memory/procedural/ (successes & failures)
-   - memory/learned/rules.json (learned rules)
+   - memory/decisions/ (Decision concepts)
+   - memory/successes/ + memory/failures/ (Success/Failure concepts)
+   - memory/rules/ (learned Rule concepts)
    - session-briefing.md (pointed to at next session start)
    ```
 

@@ -42,47 +42,66 @@ Next steps: {immediate actionable items}
 ```
 
 - Keep under 120 lines (~1500 tokens) to avoid context bloat
-- Source data: `${FEATURES_FILE}`, `${MEMORY_DIR}/episodic/decisions.json`, `${MEMORY_DIR}/procedural/failures.json`, `${MEMORY_DIR}/learned/rules.json`
+- Source data: `${FEATURES_FILE}` plus the OKF memory bundle at `${MEMORY_DIR}` (`decisions/`, `failures/`, `rules/` concept files) -- or run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/compile-briefing.py" .claude-harness --write` to generate it
 - This file is git-tracked and persists across sessions, `/clear`, and machine reboots
 
-## Phase 5.3: Persist to Memory Layers
+## Phase 5.3: Persist to Memory Layers (OKF bundle)
 
-1. **Persist session decisions to episodic memory**:
-   - Read `${MEMORY_DIR}/episodic/decisions.json`
-   - For each key decision, append entry with id, timestamp, feature, decision, rationale, alternatives, impact
-   - If entries exceed `maxEntries` (50), remove oldest (FIFO)
-   - Write updated file
+Memory layers are an OKF v0.1 bundle at `${MEMORY_DIR}`: one markdown concept file per entry with YAML frontmatter (required `type` field). See `schemas/okf-memory.md` for the concept file format per layer.
 
-2. **Update semantic memory with discovered patterns**:
+1. **Persist session decisions** to `${MEMORY_DIR}/decisions/`:
+   - For each key decision, write a concept file `dec-{NNN}-{slug}.md` (next NNN from existing files):
+     ```markdown
+     ---
+     type: Decision
+     id: dec-{NNN}
+     title: "{decision, <=80 chars}"
+     timestamp: {ISO timestamp}
+     feature: {feature-id}
+     ---
+
+     # {full decision text}
+
+     ## Rationale
+     {why}
+
+     ## Alternatives
+     - {other options considered}
+
+     ## Impact
+     {files or areas affected}
+     ```
+   - Append a `* [{id}: {title}](/decisions/{filename}) - {short description}` line to `${MEMORY_DIR}/decisions/index.md`
+   - Rolling window: if more than 50 decision concepts exist, delete the oldest files and their index lines (FIFO)
+
+2. **Update semantic memory with discovered patterns** (stays JSON):
    - Read `${MEMORY_DIR}/semantic/architecture.json`
    - Update `structure`, `patterns.naming`, `patterns.fileOrganization`, `patterns.codeStyle` based on work done
    - Write updated file
 
-3. **Update semantic entities** (if new concepts discovered):
+3. **Update semantic entities** (if new concepts discovered, stays JSON):
    - Read `${MEMORY_DIR}/semantic/entities.json`
    - Append new concepts/entities with name, type, location, relationships
    - Write updated file
 
-4. **Update procedural patterns**:
-   - Read `${MEMORY_DIR}/procedural/patterns.json`
-   - Extract reusable patterns (code patterns, naming conventions, project-specific rules)
-   - Merge into existing (don't duplicate)
-   - Write updated file
+4. **Persist reusable patterns** to `${MEMORY_DIR}/patterns/`:
+   - For each new reusable pattern (skip ones already in existing concepts), write `pat-{NNN}-{slug}.md` with frontmatter `type: Pattern`, `id`, `title` and body `# {pattern}` + `## Source`
+   - Append matching lines to `${MEMORY_DIR}/patterns/index.md`
 
 ## Phase 5.4: Auto-Reflect on User Corrections
 
 - Scan conversation for user correction patterns
-- For corrections with high confidence: auto-save to `${MEMORY_DIR}/learned/rules.json`
+- For corrections with high confidence: write a concept file to `${MEMORY_DIR}/rules/` (`rule-{NNN}-{slug}.md`, frontmatter `type: Rule`, `id`, `title`, `timestamp`, `active: true`; body = `# {title}` + description) and add it to `${MEMORY_DIR}/rules/index.md`
 - For lower confidence: queue for manual review
 - Display results if rules extracted; continue silently if none detected
 
 ## Phase 5.5: Persist Orchestration Memory
 
 - Read `.claude-harness/agents/context.json`
-- For completed agent results: add to `${MEMORY_DIR}/procedural/successes.json`
-- For failed agent results: add to `${MEMORY_DIR}/procedural/failures.json`
-- Merge `discoveredPatterns` into `${MEMORY_DIR}/procedural/patterns.json`
-- Persist `architecturalDecisions` to `${MEMORY_DIR}/episodic/decisions.json`
+- For completed agent results: write Success concepts to `${MEMORY_DIR}/successes/` (`suc-{NNN}-{slug}.md`, `type: Success`; body = `# {approach}` + `## Files` + `## Patterns`) and update `successes/index.md`
+- For failed agent results: write Failure concepts to `${MEMORY_DIR}/failures/` (`fail-{NNN}-{slug}.md`, `type: Failure`; body = `# {approach}` + `## Errors` + `## Root Cause` + `## Prevention`) and update `failures/index.md`
+- Merge `discoveredPatterns` into `${MEMORY_DIR}/patterns/` as Pattern concepts (don't duplicate existing ones)
+- Persist `architecturalDecisions` to `${MEMORY_DIR}/decisions/` as Decision concepts
 - Clear `agentResults`, set `currentSession` to null
 
 ## Phase 5.6: Commit, Push, PR
