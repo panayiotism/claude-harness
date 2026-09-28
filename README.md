@@ -431,6 +431,8 @@ Use `--no-issues` to skip GitHub issue creation (features are still created in a
 
 **Note**: Requires GitHub CLI (`gh`) or GitHub MCP integration to be configured.
 
+> **Tip**: For interactive requirements discovery and PRD preparation prior to `/prd-breakdown`, see **[MySpec](https://myspec.dev)**. It compiles requirements into a 4-file bundle (`constitution.md`, `requirements.md`, `solution.md`, `tasks.md`) with MCP server support (`@myspec/mcp-server`) for Claude Code.
+
 ## Directory Structure
 
 ```
